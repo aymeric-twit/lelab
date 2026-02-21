@@ -1,0 +1,13 @@
+{
+    "slug": "kg-entities",
+    "name": "KG Entities",
+    "description": "Audit Knowledge Graph et Schema.org",
+    "version": "1.0.0",
+    "icon": "bi-diagram-3",
+    "entry_point": "index.php",
+    "sort_order": 40,
+    "quota_mode": "form_submit",
+    "default_quota": 200,
+    "env_keys": ["GOOGLE_KG_API_KEY"],
+    "routes": []
+}

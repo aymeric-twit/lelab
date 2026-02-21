@@ -1,0 +1,811 @@
+:root {
+    --brand-teal:       #66b2b2;
+    --brand-teal-light: #e8f4f4;
+    --brand-gold:       #fbb03b;
+    --brand-gold-light: #fef4e0;
+    --brand-dark:       #004c4c;
+    --brand-linen:      #f2f2f2;
+    --brand-anthracite: #333333;
+
+    --cwv-good: #22c55e;
+    --cwv-ni:   #f97316;
+    --cwv-poor: #ef4444;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+.trend-good { color: var(--cwv-good); font-size: 0.82em; }
+.trend-bad  { color: var(--cwv-poor); font-size: 0.82em; }
+
+.metric-toggle .btn:not(.active) {
+    opacity: 0.35;
+}
+
+body {
+    background: var(--brand-linen);
+    color: var(--brand-anthracite);
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+}
+
+.card {
+    border-radius: 1rem;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 76, 76, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.card-header {
+    border-bottom: 1px solid #e2e8f0;
+    background: linear-gradient(135deg, rgba(102, 178, 178, 0.04) 0%, transparent 60%);
+}
+
+#configCard {
+    border-top: 3px solid var(--brand-teal);
+}
+
+textarea {
+    font-family: monospace;
+}
+
+.navbar {
+    background: var(--brand-dark) !important;
+    border-bottom: 3px solid var(--brand-gold) !important;
+    padding: 0.75rem 0;
+}
+
+.navbar-brand {
+    color: #fff !important;
+    font-weight: 700;
+}
+
+.form-control::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1;
+}
+
+.badge-metric {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+.status-ok { color: var(--cwv-good); font-weight: 600; }
+.status-no_data { color: #eab308; font-weight: 600; }
+.status-error { color: var(--cwv-ni); font-weight: 600; }
+
+.p75-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+.p75-dot.status-ok      { background-color: var(--cwv-good); }
+.p75-dot.status-no_data { background-color: var(--cwv-ni); }
+.p75-dot.status-error   { background-color: var(--cwv-poor); }
+
+.table {
+    color: #0f172a;
+    background-color: transparent !important;
+}
+
+/* Tableaux */
+.table thead tr {
+    background: #f1f5f9;
+}
+
+.table tbody tr:nth-child(even) {
+    background: #f8fafc;
+}
+
+.table tbody tr:nth-child(odd) {
+    background: #ffffff;
+}
+
+.table th, .table td {
+    border-color: #e2e8f0 !important;
+}
+
+/* Tableau Statut API */
+.api-status-table {
+    background-color: transparent !important;
+}
+
+.api-status-table thead tr {
+    background: #f1f5f9 !important;
+}
+
+.api-status-table td,
+.api-status-table th {
+    color: #0f172a !important;
+    border-color: #e2e8f0 !important;
+}
+
+.table {
+    --bs-table-bg: #ffffff !important;
+}
+
+.summary-table-wrapper {
+    background-color: var(--brand-linen);
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid var(--brand-teal);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+}
+
+.summary-table,
+.summary-table thead tr,
+.summary-table tbody tr {
+    background-color: #ffffff !important;
+}
+
+.summary-table th,
+.summary-table td {
+    border-color: #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+.navbar-brand span {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.form-check-label {
+    color: #0f172a !important;
+}
+
+.graph-main-title {
+    color: #0f172a;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.graph-main-sub {
+    color: #64748b !important;
+    font-size: 0.82rem;
+    font-weight: 400;
+    margin-left: 0.5rem;
+}
+
+.metric-title {
+    color: #0f172a;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.metric-subtitle {
+    color: #334155 !important;
+    font-size: 0.9rem;
+}
+
+/* Double slider (un seul axe avec 2 curseurs) */
+.range-wrapper {
+    position: relative;
+    padding-top: 0.75rem;
+}
+
+/* Piste visuelle dédiée — mise à jour par JS avec le bon gradient */
+.range-track {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 4px;
+    transform: translateY(-50%);
+    border-radius: 2px;
+    pointer-events: none;
+    background: #cbd5e1;
+}
+
+.range-wrapper input[type=range] {
+    position: absolute;
+    left: 0;
+    right: 0;
+    width: 100%;
+    pointer-events: none;
+    background: transparent;
+    /* Masquer la piste native du navigateur */
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* Chrome/Safari : piste native transparente */
+.range-wrapper input[type=range]::-webkit-slider-runnable-track {
+    background: transparent;
+    height: 4px;
+}
+
+/* Firefox : piste et remplissage natifs transparents */
+.range-wrapper input[type=range]::-moz-range-track {
+    background: transparent;
+    height: 4px;
+}
+
+.range-wrapper input[type=range]::-moz-range-progress {
+    background: transparent;
+}
+
+.range-wrapper input[type=range]::-webkit-slider-thumb {
+    pointer-events: auto;
+}
+
+.range-wrapper input[type=range]::-moz-range-thumb {
+    pointer-events: auto;
+}
+
+/* Toggle % Good / P75 */
+.metric-toggle .btn-outline-secondary {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.65rem;
+    border-color: #cbd5e1;
+    color: #64748b;
+}
+
+.metric-toggle .btn-outline-secondary:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+/* ─── Tooltip externe Chart.js P75 ───────────────────────────────────────── */
+.cwv-chart-tooltip {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    background: #1e293b;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 0.65rem;
+    padding: 0.65rem 0.75rem;
+    width: 260px;
+    box-sizing: border-box;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    font-size: 0.78rem;
+    font-family: system-ui, sans-serif;
+    color: #e5e7eb;
+}
+
+.cwv-tt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(148,163,184,0.15);
+}
+
+.cwv-tt-metric-name { font-weight: 700; color: #f9fafb; }
+.cwv-tt-date        { font-size: 0.7rem; color: #9ca3af; }
+
+.cwv-tt-block       { margin-bottom: 10px; }
+.cwv-tt-block:last-child { margin-bottom: 0; }
+
+.cwv-tt-url-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+}
+
+.cwv-tt-dot   { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.cwv-tt-label { flex: 1; color: #d1d5db; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cwv-tt-val   { font-weight: 700; color: #f9fafb; font-variant-numeric: tabular-nums; }
+
+/* Histogramme */
+.cwv-tt-histo {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    width: 100%;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(148,163,184,0.25);
+    margin-bottom: 3px;
+    box-sizing: border-box;
+}
+
+.cwv-tt-hbin {
+    border-radius: 1px 1px 0 0;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.cwv-tt-p75-line {
+    position: absolute;
+    bottom: 0;
+    width: 2px;
+    height: 100%;
+    background: rgba(255,255,255,0.95);
+    border-radius: 1px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 5px rgba(0,0,0,0.8);
+    pointer-events: none;
+}
+
+.cwv-tt-axis {
+    display: flex;
+    justify-content: space-between;
+    color: #6b7280;
+    font-size: 0.65rem;
+    margin-bottom: 5px;
+}
+
+.cwv-tt-pcts {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.71rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ─── Bloc "Performances actuelles" — cartes KPI + jauge ─────────────────── */
+.cwv-kpi-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    height: 100%;
+    position: relative;
+}
+
+.cwv-kpi-card:hover,
+.cwv-kpi-card:focus-visible {
+    border-color: rgba(102, 178, 178, 0.5);
+    box-shadow: 0 0 0 1px rgba(102, 178, 178, 0.25), 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.cwv-kpi-card:active {
+    transform: translateY(0);
+}
+
+.cwv-kpi-name {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.cwv-kpi-name::after {
+    content: '›';
+    font-size: 1rem;
+    color: rgba(102, 178, 178, 0);
+    transition: color 0.2s, transform 0.2s;
+    line-height: 1;
+}
+
+.cwv-kpi-card:hover .cwv-kpi-name::after {
+    color: rgba(102, 178, 178, 0.8);
+    transform: translateX(2px);
+}
+
+.cwv-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 0.15rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.cwv-kpi-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.85rem;
+}
+
+.cwv-gauge {
+    position: relative;
+    margin-bottom: 5px;
+}
+
+.cwv-gauge-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.cwv-gauge-marker {
+    position: absolute;
+    top: -4px;
+    width: 3px;
+    height: 16px;
+    background: #fff;
+    border-radius: 1px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 5px rgba(0,0,0,0.4);
+}
+
+.cwv-gauge-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.62rem;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+/* ─── Popover analytique CWV ──────────────────────────────────────────────── */
+.cwv-popover {
+    --bs-popover-bg:           #1e293b;
+    --bs-popover-border-color: rgba(148, 163, 184, 0.25);
+    --bs-popover-body-color:   #e5e7eb;
+    --bs-popover-max-width:    270px;
+}
+
+.cwv-popover .popover-body {
+    padding: 0.75rem;
+}
+
+.cwv-pop-inner {
+    font-size: 0.78rem;
+    font-family: system-ui, sans-serif;
+}
+
+.cwv-pop-title {
+    font-weight: 700;
+    color: #f9fafb;
+    margin-bottom: 2px;
+}
+
+.cwv-pop-sub {
+    color: #9ca3af;
+    margin-bottom: 10px;
+}
+
+.cwv-pop-bar-stacked {
+    display: flex;
+    height: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.cwv-pop-legend {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 3px;
+    color: #d1d5db;
+}
+
+.cwv-dot { font-size: 0.7rem; }
+
+.cwv-pct {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    color: #f9fafb;
+    font-weight: 600;
+}
+
+.cwv-pop-scale {
+    position: relative;
+    margin-bottom: 4px;
+}
+
+.cwv-pop-scale-bar {
+    display: flex;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.cwv-pop-marker {
+    position: absolute;
+    top: -3px;
+    width: 3px;
+    height: 12px;
+    background: #fff;
+    border-radius: 1px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 4px rgba(0,0,0,0.6);
+}
+
+.cwv-pop-labels {
+    display: flex;
+    justify-content: space-between;
+    color: #6b7280;
+    font-size: 0.67rem;
+    margin-top: 3px;
+}
+
+/* ─── Panneau d'aide contextuel (config) ─────────────────────────────────── */
+.config-help-panel {
+    background: var(--brand-linen);
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid var(--brand-gold);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    font-size: 0.82rem;
+    color: #475569;
+    line-height: 1.55;
+}
+
+.config-help-panel .help-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--brand-dark);
+    margin-bottom: 0.5rem;
+}
+
+.config-help-panel ul {
+    padding-left: 1.1rem;
+    margin-bottom: 0;
+}
+
+.config-help-panel li {
+    margin-bottom: 0.25rem;
+}
+
+/* Onglets métriques */
+#metricTabs .nav-link,
+#configTabs .nav-link,
+#bulkMetricTabs .nav-link {
+    color: #64748b;
+    border-color: transparent;
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: .04em;
+}
+
+#metricTabs .nav-link:hover,
+#configTabs .nav-link:hover,
+#bulkMetricTabs .nav-link:hover {
+    color: #0f172a;
+    border-color: transparent;
+}
+
+#metricTabs .nav-link.active,
+#configTabs .nav-link.active,
+#bulkMetricTabs .nav-link.active {
+    color: var(--brand-dark);
+    background: transparent;
+    border-bottom: 3px solid var(--brand-teal);
+    margin-bottom: -1px;
+    border-top-color: transparent;
+    border-left-color: transparent;
+    border-right-color: transparent;
+}
+
+.btn-outline-secondary.active {
+    background: var(--brand-teal-light);
+    border-color: rgba(102, 178, 178, 0.5);
+    color: var(--brand-dark);
+}
+
+/* ─── Mode Bulk : log API ────────────────────────────────────────────────── */
+.bulk-api-log {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+/* En-têtes triables */
+.sortable-th {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+.sortable-th::after {
+    content: ' ⇅';
+    font-size: 0.7em;
+    color: #94a3b8;
+}
+.sortable-th.sort-asc::after { content: ' ▲'; color: #0f172a; }
+.sortable-th.sort-desc::after { content: ' ▼'; color: #0f172a; }
+
+/* Cellule URL tronquée */
+.bulk-url-cell {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Colonnes KPI bulk : pas de retour à la ligne sur colonnes numériques */
+.summary-table .sortable-th[data-sort-type="number"]:not([data-sort-col="5"]) {
+    white-space: nowrap;
+}
+.summary-table .sortable-th[data-sort-col="1"] {
+    min-width: 110px;
+}
+
+/* Compteur pagination */
+.bulk-page-info {
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+/* Pagination */
+.bulk-pagination .page-link {
+    background-color: #fff;
+    border-color: #e2e8f0;
+    color: #64748b;
+    font-size: 0.78rem;
+}
+.bulk-pagination .page-item.active .page-link {
+    background-color: var(--brand-teal-light);
+    border-color: rgba(102, 178, 178, 0.5);
+    color: var(--brand-dark);
+}
+.bulk-pagination .page-item.disabled .page-link {
+    background-color: #f8fafc;
+    border-color: #e2e8f0;
+    color: #cbd5e1;
+}
+.bulk-pagination .page-link:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+/* ─── Streaming log SSE ─────────────────────────────────────────────────── */
+#streaming-log-card .spinner-border {
+    width: 0.85rem;
+    height: 0.85rem;
+    border-width: 0.12em;
+}
+
+/* ─── Collapse config card ────────────────────────────────────────────────── */
+.config-collapse-toggle .collapse-icon {
+    display: inline-block;
+    transition: transform 0.3s ease;
+    font-size: 0.75rem;
+}
+.config-collapse-toggle[aria-expanded="false"] .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+/* ─── UX Polish ────────────────────────────────────────────────────────── */
+
+/* 1. Curseurs custom du double slider */
+.range-wrapper input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--brand-teal);
+    box-shadow: 0 1px 4px rgba(0, 76, 76, 0.2);
+    cursor: pointer;
+}
+.range-wrapper input[type=range]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--brand-teal);
+    box-shadow: 0 1px 4px rgba(0, 76, 76, 0.2);
+    cursor: pointer;
+}
+
+/* 2. Hover sur les lignes de tableaux */
+.table tbody tr:hover {
+    background: #f1f5f9 !important;
+}
+.summary-table tbody tr:hover {
+    background: #f1f5f9 !important;
+}
+
+/* 3. Focus ring teal sur les champs de formulaire */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 0.2rem rgba(102, 178, 178, 0.25);
+}
+
+/* 4. Couleur de sélection de texte */
+::selection {
+    background: rgba(102, 178, 178, 0.3);
+    color: #fff;
+}
+
+/* 5. Scrollbars custom */
+body {
+    scrollbar-color: #cbd5e1 transparent;
+}
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* 6. Transitions sur boutons toggle et pagination */
+.metric-toggle .btn,
+.mode-toggle .btn {
+    transition: background 0.2s, color 0.2s, border-color 0.2s, opacity 0.2s;
+}
+.bulk-pagination .page-link {
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+/* 7. Hover sur les en-têtes triables */
+.sortable-th:hover {
+    color: #0f172a;
+}
+.sortable-th:hover::after {
+    color: #64748b;
+}
+
+/* 8. Inputs par défaut */
+.form-control,
+.form-select {
+    border-color: #e2e8f0;
+}
+
+/* ─── Bouton primaire marque ──────────────────────────────────────────────── */
+.btn-primary {
+    background-color: var(--brand-dark);
+    border-color: var(--brand-dark);
+}
+.btn-primary:hover, .btn-primary:focus-visible {
+    background-color: #006666;
+    border-color: #006666;
+    box-shadow: 0 0 0 0.2rem rgba(102, 178, 178, 0.35);
+}
+
+/* ─── Period buttons marque ───────────────────────────────────────────────── */
+.period-btn {
+    border-color: var(--brand-teal);
+    color: var(--brand-dark);
+}
+.period-btn:hover {
+    background-color: var(--brand-teal-light);
+    border-color: var(--brand-teal);
+    color: var(--brand-dark);
+}
+.period-btn.active {
+    background-color: var(--brand-teal);
+    border-color: var(--brand-teal);
+    color: #fff;
+}
+
+/* ─── Chart max-height ────────────────────────────────────────────────────── */
+.metric-chart {
+    max-height: 380px;
+}
+
+/* ─── Layout 2 colonnes (résultats URL) ───────────────────────────────────── */
+@media (min-width: 1200px) {
+    .results-grid {
+        display: grid;
+        grid-template-columns: 390px 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+    .results-sidebar {
+        position: sticky;
+        top: 1rem;
+    }
+    /* KPI cards 2x2 dans la sidebar (au lieu de 4 en ligne) */
+    .results-sidebar .row.g-3 > [class*="col-lg-3"] {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+
+@media (max-width: 1199.98px) {
+    .results-grid {
+        display: block;
+    }
+}
+

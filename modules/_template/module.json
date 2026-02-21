@@ -1,0 +1,27 @@
+{
+    "_schema_doc": {
+        "slug": "Identifiant unique du module (lowercase, hyphens, 2-50 chars)",
+        "name": "Nom affiche dans l'interface",
+        "description": "Description courte du module",
+        "version": "Version semver (ex: 1.0.0)",
+        "icon": "Classe Bootstrap Icons (ex: bi-tools, bi-search)",
+        "entry_point": "Fichier PHP d'entree (defaut: index.php)",
+        "sort_order": "Ordre d'affichage dans la sidebar (10, 20, 30...)",
+        "quota_mode": "Mode de comptage: request | form_submit | api_call | none",
+        "default_quota": "Limite mensuelle par defaut (0 = illimite)",
+        "env_keys": "Variables d'environnement requises (tableau de strings)",
+        "routes": "Sous-routes: [{path, method, type}] avec type = page | ajax | stream",
+        "passthrough_all": "true si le module gere son propre routage (defaut: false)"
+    },
+    "slug": "{{SLUG}}",
+    "name": "{{NAME}}",
+    "description": "{{DESCRIPTION}}",
+    "version": "1.0.0",
+    "icon": "bi-tools",
+    "entry_point": "index.php",
+    "sort_order": 100,
+    "quota_mode": "form_submit",
+    "default_quota": 100,
+    "env_keys": [],
+    "routes": []
+}

@@ -1,0 +1,16 @@
+{
+    "slug": "crux",
+    "name": "CrUX History Explorer",
+    "description": "Visualisation historique des Core Web Vitals",
+    "version": "1.0.0",
+    "icon": "bi-speedometer2",
+    "entry_point": "index.php",
+    "sort_order": 20,
+    "quota_mode": "form_submit",
+    "default_quota": 100,
+    "env_keys": ["CRUX_API_KEY"],
+    "routes": [
+        {"path": "bulk_stream.php", "method": "GET", "type": "stream"},
+        {"path": "robots_sitemap.php", "method": "GET", "type": "ajax"}
+    ]
+}

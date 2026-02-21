@@ -1,0 +1,19 @@
+{
+    "name": "aymeric/search-console",
+    "description": "Google Search Console data synchronization and analytics dashboard",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "google/apiclient": "^2.15",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "scripts": {
+        "sync": "php bin/sync.php",
+        "serve": "php -S localhost:8080 -t public"
+    }
+}

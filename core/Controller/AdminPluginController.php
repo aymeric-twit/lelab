@@ -347,12 +347,12 @@ class AdminPluginController
         $db = Connection::get();
         $moduleId = (int) $params['id'];
 
-        $stmt = $db->prepare('SELECT * FROM modules WHERE id = ? AND chemin_source IS NOT NULL');
+        $stmt = $db->prepare('SELECT * FROM modules WHERE id = ?');
         $stmt->execute([$moduleId]);
         $module = $stmt->fetch();
 
         if (!$module) {
-            Flash::error('Seuls les plugins externes peuvent être désinstallés.');
+            Flash::error('Module introuvable.');
             Response::redirect('/admin/plugins');
         }
 
@@ -361,10 +361,10 @@ class AdminPluginController
 
         AuditLogger::instance()->log(
             AuditAction::PluginUninstall, $req->ip(), Auth::id(), 'module', $moduleId,
-            ['slug' => $module['slug'], 'chemin' => $module['chemin_source']]
+            ['slug' => $module['slug'], 'chemin' => $module['chemin_source'] ?? null]
         );
 
-        Flash::success("Plugin « {$module['name']} » désinstallé.");
+        Flash::success("Module « {$module['name']} » supprimé.");
         Response::redirect('/admin/plugins');
     }
 }

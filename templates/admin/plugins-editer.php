@@ -87,6 +87,13 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
                                 <label for="point_entree" class="form-label">Point d'entrée</label>
                                 <input type="text" class="form-control" id="point_entree" name="point_entree"
                                        value="<?= htmlspecialchars($module['point_entree'] ?? 'index.php') ?>">
+                                <small class="text-muted">
+                                    Fichier appelé :
+                                    <code><?= htmlspecialchars(
+                                        ($module['chemin_source'] ?? dirname(__DIR__, 2) . '/modules/' . $module['slug'])
+                                        . '/' . ($module['point_entree'] ?? 'index.php')
+                                    ) ?></code>
+                                </small>
                             </div>
                         </div>
                         <div class="col-6">
@@ -152,14 +159,19 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
             <a href="/admin/plugins" class="btn btn-outline-secondary">Annuler</a>
         </div>
 
-        <?php if ($estExterne): ?>
+        <?php
+            $confirmEditer = $estExterne
+                ? (str_contains($module['chemin_source'] ?? '', 'storage/plugins')
+                    ? 'Désinstaller « ' . addslashes($module['name']) . ' » ? Le répertoire extrait sera supprimé.'
+                    : 'Désinstaller « ' . addslashes($module['name']) . ' » ? Les fichiers sources ne seront pas touchés.')
+                : 'Supprimer le module « ' . addslashes($module['name']) . ' » et son répertoire modules/' . addslashes($module['slug']) . '/ ?';
+        ?>
         <form method="POST" action="/admin/plugins/<?= $module['id'] ?>/desinstaller" class="d-inline"
-              onsubmit="return confirm('Désinstaller ce plugin ? Les fichiers ne seront pas supprimés.')">
+              onsubmit="return confirm('<?= $confirmEditer ?>')">
             <?= \Platform\Http\Csrf::field() ?>
             <button type="submit" class="btn btn-outline-danger">
-                <i class="bi bi-trash me-1"></i> Désinstaller
+                <i class="bi bi-trash me-1"></i> Supprimer
             </button>
         </form>
-        <?php endif; ?>
     </div>
 </form>

@@ -199,26 +199,41 @@ class PluginInstaller
     }
 
     /**
-     * Supprime un plugin de la base et nettoie les fichiers extraits si le plugin provenait d'un ZIP.
+     * Supprime un module de la base et nettoie les fichiers selon le type :
+     * - Plugin ZIP (chemin_source sous storage/plugins/) → supprime le répertoire extrait
+     * - Module embarqué (chemin_source NULL) → supprime modules/{slug}/
+     * - Plugin chemin externe → ne touche pas aux fichiers sources
      */
     public function desinstaller(int $moduleId): void
     {
-        // Récupérer le chemin_source avant suppression pour nettoyage éventuel
-        $stmt = $this->db->prepare('SELECT chemin_source FROM modules WHERE id = ? AND chemin_source IS NOT NULL');
+        $stmt = $this->db->prepare('SELECT chemin_source, slug FROM modules WHERE id = ?');
         $stmt->execute([$moduleId]);
         $row = $stmt->fetch();
-        $cheminSource = $row ? $row['chemin_source'] : null;
+
+        if (!$row) {
+            return;
+        }
+
+        $cheminSource = $row['chemin_source'];
+        $slug = $row['slug'];
 
         $this->db->prepare('DELETE FROM user_module_access WHERE module_id = ?')->execute([$moduleId]);
         $this->db->prepare('DELETE FROM user_module_quotas WHERE module_id = ?')->execute([$moduleId]);
         $this->db->prepare('DELETE FROM module_usage WHERE module_id = ?')->execute([$moduleId]);
-        $this->db->prepare('DELETE FROM modules WHERE id = ? AND chemin_source IS NOT NULL')->execute([$moduleId]);
+        $this->db->prepare('DELETE FROM modules WHERE id = ?')->execute([$moduleId]);
 
-        // Supprimer les fichiers extraits si le plugin vient de storage/plugins/
         if ($cheminSource !== null) {
+            // Plugin ZIP extrait sous storage/plugins/ → supprimer le répertoire
             $repertoirePlugins = $this->repertoirePlugins();
             if (str_starts_with(realpath($cheminSource) ?: '', realpath($repertoirePlugins) ?: "\0")) {
                 $this->supprimerRepertoire($cheminSource);
+            }
+            // Plugin chemin externe → ne rien faire
+        } else {
+            // Module embarqué → supprimer modules/{slug}/
+            $cheminEmbarque = $this->repertoireModulesEmbarques() . '/' . $slug;
+            if (is_dir($cheminEmbarque)) {
+                $this->supprimerRepertoire($cheminEmbarque);
             }
         }
     }
@@ -462,37 +477,65 @@ class PluginInstaller
     }
 
     /**
+     * Retourne le chemin absolu du répertoire des modules embarqués.
+     */
+    private function repertoireModulesEmbarques(): string
+    {
+        return dirname(__DIR__, 2) . '/modules';
+    }
+
+    /**
      * Suppression récursive sécurisée d'un répertoire.
-     * Ne supprime que si le chemin est sous storage/plugins/.
+     * Ne supprime que si le chemin est sous storage/plugins/ ou modules/.
+     * Les symlinks sont supprimés sans suivre leur cible.
      */
     private function supprimerRepertoire(string $chemin): void
     {
         $cheminReel = realpath($chemin);
+        if ($cheminReel === false) {
+            return;
+        }
+
+        // Sécurité : ne supprimer que sous storage/plugins/ ou modules/
         $repertoirePlugins = realpath($this->repertoirePlugins());
+        $repertoireModules = realpath($this->repertoireModulesEmbarques());
 
-        if ($cheminReel === false || $repertoirePlugins === false) {
+        $sousPlugins = $repertoirePlugins !== false && str_starts_with($cheminReel, $repertoirePlugins);
+        $sousModules = $repertoireModules !== false && str_starts_with($cheminReel, $repertoireModules);
+
+        if (!$sousPlugins && !$sousModules) {
             return;
         }
 
-        // Sécurité : ne supprimer que sous storage/plugins/
-        if (!str_starts_with($cheminReel, $repertoirePlugins)) {
+        $this->supprimerContenuRepertoire($cheminReel);
+        rmdir($cheminReel);
+    }
+
+    /**
+     * Supprime récursivement le contenu d'un répertoire sans suivre les symlinks.
+     */
+    private function supprimerContenuRepertoire(string $chemin): void
+    {
+        $elements = scandir($chemin);
+        if ($elements === false) {
             return;
         }
 
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($cheminReel, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST
-        );
+        foreach ($elements as $element) {
+            if ($element === '.' || $element === '..') {
+                continue;
+            }
 
-        foreach ($iterator as $fichier) {
-            /** @var \SplFileInfo $fichier */
-            if ($fichier->isDir()) {
-                rmdir($fichier->getRealPath());
+            $cheminComplet = $chemin . '/' . $element;
+
+            if (is_link($cheminComplet)) {
+                unlink($cheminComplet);
+            } elseif (is_dir($cheminComplet)) {
+                $this->supprimerContenuRepertoire($cheminComplet);
+                rmdir($cheminComplet);
             } else {
-                unlink($fichier->getRealPath());
+                unlink($cheminComplet);
             }
         }
-
-        rmdir($cheminReel);
     }
 }

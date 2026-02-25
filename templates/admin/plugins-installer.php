@@ -110,6 +110,7 @@
                             <div class="mb-3">
                                 <label for="point_entree" class="form-label">Point d'entrée</label>
                                 <input type="text" class="form-control" id="point_entree" name="point_entree" value="index.php">
+                                <small class="text-muted">Nom du fichier relatif au répertoire source (ex: index.php, adapter.php)</small>
                             </div>
                         </div>
                         <div class="col-6">

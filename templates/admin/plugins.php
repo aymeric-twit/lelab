@@ -68,15 +68,20 @@
                                         <i class="bi <?= $mod['enabled'] ? 'bi-toggle-on' : 'bi-toggle-off' ?>"></i>
                                     </button>
                                 </form>
-                                <?php if ($mod['chemin_source']): ?>
+                                <?php
+                                    $confirmMsg = $mod['chemin_source']
+                                        ? (str_contains($mod['chemin_source'], 'storage/plugins')
+                                            ? 'Désinstaller « ' . addslashes($mod['name']) . ' » ? Le répertoire extrait sera supprimé.'
+                                            : 'Désinstaller « ' . addslashes($mod['name']) . ' » ? Les fichiers sources ne seront pas touchés.')
+                                        : 'Supprimer le module « ' . addslashes($mod['name']) . ' » et son répertoire modules/' . addslashes($mod['slug']) . '/ ?';
+                                ?>
                                 <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/desinstaller" class="d-inline"
-                                      onsubmit="return confirm('Désinstaller ce plugin ? Les fichiers ne seront pas supprimés.')">
+                                      onsubmit="return confirm('<?= $confirmMsg ?>')">
                                     <?= \Platform\Http\Csrf::field() ?>
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Désinstaller">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
-                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>

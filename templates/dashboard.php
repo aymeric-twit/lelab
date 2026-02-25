@@ -1,32 +1,32 @@
-<h2 class="mb-4">Dashboard</h2>
-<p class="text-muted mb-4">Bienvenue, <?= htmlspecialchars($currentUser['username'] ?? '') ?>. Selectionnez un outil pour commencer.</p>
+<h2 class="mb-1">Dashboard</h2>
+<p class="text-muted mb-4" style="font-size:0.9rem;">Bienvenue, <?= htmlspecialchars($currentUser['username'] ?? '') ?>. Sélectionnez un outil pour commencer.</p>
 
 <div class="row g-4">
     <?php foreach ($accessibleModules ?? [] as $mod): ?>
         <div class="col-sm-6 col-lg-4">
             <a href="/m/<?= htmlspecialchars($mod['slug']) ?>" class="text-decoration-none">
-                <div class="card h-100 module-card border shadow-sm">
+                <div class="card h-100 module-card">
                     <div class="card-body text-center py-4">
-                        <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> fs-1 text-primary mb-3 d-block"></i>
-                        <h5 class="card-title text-dark"><?= htmlspecialchars($mod['name']) ?></h5>
-                        <p class="card-text text-muted small"><?= htmlspecialchars($mod['description'] ?? '') ?></p>
-                        <span class="badge bg-light text-muted">v<?= htmlspecialchars($mod['version'] ?? '1.0.0') ?></span>
+                        <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> fs-1 module-icon mb-3 d-block"></i>
+                        <h5 class="card-title" style="color: var(--text-primary);"><?= htmlspecialchars($mod['name']) ?></h5>
+                        <p class="card-text small" style="color: var(--text-secondary);"><?= htmlspecialchars($mod['description'] ?? '') ?></p>
+                        <span class="badge badge-version">v<?= htmlspecialchars($mod['version'] ?? '1.0.0') ?></span>
                     </div>
                     <?php
                     $qs = $quotaSummary ?? [];
                     $modSlug = $mod['slug'];
                     if (($currentUser['role'] ?? '') !== 'admin'
                         && isset($qs[$modSlug])
-                        && $qs[$modSlug]['quota_mode'] !== 'none'
+                        && $qs[$modSlug]['quota_mode'] !== \Platform\Enum\QuotaMode::None
                         && $qs[$modSlug]['limit'] > 0
                     ):
                         $qUsage = $qs[$modSlug]['usage'];
                         $qLimit = $qs[$modSlug]['limit'];
                         $qPct = min(100, round(($qUsage / $qLimit) * 100));
-                        $qBarClass = $qPct >= 100 ? 'bg-danger' : ($qPct >= 80 ? 'bg-warning' : 'bg-primary');
+                        $qBarClass = $qPct >= 100 ? 'progress-bar-danger' : ($qPct >= 80 ? 'progress-bar-warn' : 'progress-bar-teal');
                     ?>
                     <div class="card-footer bg-transparent border-top-0 px-3 pb-3">
-                        <div class="d-flex justify-content-between small text-muted mb-1">
+                        <div class="d-flex justify-content-between small mb-1" style="color: var(--text-muted);">
                             <span>Quota</span>
                             <span><?= $qUsage ?> / <?= $qLimit ?></span>
                         </div>

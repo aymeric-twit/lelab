@@ -1,5 +1,9 @@
 RewriteEngine On
 
+# Limites upload pour les plugins ZIP
+php_value upload_max_filesize 50M
+php_value post_max_size 55M
+
 # Redirect to front controller if file/directory doesn't exist
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

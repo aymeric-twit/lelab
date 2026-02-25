@@ -3,6 +3,7 @@
 namespace Platform\Module;
 
 use PDO;
+use Platform\Enum\QuotaMode;
 
 class ModuleRegistry
 {
@@ -31,6 +32,46 @@ class ModuleRegistry
         self::$loaded = true;
     }
 
+    /**
+     * Charge les plugins externes depuis la base de données.
+     * Ne remplace pas un module embarqué qui aurait le même slug.
+     */
+    public static function chargerDepuisBase(PDO $db): void
+    {
+        $stmt = $db->query(
+            'SELECT * FROM modules WHERE chemin_source IS NOT NULL AND enabled = 1'
+        );
+
+        foreach ($stmt->fetchAll() as $row) {
+            $slug = $row['slug'];
+
+            if (isset(self::$modules[$slug])) {
+                continue;
+            }
+
+            if (!is_dir($row['chemin_source'])) {
+                continue;
+            }
+
+            $data = [
+                'slug'            => $slug,
+                'name'            => $row['name'],
+                'description'     => $row['description'] ?? '',
+                'version'         => $row['version'] ?? '1.0.0',
+                'icon'            => $row['icon'] ?? 'bi-tools',
+                'entry_point'     => $row['point_entree'] ?? 'index.php',
+                'sort_order'      => (int) $row['sort_order'],
+                'env_keys'        => $row['cles_env'] ? json_decode($row['cles_env'], true) : [],
+                'routes'          => $row['routes_config'] ? json_decode($row['routes_config'], true) : [],
+                'passthrough_all' => (bool) $row['passthrough_all'],
+                'quota_mode'      => $row['quota_mode'] ?? 'none',
+                'default_quota'   => (int) ($row['default_quota'] ?? 0),
+            ];
+
+            self::$modules[$slug] = new ModuleDescriptor($row['chemin_source'], $data);
+        }
+    }
+
     public static function get(string $slug): ?ModuleDescriptor
     {
         return self::$modules[$slug] ?? null;
@@ -41,19 +82,24 @@ class ModuleRegistry
         return self::$modules;
     }
 
+    /**
+     * Synchronise les modules embarqués vers la base.
+     * Protège les plugins externes : le ON DUPLICATE KEY UPDATE ne touche
+     * que les lignes où chemin_source IS NULL (modules embarqués).
+     */
     public static function syncToDatabase(PDO $db): void
     {
         $stmt = $db->prepare('
             INSERT INTO modules (slug, name, description, version, icon, sort_order, quota_mode, default_quota)
             VALUES (:slug, :name, :description, :version, :icon, :sort_order, :quota_mode, :default_quota)
             ON DUPLICATE KEY UPDATE
-                name = VALUES(name),
-                description = VALUES(description),
-                version = VALUES(version),
-                icon = VALUES(icon),
-                sort_order = VALUES(sort_order),
-                quota_mode = VALUES(quota_mode),
-                default_quota = VALUES(default_quota)
+                name = IF(chemin_source IS NULL, VALUES(name), name),
+                description = IF(chemin_source IS NULL, VALUES(description), description),
+                version = IF(chemin_source IS NULL, VALUES(version), version),
+                icon = IF(chemin_source IS NULL, VALUES(icon), icon),
+                sort_order = IF(chemin_source IS NULL, VALUES(sort_order), sort_order),
+                quota_mode = IF(chemin_source IS NULL, VALUES(quota_mode), quota_mode),
+                default_quota = IF(chemin_source IS NULL, VALUES(default_quota), default_quota)
         ');
 
         foreach (self::$modules as $module) {
@@ -64,7 +110,7 @@ class ModuleRegistry
                 'version'       => $module->version,
                 'icon'          => $module->icon,
                 'sort_order'    => $module->sortOrder,
-                'quota_mode'    => $module->quotaMode,
+                'quota_mode'    => $module->quotaMode->value,
                 'default_quota' => $module->defaultQuota,
             ]);
         }

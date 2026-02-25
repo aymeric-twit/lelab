@@ -1,7 +1,5 @@
 <?php
 header('Content-Type: application/json');
-ini_set('display_errors', 0);
-error_reporting(0);
 
 // Listes autorisées
 $allowed_hl = ["fr", "en", "de", "es", "it", "nl"];

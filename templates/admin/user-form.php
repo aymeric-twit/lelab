@@ -6,7 +6,7 @@
     <div class="row g-4">
         <!-- Colonne gauche : Infos utilisateur -->
         <div class="<?= !empty($modules) ? 'col-lg-5' : 'col-lg-6' ?>">
-            <div class="card shadow-sm h-100">
+            <div class="card h-100">
                 <div class="card-header"><h5 class="mb-0">Informations</h5></div>
                 <div class="card-body">
                     <div class="mb-3">
@@ -30,7 +30,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="role" class="form-label">Role</label>
+                        <label for="role" class="form-label">Rôle</label>
                         <select class="form-select" id="role" name="role">
                             <option value="user" <?= ($editUser['role'] ?? 'user') === 'user' ? 'selected' : '' ?>>Utilisateur</option>
                             <option value="admin" <?= ($editUser['role'] ?? '') === 'admin' ? 'selected' : '' ?>>Administrateur</option>
@@ -49,15 +49,15 @@
         <?php if (!empty($modules)): ?>
         <!-- Colonne droite : Acces & Quotas -->
         <div class="col-lg-7">
-            <div class="card shadow-sm h-100">
-                <div class="card-header"><h5 class="mb-0">Acces aux outils & Quotas</h5></div>
+            <div class="card h-100">
+                <div class="card-header"><h5 class="mb-0">Accès aux outils & Quotas</h5></div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered align-middle mb-0">
-                            <thead class="table-light">
+                            <thead>
                                 <tr>
                                     <th>Module</th>
-                                    <th class="text-center" style="width: 80px;">Acces</th>
+                                    <th class="text-center" style="width: 80px;">Accès</th>
                                     <th style="width: 200px;">Quota mensuel</th>
                                 </tr>
                             </thead>
@@ -71,7 +71,7 @@
                                 <tr>
                                     <td>
                                         <?php if (!empty($mod['icon'])): ?>
-                                            <i class="<?= htmlspecialchars($mod['icon']) ?> me-1"></i>
+                                            <i class="bi <?= htmlspecialchars($mod['icon']) ?> me-1" style="color:var(--brand-teal);"></i>
                                         <?php endif; ?>
                                         <?= htmlspecialchars($mod['name']) ?>
                                     </td>
@@ -86,9 +86,9 @@
                                                    name="quotas[<?= $modId ?>]"
                                                    placeholder="<?= (int) $mod['default_quota'] ?>"
                                                    value="<?= $quotaOverride !== null ? (int) $quotaOverride : '' ?>">
-                                            <small class="text-muted">defaut : <?= (int) $mod['default_quota'] ?></small>
+                                            <small style="color:var(--text-muted);">défaut : <?= (int) $mod['default_quota'] ?></small>
                                         <?php else: ?>
-                                            <span class="text-muted">&mdash; pas de quota</span>
+                                            <span style="color:var(--text-muted);">&mdash; pas de quota</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -104,7 +104,7 @@
 
     <div class="d-flex gap-2 mt-4">
         <button type="submit" class="btn btn-primary">
-            <?= isset($editUser) ? 'Enregistrer' : 'Creer' ?>
+            <?= isset($editUser) ? 'Enregistrer' : 'Créer' ?>
         </button>
         <a href="/admin/users" class="btn btn-outline-secondary">Annuler</a>
     </div>

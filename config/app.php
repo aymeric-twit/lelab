@@ -12,4 +12,7 @@ return [
         'login_max'     => 5,
         'login_window'  => 900,     // 15 minutes
     ],
+    'trusted_proxies' => array_filter(
+        array_map('trim', explode(',', $_ENV['TRUSTED_PROXIES'] ?? ''))
+    ),
 ];

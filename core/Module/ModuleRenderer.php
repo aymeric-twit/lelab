@@ -2,6 +2,8 @@
 
 namespace Platform\Module;
 
+use Platform\Log\Logger;
+
 class ModuleRenderer
 {
     /**
@@ -28,6 +30,11 @@ class ModuleRenderer
             require_once $bootFile;
         }
 
+        // Signal aux plugins qu'ils tournent dans la plateforme
+        if (!defined('PLATFORM_EMBEDDED')) {
+            define('PLATFORM_EMBEDDED', true);
+        }
+
         // Set module context
         $oldCwd = getcwd();
         chdir($module->path);
@@ -39,8 +46,13 @@ class ModuleRenderer
         } catch (\Throwable $e) {
             ob_end_clean();
             chdir($oldCwd);
+            Logger::error('Erreur module ' . $module->slug, [
+                'message' => $e->getMessage(),
+                'fichier' => $e->getFile(),
+                'ligne'   => $e->getLine(),
+            ]);
             return [
-                'content' => '<div class="alert alert-danger">Module error: ' . htmlspecialchars($e->getMessage()) . '</div>',
+                'content' => '<div class="alert alert-danger">Erreur du module : ' . htmlspecialchars($e->getMessage()) . '</div>',
                 'headExtra' => '',
                 'footExtra' => '',
             ];
@@ -96,11 +108,11 @@ class ModuleRenderer
                 $headContent = $headMatch[1];
                 // Extract <style> blocks
                 preg_match_all('#<style[^>]*>.*?</style>#si', $headContent, $styles);
-                $headExtra .= implode("\n", $styles[0] ?? []);
+                $headExtra .= implode("\n", $styles[0]);
 
                 // Extract <link rel="stylesheet"> tags (only local ones)
                 preg_match_all('#<link[^>]*rel=["\']stylesheet["\'][^>]*/?>|<link[^>]*/?\s*>#si', $headContent, $links);
-                foreach ($links[0] ?? [] as $link) {
+                foreach ($links[0] as $link) {
                     // Skip CDN links (bootstrap, etc.) - they're already in the layout
                     if (preg_match('#(cdn|jsdelivr|googleapis|cloudflare|bootstrap)#i', $link)) {
                         continue;
@@ -115,12 +127,13 @@ class ModuleRenderer
                 $content = $bodyMatch[1];
             }
 
-            // Remove <nav> elements from module (we use our own)
+            // Remove navbar elements from module (we use our own)
             $content = preg_replace('#<nav[^>]*class="[^"]*navbar[^"]*"[^>]*>.*?</nav>#si', '', $content);
+            $content = preg_replace('#<header[^>]*class="[^"]*navbar[^"]*"[^>]*>.*?</header>#si', '', $content);
 
             // Extract <script> tags from end of body
             preg_match_all('#<script[^>]*>.*?</script>#si', $content, $scripts);
-            foreach ($scripts[0] ?? [] as $script) {
+            foreach ($scripts[0] as $script) {
                 // Skip CDN scripts
                 if (preg_match('#(cdn|jsdelivr|googleapis|cloudflare|bootstrap)#i', $script)) {
                     continue;
@@ -165,7 +178,7 @@ class ModuleRenderer
 
         // Rewrite href="relative.css" (only for CSS files, not anchors)
         $html = preg_replace_callback(
-            '#(href=["\'])(?!https?://|/|#)([^"\']+\.css(?:\?[^"\']*)?)(["\'])#i',
+            '#(href=["\'])(?!https?://|/|\#)([^"\']+\.css(?:\?[^"\']*)?)(["\'])#i',
             fn($m) => $m[1] . $prefix . $m[2] . $m[3],
             $html
         );

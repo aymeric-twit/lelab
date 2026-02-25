@@ -2,8 +2,10 @@
 
 namespace Platform\Auth;
 
-use Platform\User\UserRepository;
 use Platform\Database\Connection;
+use Platform\Enum\AuditAction;
+use Platform\Enum\Role;
+use Platform\User\UserRepository;
 use PDO;
 
 class Auth
@@ -67,7 +69,7 @@ class Auth
     public static function isAdmin(): bool
     {
         $user = self::user();
-        return $user && $user['role'] === 'admin';
+        return $user && Role::tryFrom($user['role']) === Role::Admin;
     }
 
     public static function logout(): void
@@ -112,7 +114,7 @@ class Auth
             'SELECT COUNT(*) as cnt FROM audit_log
              WHERE action = ? AND ip_address = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)'
         );
-        $stmt->execute(['login.failed', $ip, $window]);
+        $stmt->execute([AuditAction::LoginFailed->value, $ip, $window]);
         $row = $stmt->fetch();
         return ($row['cnt'] ?? 0) >= $maxAttempts;
     }

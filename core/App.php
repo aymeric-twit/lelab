@@ -3,7 +3,7 @@
 namespace Platform;
 
 use Dotenv\Dotenv;
-use Platform\Http\Request;
+use Platform\Log\Logger;
 
 class App
 {
@@ -18,10 +18,17 @@ class App
         // Load app config
         self::$config = require __DIR__ . '/../config/app.php';
 
+        // Init logger
+        Logger::init(__DIR__ . '/../storage/logs');
+
+        // Global exception handler
+        self::configurerGestionErreurs();
+
         // Security headers
         header('X-Content-Type-Options: nosniff');
         header('X-Frame-Options: SAMEORIGIN');
         header('Referrer-Policy: strict-origin-when-cross-origin');
+        header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'");
 
         // Session
         self::startSession();
@@ -44,13 +51,47 @@ class App
         return $value;
     }
 
+    public static function estEnDeveloppement(): bool
+    {
+        return (self::$config['env'] ?? 'production') === 'development';
+    }
+
+    private static function configurerGestionErreurs(): void
+    {
+        set_exception_handler(function (\Throwable $e) {
+            Logger::error($e->getMessage(), [
+                'fichier' => $e->getFile(),
+                'ligne'   => $e->getLine(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
+            if (self::estEnDeveloppement()) {
+                http_response_code(500);
+                header('Content-Type: text/html; charset=utf-8');
+                echo '<h1>Erreur interne</h1>';
+                echo '<pre>' . htmlspecialchars($e->getMessage()) . '</pre>';
+                echo '<pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
+            } else {
+                http_response_code(500);
+                echo 'Une erreur interne est survenue. Veuillez réessayer plus tard.';
+            }
+        });
+
+        set_error_handler(function (int $severity, string $message, string $fichier, int $ligne): bool {
+            if (!(error_reporting() & $severity)) {
+                return false;
+            }
+            throw new \ErrorException($message, 0, $severity, $fichier, $ligne);
+        });
+    }
+
     private static function startSession(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
         }
 
-        $secure = ($_ENV['APP_ENV'] ?? 'production') === 'production';
+        $secure = (self::$config['env'] ?? 'production') === 'production';
 
         session_set_cookie_params([
             'lifetime' => (self::$config['session']['lifetime'] ?? 120) * 60,

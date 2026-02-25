@@ -2,3 +2,5 @@
 .env
 /modules/*/vendor/
 /modules/*/node_modules/
+/storage/logs/*.log
+/storage/plugins/*/

@@ -4,10 +4,14 @@ namespace Platform\Module;
 
 use Platform\Auth\Auth;
 use Platform\Database\Connection;
+use Platform\Enum\QuotaMode;
 use PDO;
 
 class Quota
 {
+    /** @var array<string, int|null> Cache slug → module ID */
+    private static array $moduleIdCache = [];
+
     private static function getDb(): PDO
     {
         return Connection::get();
@@ -15,11 +19,18 @@ class Quota
 
     private static function getModuleId(string $slug): ?int
     {
+        if (array_key_exists($slug, self::$moduleIdCache)) {
+            return self::$moduleIdCache[$slug];
+        }
+
         $db = self::getDb();
         $stmt = $db->prepare('SELECT id FROM modules WHERE slug = ?');
         $stmt->execute([$slug]);
         $row = $stmt->fetch();
-        return $row ? (int) $row['id'] : null;
+        $id = $row ? (int) $row['id'] : null;
+
+        self::$moduleIdCache[$slug] = $id;
+        return $id;
     }
 
     private static function currentYearMonth(): string
@@ -127,36 +138,41 @@ class Quota
 
     /**
      * Get quota summary for all modules accessible by a user.
-     * Returns [slug => ['usage' => int, 'limit' => int, 'quota_mode' => string]]
+     * Returns [slug => ['usage' => int, 'limit' => int, 'quota_mode' => QuotaMode]]
      */
     public static function getUserQuotaSummary(int $userId): array
     {
         $db = self::getDb();
         $yearMonth = self::currentYearMonth();
 
-        $modules = $db->query('SELECT id, slug, quota_mode, default_quota FROM modules WHERE enabled = 1')->fetchAll();
+        $stmt = $db->prepare('
+            SELECT
+                m.slug,
+                m.quota_mode,
+                m.default_quota,
+                COALESCE(umq.monthly_limit, 0) AS user_limit,
+                COALESCE(mu.usage_count, 0) AS usage_count,
+                CASE WHEN umq.id IS NOT NULL THEN 1 ELSE 0 END AS has_override
+            FROM modules m
+            LEFT JOIN user_module_quotas umq
+                ON umq.module_id = m.id AND umq.user_id = ?
+            LEFT JOIN module_usage mu
+                ON mu.module_id = m.id AND mu.user_id = ? AND mu.year_month = ?
+            WHERE m.enabled = 1
+        ');
+        $stmt->execute([$userId, $userId, $yearMonth]);
+        $rows = $stmt->fetchAll();
+
         $summary = [];
+        foreach ($rows as $row) {
+            $limit = $row['has_override']
+                ? (int) $row['user_limit']
+                : (int) $row['default_quota'];
 
-        foreach ($modules as $mod) {
-            $moduleId = (int) $mod['id'];
-            $slug = $mod['slug'];
-
-            // Get limit: per-user override or default
-            $stmt = $db->prepare('SELECT monthly_limit FROM user_module_quotas WHERE user_id = ? AND module_id = ?');
-            $stmt->execute([$userId, $moduleId]);
-            $row = $stmt->fetch();
-            $limit = $row ? (int) $row['monthly_limit'] : (int) $mod['default_quota'];
-
-            // Get usage
-            $stmt = $db->prepare('SELECT usage_count FROM module_usage WHERE user_id = ? AND module_id = ? AND `year_month` = ?');
-            $stmt->execute([$userId, $moduleId, $yearMonth]);
-            $row = $stmt->fetch();
-            $usage = $row ? (int) $row['usage_count'] : 0;
-
-            $summary[$slug] = [
-                'usage'      => $usage,
+            $summary[$row['slug']] = [
+                'usage'      => (int) $row['usage_count'],
                 'limit'      => $limit,
-                'quota_mode' => $mod['quota_mode'],
+                'quota_mode' => QuotaMode::tryFrom($row['quota_mode']) ?? QuotaMode::None,
             ];
         }
 

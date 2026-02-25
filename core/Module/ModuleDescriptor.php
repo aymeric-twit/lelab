@@ -2,6 +2,9 @@
 
 namespace Platform\Module;
 
+use Platform\Enum\QuotaMode;
+use Platform\Enum\RouteType;
+
 class ModuleDescriptor
 {
     public readonly string $slug;
@@ -14,7 +17,7 @@ class ModuleDescriptor
     public readonly array $envKeys;
     public readonly array $routes;
     public readonly bool $passthroughAll;
-    public readonly string $quotaMode;
+    public readonly QuotaMode $quotaMode;
     public readonly int $defaultQuota;
     public readonly string $path;
 
@@ -31,7 +34,7 @@ class ModuleDescriptor
         $this->envKeys = $data['env_keys'] ?? [];
         $this->routes = $data['routes'] ?? [];
         $this->passthroughAll = $data['passthrough_all'] ?? false;
-        $this->quotaMode = $data['quota_mode'] ?? 'none';
+        $this->quotaMode = QuotaMode::tryFrom($data['quota_mode'] ?? 'none') ?? QuotaMode::None;
         $this->defaultQuota = (int) ($data['default_quota'] ?? 0);
     }
 
@@ -50,13 +53,13 @@ class ModuleDescriptor
         return false;
     }
 
-    public function getRouteType(string $subPath): string
+    public function getRouteType(string $subPath): RouteType
     {
         foreach ($this->routes as $route) {
             if ($route['path'] === $subPath) {
-                return $route['type'] ?? 'page';
+                return RouteType::tryFrom($route['type'] ?? 'page') ?? RouteType::Page;
             }
         }
-        return 'page';
+        return RouteType::Page;
     }
 }

@@ -1,10 +1,162 @@
-/* SEO Platform - Theme clair */
+/* SEO Platform – Design System
+   Charte graphique "Y'a pas de quoi" — Crayomino / Jan 2024
+   Palette : bleu givre #66b2b2 · jaune tournesol #fbb03b ·
+             canard profond #004c4c · lin leger #f2f2f2 · anthracite #333333
+   Typo : Poppins 400/600/700 (Google Fonts)
+   Aligned with crux/styles.css & kg-entities/styles.css
+*/
 
+/* ------------------------------------------------
+   CSS Variables — Brand + Bootstrap overrides
+   ------------------------------------------------ */
 :root {
     --sidebar-width: 240px;
+
+    /* Charte graphique "Y'a pas de quoi" */
+    --brand-teal:        #66b2b2;  /* bleu givre */
+    --brand-teal-light:  #e8f4f4;
+    --brand-gold:        #fbb03b;  /* jaune tournesol */
+    --brand-gold-light:  #fef4e0;
+    --brand-dark:        #004c4c;  /* canard profond */
+    --brand-linen:       #f2f2f2;  /* lin leger */
+    --brand-anthracite:  #333333;  /* gris anthracite */
+
+    /* Semantic colours */
+    --color-good:   #22c55e;
+    --color-warn:   #f97316;
+    --color-bad:    #ef4444;
+
+    /* Neutral palette */
+    --bg-body:       #f2f2f2;
+    --bg-card:       #ffffff;
+    --bg-card-alt:   #f1f5f9;
+    --border-color:  #e2e8f0;
+    --text-primary:  #0f172a;
+    --text-secondary:#475569;
+    --text-muted:    #94a3b8;
+
+    /* ── Bootstrap internal overrides ────────────────────────── */
+    /* These are the CSS custom properties Bootstrap 5.3 uses
+       internally for its components. Overriding them here ensures
+       all Bootstrap components pick up our brand palette.         */
+
+    /* Body */
+    --bs-body-bg:          #f2f2f2;
+    --bs-body-color:       #333333;
+    --bs-body-font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+
+    /* Borders */
+    --bs-border-color:     #e2e8f0;
+    --bs-border-radius:    1rem;
+    --bs-border-radius-sm: 0.5rem;
+    --bs-border-radius-lg: 1rem;
+
+    /* Cards */
+    --bs-card-border-color:  #e2e8f0;
+    --bs-card-border-radius: 1rem;
+    --bs-card-bg:            #ffffff;
+    --bs-card-cap-bg:        transparent;
+    --bs-card-box-shadow:    0 2px 8px rgba(0, 76, 76, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+
+    /* Links */
+    --bs-link-color:         #66b2b2;
+    --bs-link-hover-color:   #004c4c;
+
+    /* Primary */
+    --bs-primary:            #004c4c;
+    --bs-primary-rgb:        0, 76, 76;
+
+    /* Focus ring */
+    --bs-focus-ring-color:   rgba(102, 178, 178, 0.25);
 }
 
-/* Sidebar */
+/* ------------------------------------------------
+   Base
+   ------------------------------------------------ */
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif !important;
+    background: var(--bg-body) !important;
+    color: var(--brand-anthracite);
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+::selection {
+    background: rgba(102, 178, 178, 0.3);
+    color: #fff;
+}
+
+::-webkit-scrollbar       { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+a       { color: var(--brand-teal); }
+a:hover { color: var(--brand-dark); }
+
+/* ------------------------------------------------
+   Navbar — dark teal + gold border (like crux)
+   ------------------------------------------------ */
+.navbar {
+    background: var(--brand-dark) !important;
+    border-bottom: 3px solid var(--brand-gold) !important;
+    padding: 0.75rem 1rem;
+}
+
+.navbar .navbar-brand,
+.navbar-brand {
+    color: #fff !important;
+    font-weight: 700;
+}
+
+.navbar-brand span {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.navbar .nav-user {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.85rem;
+}
+
+.navbar .badge-admin {
+    background: var(--brand-gold) !important;
+    color: var(--brand-dark) !important;
+    font-weight: 600;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+}
+
+.navbar .btn-logout {
+    color: rgba(255, 255, 255, 0.7) !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+    font-size: 0.8rem;
+    background: transparent !important;
+}
+
+.navbar .btn-logout:hover {
+    color: #fff !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.navbar .btn-sidebar-toggle {
+    color: rgba(255, 255, 255, 0.7) !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+    background: transparent !important;
+}
+
+.navbar .btn-sidebar-toggle:hover {
+    color: #fff !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ------------------------------------------------
+   Sidebar
+   ------------------------------------------------ */
 .sidebar {
     width: var(--sidebar-width);
     min-height: calc(100vh - 56px);
@@ -14,44 +166,365 @@
     overflow-y: auto;
     transition: transform 0.3s ease;
     z-index: 1000;
+    background: var(--bg-card) !important;
+    border-right: 1px solid var(--border-color) !important;
+}
+
+.sidebar .sidebar-heading {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
 }
 
 .sidebar .nav-link {
-    color: #495057;
-    border-radius: 0.375rem;
+    color: var(--text-secondary) !important;
+    border-radius: 0.5rem;
     padding: 0.5rem 0.75rem;
     margin-bottom: 2px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.15s;
 }
 
 .sidebar .nav-link:hover {
-    background: #f0f0f0;
-    color: #212529;
+    background: var(--bg-card-alt) !important;
+    color: var(--text-primary) !important;
 }
 
 .sidebar .nav-link.active {
-    background: #e7f1ff;
-    color: #0d6efd;
-    font-weight: 500;
+    background: var(--brand-teal-light) !important;
+    color: var(--brand-dark) !important;
+    font-weight: 600;
 }
 
-/* Main content */
+.sidebar .nav-link .badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.sidebar .badge-quota-ok {
+    background: rgba(102, 178, 178, 0.15) !important;
+    color: var(--brand-dark) !important;
+}
+
+.sidebar .badge-quota-warn {
+    background: rgba(249, 115, 22, 0.15) !important;
+    color: #c2410c !important;
+}
+
+.sidebar .badge-quota-danger {
+    background: rgba(239, 68, 68, 0.12) !important;
+    color: var(--color-bad) !important;
+}
+
+/* ------------------------------------------------
+   Main Content
+   ------------------------------------------------ */
 .main-content {
     margin-left: var(--sidebar-width);
     min-height: calc(100vh - 56px);
 }
 
-/* Module cards */
+/* ------------------------------------------------
+   Cards — same as crux / kg-entities
+   ------------------------------------------------ */
+.card {
+    border-radius: 1rem !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(0, 76, 76, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+.card-header {
+    border-bottom: 1px solid #e2e8f0;
+    background: linear-gradient(135deg, rgba(102, 178, 178, 0.04) 0%, transparent 60%) !important;
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.card-header:first-child {
+    border-radius: calc(1rem - 1px) calc(1rem - 1px) 0 0 !important;
+}
+
+.card-header h5,
+.card-header h6 {
+    color: var(--text-primary);
+}
+
+.card-accent-teal {
+    border-top: 3px solid var(--brand-teal) !important;
+}
+
+.card-accent-gold {
+    border-left: 3px solid var(--brand-gold) !important;
+}
+
+/* ------------------------------------------------
+   Module cards (dashboard)
+   ------------------------------------------------ */
 .module-card {
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     cursor: pointer;
 }
 
 .module-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1) !important;
+    transform: translateY(-3px);
+    border-color: rgba(102, 178, 178, 0.4) !important;
+    box-shadow: 0 8px 24px rgba(0, 76, 76, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06) !important;
 }
 
-/* Module content wrapper */
+.module-card .module-icon {
+    color: var(--brand-teal) !important;
+}
+
+.module-card .badge-version {
+    background: var(--bg-card-alt) !important;
+    color: var(--text-muted) !important;
+    font-weight: 500;
+    font-size: 0.72rem;
+}
+
+/* ------------------------------------------------
+   Tables — same as crux / kg-entities
+   ------------------------------------------------ */
+.table {
+    color: #0f172a;
+    --bs-table-bg: transparent !important;
+    background-color: transparent !important;
+}
+
+.table th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    border-color: #e2e8f0 !important;
+}
+
+.table td {
+    border-color: #e2e8f0 !important;
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.table thead tr {
+    background: #f1f5f9 !important;
+}
+
+.table tbody tr:nth-child(even) {
+    background: #f8fafc;
+}
+
+.table tbody tr:nth-child(odd) {
+    background: #ffffff;
+}
+
+.table tbody tr:hover {
+    background: #f1f5f9 !important;
+}
+
+/* Access & quota matrix */
+.access-matrix th {
+    font-size: 0.82rem;
+}
+
+.access-matrix td {
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* ------------------------------------------------
+   Forms — teal focus (like crux / kg-entities)
+   ------------------------------------------------ */
+.form-label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.form-control,
+.form-select {
+    border-color: #e2e8f0;
+    color: var(--text-primary);
+}
+
+.form-control::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1;
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--brand-teal) !important;
+    box-shadow: 0 0 0 0.2rem rgba(102, 178, 178, 0.25) !important;
+}
+
+.form-check-input:checked {
+    background-color: var(--brand-teal) !important;
+    border-color: var(--brand-teal) !important;
+}
+
+.form-check-label {
+    color: #0f172a !important;
+}
+
+/* ------------------------------------------------
+   Buttons — dark teal primary (like crux)
+   ------------------------------------------------ */
+.btn-primary {
+    background-color: var(--brand-dark) !important;
+    border-color: var(--brand-dark) !important;
+    color: #fff !important;
+    font-weight: 600;
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+    background-color: #006666 !important;
+    border-color: #006666 !important;
+    box-shadow: 0 0 0 0.2rem rgba(102, 178, 178, 0.35) !important;
+}
+
+.btn-primary:active {
+    background-color: var(--brand-dark) !important;
+    border-color: var(--brand-dark) !important;
+}
+
+.btn-outline-secondary {
+    border-color: #cbd5e1 !important;
+    color: var(--text-secondary) !important;
+    font-weight: 500;
+}
+
+.btn-outline-secondary:hover {
+    background: var(--bg-card-alt) !important;
+    border-color: #cbd5e1 !important;
+    color: var(--text-primary) !important;
+}
+
+.btn-outline-primary {
+    border-color: var(--brand-teal) !important;
+    color: var(--brand-dark) !important;
+    font-weight: 600;
+    background: transparent !important;
+}
+
+.btn-outline-primary:hover {
+    background: var(--brand-teal-light) !important;
+    border-color: var(--brand-teal) !important;
+    color: var(--brand-dark) !important;
+}
+
+/* ------------------------------------------------
+   Badges — branded
+   ------------------------------------------------ */
+.badge-role-admin {
+    background: var(--brand-gold) !important;
+    color: var(--brand-dark) !important;
+    font-weight: 600;
+}
+
+.badge-role-user {
+    background: var(--bg-card-alt) !important;
+    color: var(--text-secondary) !important;
+    font-weight: 500;
+}
+
+.badge-active {
+    background: rgba(34, 197, 94, 0.12) !important;
+    color: var(--color-good) !important;
+    font-weight: 600;
+}
+
+.badge-inactive {
+    background: rgba(239, 68, 68, 0.12) !important;
+    color: var(--color-bad) !important;
+    font-weight: 600;
+}
+
+/* ------------------------------------------------
+   Alerts — tinted like kg-entities
+   ------------------------------------------------ */
+.alert-success {
+    background: rgba(34, 197, 94, 0.08) !important;
+    border-color: rgba(34, 197, 94, 0.2) !important;
+    color: #166534 !important;
+}
+
+.alert-danger {
+    background: rgba(239, 68, 68, 0.08) !important;
+    border-color: rgba(239, 68, 68, 0.25) !important;
+    color: var(--color-bad) !important;
+}
+
+.alert-warning {
+    background: var(--brand-gold-light) !important;
+    border-color: rgba(251, 176, 59, 0.35) !important;
+    color: #92690d !important;
+}
+
+/* ------------------------------------------------
+   Progress bars
+   ------------------------------------------------ */
+.progress {
+    background-color: var(--bg-card-alt) !important;
+    border-radius: 0.5rem;
+}
+
+.progress-bar-teal {
+    background-color: var(--brand-teal) !important;
+}
+
+.progress-bar-warn {
+    background-color: var(--color-warn) !important;
+}
+
+.progress-bar-danger {
+    background-color: var(--color-bad) !important;
+}
+
+/* ------------------------------------------------
+   Page headings
+   ------------------------------------------------ */
+h2 {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 1.35rem;
+}
+
+/* ------------------------------------------------
+   Login page
+   ------------------------------------------------ */
+.login-wrapper {
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--brand-dark) 0%, #006666 50%, var(--brand-teal) 100%);
+}
+
+.login-card {
+    border-top: 4px solid var(--brand-gold) !important;
+}
+
+.login-card .login-title {
+    color: var(--brand-dark);
+    font-weight: 700;
+}
+
+/* ------------------------------------------------
+   Quota exceeded page
+   ------------------------------------------------ */
+.quota-exceeded-icon {
+    color: var(--color-warn);
+    font-size: 4rem;
+}
+
+/* ------------------------------------------------
+   Module content wrapper
+   ------------------------------------------------ */
 .module-content {
     position: relative;
 }
@@ -62,17 +535,96 @@
     padding-right: 0;
 }
 
-/* Access matrix */
-.access-matrix th {
-    font-size: 0.85rem;
+/* Masquer les navbars des plugins (la plateforme a la sienne) */
+.module-content .navbar,
+.module-content nav.navbar,
+.module-content header.navbar,
+.module-content .navbar-dark,
+.module-content .navbar-light {
+    display: none !important;
 }
 
-.access-matrix td {
-    text-align: center;
-    vertical-align: middle;
+/* ------------------------------------------------
+   Tabs — teal underline (like crux)
+   ------------------------------------------------ */
+.nav-tabs {
+    border-bottom: 1px solid var(--border-color);
 }
 
-/* Responsive */
+.nav-tabs .nav-link {
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.88rem;
+    border-color: transparent;
+    letter-spacing: 0.04em;
+}
+
+.nav-tabs .nav-link:hover {
+    color: #0f172a;
+    border-color: transparent;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--brand-dark) !important;
+    background: transparent !important;
+    border-bottom: 3px solid var(--brand-teal) !important;
+    border-top-color: transparent !important;
+    border-left-color: transparent !important;
+    border-right-color: transparent !important;
+}
+
+/* ------------------------------------------------
+   text-muted override (like kg-entities)
+   ------------------------------------------------ */
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+/* ------------------------------------------------
+   Plugin badges & detection panel
+   ------------------------------------------------ */
+.badge-source-embedded {
+    background: rgba(102, 178, 178, 0.15) !important;
+    color: var(--brand-dark) !important;
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.badge-source-external {
+    background: var(--brand-gold-light) !important;
+    color: #92690d !important;
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.detection-panel {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    background: var(--bg-card);
+    margin-top: 1rem;
+}
+
+.detection-panel.detected {
+    border-color: rgba(34, 197, 94, 0.4);
+    background: rgba(34, 197, 94, 0.04);
+}
+
+.detection-panel.manual {
+    border-color: rgba(251, 176, 59, 0.4);
+    background: rgba(251, 176, 59, 0.04);
+}
+
+.chemin-source-text {
+    font-family: 'Courier New', monospace;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    word-break: break-all;
+}
+
+/* ------------------------------------------------
+   Responsive
+   ------------------------------------------------ */
 @media (max-width: 991.98px) {
     .sidebar {
         transform: translateX(-100%);

@@ -1,0 +1,10 @@
+parameters:
+    level: 6
+    paths:
+        - core
+    excludePaths:
+        - core/View/Layout.php
+    scanDirectories:
+        - vendor
+    ignoreErrors:
+        - identifier: missingType.iterableValue

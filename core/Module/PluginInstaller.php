@@ -328,17 +328,22 @@ class PluginInstaller
             return null;
         }
 
-        // Chercher module.json à la racine
-        $contenu = $zip->getFromName('module.json');
+        $contenu = false;
         $prefixe = '';
 
-        // Sinon, chercher dans un sous-dossier unique
+        // Détecter un sous-dossier unique englobant tout le contenu
+        $sousDossierUnique = $this->detecterSousDossierUniqueZip($zip);
+
+        if ($sousDossierUnique !== null) {
+            // Chercher module.json dans le sous-dossier unique
+            $prefixe = $sousDossierUnique . '/';
+            $contenu = $zip->getFromName($prefixe . 'module.json');
+        }
+
+        // Sinon, chercher module.json à la racine
         if ($contenu === false) {
-            $premierEntry = $zip->getNameIndex(0);
-            if ($premierEntry !== false && str_contains($premierEntry, '/')) {
-                $prefixe = explode('/', $premierEntry)[0] . '/';
-                $contenu = $zip->getFromName($prefixe . 'module.json');
-            }
+            $contenu = $zip->getFromName('module.json');
+            $prefixe = '';
         }
 
         $zip->close();
@@ -353,6 +358,38 @@ class PluginInstaller
         }
 
         return ['donnees' => $data, 'prefixe' => $prefixe];
+    }
+
+    /**
+     * Détecte si toutes les entrées du ZIP (hors fichiers à la racine) sont dans un sous-dossier unique.
+     * Ex: un ZIP contenant crux/index.php, crux/app.js, module.json → retourne "crux".
+     */
+    private function detecterSousDossierUniqueZip(ZipArchive $zip): ?string
+    {
+        $sousDossier = null;
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $nom = $zip->getNameIndex($i);
+            if ($nom === false) {
+                continue;
+            }
+
+            // Ignorer les fichiers à la racine (sans /)
+            if (!str_contains($nom, '/')) {
+                continue;
+            }
+
+            $dossierRacine = explode('/', $nom)[0];
+
+            if ($sousDossier === null) {
+                $sousDossier = $dossierRacine;
+            } elseif ($sousDossier !== $dossierRacine) {
+                // Plusieurs sous-dossiers différents → pas de sous-dossier unique
+                return null;
+            }
+        }
+
+        return $sousDossier;
     }
 
     /**

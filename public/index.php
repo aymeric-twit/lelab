@@ -20,6 +20,7 @@ use Platform\Controller\ModuleController;
 use Platform\Controller\AdminUserController;
 use Platform\Controller\AdminAccessController;
 use Platform\Controller\AdminQuotaController;
+use Platform\Controller\AdminCategorieController;
 use Platform\Controller\AdminPluginController;
 use Platform\Database\Connection;
 
@@ -39,6 +40,7 @@ $module = new ModuleController();
 $adminUser = new AdminUserController();
 $adminAccess = new AdminAccessController();
 $adminQuota = new AdminQuotaController();
+$adminCategorie = new AdminCategorieController();
 $adminPlugin = new AdminPluginController();
 
 // -----------------------------------------------
@@ -68,7 +70,7 @@ $router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard,
 // Admin routes
 // -----------------------------------------------
 
-$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminPlugin) {
+$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin) {
     $r->get('/admin/users', [$adminUser, 'index']);
     $r->get('/admin/users/create', [$adminUser, 'formulaireCreation']);
     $r->post('/admin/users/create', [$adminUser, 'creer']);
@@ -80,6 +82,13 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
 
     $r->get('/admin/quotas', [$adminQuota, 'index']);
     $r->post('/admin/quotas', [$adminQuota, 'mettreAJour']);
+
+    $r->get('/admin/categories', [$adminCategorie, 'index']);
+    $r->get('/admin/categories/creer', [$adminCategorie, 'formulaireCreation']);
+    $r->post('/admin/categories/creer', [$adminCategorie, 'creer']);
+    $r->get('/admin/categories/{id}/editer', [$adminCategorie, 'formulaireEdition']);
+    $r->post('/admin/categories/{id}/editer', [$adminCategorie, 'mettreAJour']);
+    $r->post('/admin/categories/{id}/supprimer', [$adminCategorie, 'supprimer']);
 
     $r->get('/admin/plugins', [$adminPlugin, 'index']);
     $r->get('/admin/plugins/installer', [$adminPlugin, 'formulaireInstallation']);

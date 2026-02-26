@@ -121,12 +121,12 @@ class PluginInstaller
                 slug, name, description, version, icon, sort_order,
                 quota_mode, default_quota, enabled,
                 chemin_source, point_entree, cles_env, routes_config, passthrough_all,
-                mode_affichage, installe_par, installe_le
+                mode_affichage, categorie_id, installe_par, installe_le
             ) VALUES (
                 :slug, :name, :description, :version, :icon, :sort_order,
                 :quota_mode, :default_quota, 1,
                 :chemin_source, :point_entree, :cles_env, :routes_config, :passthrough_all,
-                :mode_affichage, :installe_par, NOW()
+                :mode_affichage, :categorie_id, :installe_par, NOW()
             )
         ');
 
@@ -145,6 +145,7 @@ class PluginInstaller
             'routes_config'   => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
             'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
             'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
+            'categorie_id'    => $donnees['categorie_id'] ?? null,
             'installe_par'    => $installeParId,
         ]);
 
@@ -180,7 +181,8 @@ class PluginInstaller
                 cles_env = :cles_env,
                 routes_config = :routes_config,
                 passthrough_all = :passthrough_all,
-                mode_affichage = :mode_affichage
+                mode_affichage = :mode_affichage,
+                categorie_id = :categorie_id
             WHERE id = :id
         ');
 
@@ -198,6 +200,7 @@ class PluginInstaller
             'routes_config'   => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
             'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
             'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
+            'categorie_id'    => $donnees['categorie_id'] ?? null,
         ]);
     }
 

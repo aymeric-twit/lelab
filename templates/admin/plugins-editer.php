@@ -104,6 +104,19 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
                             </div>
                         </div>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="categorie_id" class="form-label">Catégorie</label>
+                        <select class="form-select" id="categorie_id" name="categorie_id">
+                            <option value="">— Aucune (Non classé) —</option>
+                            <?php foreach ($categories ?? [] as $cat): ?>
+                                <option value="<?= $cat['id'] ?>"
+                                    <?= ((int) ($module['categorie_id'] ?? 0)) === (int) $cat['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($cat['nom']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>

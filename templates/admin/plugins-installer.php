@@ -120,6 +120,16 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="categorie_id" class="form-label">Catégorie</label>
+                        <select class="form-select" id="categorie_id" name="categorie_id">
+                            <option value="">— Aucune (Non classé) —</option>
+                            <?php foreach ($categories ?? [] as $cat): ?>
+                                <option value="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['nom']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>
@@ -334,6 +344,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('default_quota').value = data.default_quota || 0;
         document.getElementById('cles_env').value = (data.env_keys || []).join(', ');
         document.getElementById('mode_affichage').value = data.display_mode || 'embedded';
+        document.getElementById('categorie_id').value = data.categorie_id || '';
     }
 
     function escapeHtml(text) {

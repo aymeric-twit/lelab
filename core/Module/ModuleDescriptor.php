@@ -21,11 +21,13 @@ class ModuleDescriptor
     public readonly ModeAffichage $modeAffichage;
     public readonly QuotaMode $quotaMode;
     public readonly int $defaultQuota;
+    public readonly ?int $categorieId;
     public readonly string $path;
 
     public function __construct(string $basePath, array $data)
     {
         $this->path = $basePath;
+        $this->categorieId = isset($data['categorie_id']) ? (int) $data['categorie_id'] : null;
         $this->slug = $data['slug'];
         $this->name = $data['name'];
         $this->description = $data['description'] ?? '';

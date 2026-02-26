@@ -46,31 +46,84 @@
                             <i class="bi bi-grid me-2"></i> Dashboard
                         </a>
                     </li>
-                    <?php foreach ($accessibleModules ?? [] as $mod): ?>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center <?= ($activeModule ?? '') === $mod['slug'] ? 'active' : '' ?>"
-                               href="/m/<?= htmlspecialchars($mod['slug']) ?>">
-                                <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-2"></i>
-                                <?= htmlspecialchars($mod['name']) ?>
-                                <?php
-                                $qs = $quotaSummary ?? [];
-                                $modSlug = $mod['slug'];
-                                if (($currentUser['role'] ?? '') !== 'admin'
-                                    && isset($qs[$modSlug])
-                                    && $qs[$modSlug]['quota_mode'] !== \Platform\Enum\QuotaMode::None
-                                    && $qs[$modSlug]['limit'] > 0
-                                ):
-                                    $qUsage = $qs[$modSlug]['usage'];
-                                    $qLimit = $qs[$modSlug]['limit'];
-                                    $qPct = round(($qUsage / $qLimit) * 100);
-                                    $qBadgeClass = $qPct >= 100 ? 'badge-quota-danger' : ($qPct >= 80 ? 'badge-quota-warn' : 'badge-quota-ok');
-                                ?>
-                                    <span class="badge <?= $qBadgeClass ?> ms-auto"><?= $qUsage ?>/<?= $qLimit ?></span>
-                                <?php endif; ?>
-                            </a>
-                        </li>
-                    <?php endforeach; ?>
                 </ul>
+
+                <?php
+                // Grouper les modules par catégorie
+                $modulesParCategorie = [];
+                foreach ($accessibleModules ?? [] as $mod) {
+                    $catKey = $mod['categorie_id'] ?? 0;
+                    if (!isset($modulesParCategorie[$catKey])) {
+                        $modulesParCategorie[$catKey] = [
+                            'nom'        => $mod['categorie_nom'] ?? null,
+                            'icone'      => $mod['categorie_icone'] ?? 'bi-folder',
+                            'sort_order' => $mod['categorie_sort_order'] ?? 9999,
+                            'modules'    => [],
+                        ];
+                    }
+                    $modulesParCategorie[$catKey]['modules'][] = $mod;
+                }
+
+                // Trier : "Non classé" (key 0) en dernier, puis par sort_order catégorie
+                uksort($modulesParCategorie, function ($a, $b) use ($modulesParCategorie) {
+                    if ($a === 0) return 1;
+                    if ($b === 0) return -1;
+                    return $modulesParCategorie[$a]['sort_order'] <=> $modulesParCategorie[$b]['sort_order'];
+                });
+
+                $catIndex = 0;
+                foreach ($modulesParCategorie as $catId => $catData):
+                    $catNom = $catId === 0 ? 'Non classé' : $catData['nom'];
+                    $catIcone = $catId === 0 ? 'bi-folder' : $catData['icone'];
+                    $collapseId = 'sidebar-cat-' . $catIndex;
+
+                    // Déplier si la catégorie contient le module actif
+                    $contientActif = false;
+                    foreach ($catData['modules'] as $mod) {
+                        if (($activeModule ?? '') === $mod['slug']) {
+                            $contientActif = true;
+                            break;
+                        }
+                    }
+                    $showClass = $contientActif ? 'show' : 'show';
+                ?>
+                <h6 class="sidebar-heading sidebar-category mt-3 mb-1"
+                    data-bs-toggle="collapse" data-bs-target="#<?= $collapseId ?>"
+                    aria-expanded="true" aria-controls="<?= $collapseId ?>"
+                    role="button" style="cursor: pointer;">
+                    <i class="bi <?= htmlspecialchars($catIcone) ?> me-1"></i>
+                    <?= htmlspecialchars($catNom) ?>
+                    <i class="bi bi-chevron-down ms-auto sidebar-chevron" style="font-size: 0.65rem;"></i>
+                </h6>
+                <div class="collapse <?= $showClass ?>" id="<?= $collapseId ?>">
+                    <ul class="nav flex-column">
+                        <?php foreach ($catData['modules'] as $mod): ?>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center <?= ($activeModule ?? '') === $mod['slug'] ? 'active' : '' ?>"
+                                   href="/m/<?= htmlspecialchars($mod['slug']) ?>">
+                                    <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-2"></i>
+                                    <?= htmlspecialchars($mod['name']) ?>
+                                    <?php
+                                    $qs = $quotaSummary ?? [];
+                                    $modSlug = $mod['slug'];
+                                    if (($currentUser['role'] ?? '') !== 'admin'
+                                        && isset($qs[$modSlug])
+                                        && $qs[$modSlug]['quota_mode'] !== \Platform\Enum\QuotaMode::None
+                                        && $qs[$modSlug]['limit'] > 0
+                                    ):
+                                        $qUsage = $qs[$modSlug]['usage'];
+                                        $qLimit = $qs[$modSlug]['limit'];
+                                        $qPct = round(($qUsage / $qLimit) * 100);
+                                        $qBadgeClass = $qPct >= 100 ? 'badge-quota-danger' : ($qPct >= 80 ? 'badge-quota-warn' : 'badge-quota-ok');
+                                    ?>
+                                        <span class="badge <?= $qBadgeClass ?> ms-auto"><?= $qUsage ?>/<?= $qLimit ?></span>
+                                    <?php endif; ?>
+                                </a>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php $catIndex++; endforeach; ?>
 
                 <?php if (($currentUser['role'] ?? '') === 'admin'): ?>
                     <h6 class="sidebar-heading mb-3 mt-4">Administration</h6>
@@ -88,6 +141,11 @@
                         <li class="nav-item">
                             <a class="nav-link <?= ($adminPage ?? '') === 'quotas' ? 'active' : '' ?>" href="/admin/quotas">
                                 <i class="bi bi-speedometer me-2"></i> Quotas
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?= ($adminPage ?? '') === 'categories' ? 'active' : '' ?>" href="/admin/categories">
+                                <i class="bi bi-tag me-2"></i> Catégories
                             </a>
                         </li>
                         <li class="nav-item">

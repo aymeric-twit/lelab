@@ -29,10 +29,12 @@ class AccessControl
     public function getAccessibleModules(int $userId): array
     {
         $stmt = $this->db->prepare(
-            'SELECT m.* FROM modules m
+            'SELECT m.*, c.nom AS categorie_nom, c.icone AS categorie_icone, c.sort_order AS categorie_sort_order
+             FROM modules m
              JOIN user_module_access uma ON uma.module_id = m.id
+             LEFT JOIN categories c ON c.id = m.categorie_id
              WHERE uma.user_id = ? AND uma.granted = 1 AND m.enabled = 1
-             ORDER BY m.sort_order'
+             ORDER BY COALESCE(c.sort_order, 9999), c.nom, m.sort_order'
         );
         $stmt->execute([$userId]);
         return $stmt->fetchAll();

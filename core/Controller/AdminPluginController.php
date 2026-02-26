@@ -8,6 +8,7 @@ use Platform\Enum\AuditAction;
 use Platform\Enum\QuotaMode;
 use Platform\Http\Request;
 use Platform\Http\Response;
+use Platform\Module\ModuleRegistry;
 use Platform\Module\PluginInstaller;
 use Platform\Service\AuditLogger;
 use Platform\User\AccessControl;
@@ -44,6 +45,7 @@ class AdminPluginController
     {
         $user = Auth::user();
         $ac = new AccessControl();
+        $db = Connection::get();
 
         Layout::render('layout', [
             'template'          => 'admin/plugins-installer',
@@ -51,6 +53,7 @@ class AdminPluginController
             'currentUser'       => $user,
             'accessibleModules' => $ac->getAccessibleModules($user['id']),
             'adminPage'         => 'plugins',
+            'categories'        => ModuleRegistry::chargerCategories($db),
         ]);
     }
 
@@ -171,6 +174,8 @@ class AdminPluginController
 
         $clesEnv = array_filter(array_map('trim', explode(',', $req->post('cles_env', ''))));
 
+        $categorieId = $req->post('categorie_id', '');
+
         $donnees = [
             'slug'            => $slug,
             'name'            => trim($req->post('name', '')),
@@ -186,6 +191,7 @@ class AdminPluginController
             'routes_config'   => null,
             'passthrough_all' => $req->post('mode_affichage', 'embedded') === 'passthrough',
             'mode_affichage'  => $req->post('mode_affichage', 'embedded'),
+            'categorie_id'    => $categorieId !== '' ? (int) $categorieId : null,
         ];
 
         // Récupérer routes_config depuis module.json si détecté
@@ -231,6 +237,7 @@ class AdminPluginController
             'accessibleModules' => $ac->getAccessibleModules($user['id']),
             'adminPage'         => 'plugins',
             'module'            => $module,
+            'categories'        => ModuleRegistry::chargerCategories($db),
         ]);
     }
 
@@ -255,6 +262,17 @@ class AdminPluginController
             if ($moduleJson !== null) {
                 $clesEnv = !empty($moduleJson['env_keys']) ? $moduleJson['env_keys'] : null;
 
+                // Résolution de la catégorie depuis module.json (par nom)
+                $resyncCategorieId = null;
+                if (!empty($moduleJson['category'])) {
+                    $stmtCat = $db->prepare('SELECT id FROM categories WHERE nom = ?');
+                    $stmtCat->execute([$moduleJson['category']]);
+                    $catRow = $stmtCat->fetch();
+                    if ($catRow) {
+                        $resyncCategorieId = (int) $catRow['id'];
+                    }
+                }
+
                 $installer->mettreAJour($moduleId, [
                     'name'            => $moduleJson['name'],
                     'description'     => $moduleJson['description'] ?? '',
@@ -268,6 +286,7 @@ class AdminPluginController
                     'routes_config'   => !empty($moduleJson['routes']) ? $moduleJson['routes'] : null,
                     'passthrough_all' => !empty($moduleJson['passthrough_all']),
                     'mode_affichage'  => $moduleJson['display_mode'] ?? 'embedded',
+                    'categorie_id'    => $resyncCategorieId,
                 ]);
 
                 AuditLogger::instance()->log(
@@ -295,6 +314,7 @@ class AdminPluginController
         }
 
         $clesEnv = array_filter(array_map('trim', explode(',', $req->post('cles_env', ''))));
+        $categorieId = $req->post('categorie_id', '');
 
         $installer = new PluginInstaller($db);
         $installer->mettreAJour($moduleId, [
@@ -310,6 +330,7 @@ class AdminPluginController
             'routes_config'   => null,
             'passthrough_all' => $req->post('mode_affichage', 'embedded') === 'passthrough',
             'mode_affichage'  => $req->post('mode_affichage', 'embedded'),
+            'categorie_id'    => $categorieId !== '' ? (int) $categorieId : null,
         ]);
 
         AuditLogger::instance()->log(

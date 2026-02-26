@@ -220,6 +220,26 @@ a:hover { color: var(--brand-dark); }
     color: var(--color-bad) !important;
 }
 
+/* Sidebar category headings */
+.sidebar .sidebar-category {
+    display: flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    user-select: none;
+}
+
+.sidebar .sidebar-category:hover {
+    color: var(--text-secondary);
+}
+
+.sidebar .sidebar-category .sidebar-chevron {
+    transition: transform 0.2s ease;
+}
+
+.sidebar .sidebar-category[aria-expanded="false"] .sidebar-chevron {
+    transform: rotate(-90deg);
+}
+
 /* ------------------------------------------------
    Main Content
    ------------------------------------------------ */

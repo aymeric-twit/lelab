@@ -67,10 +67,23 @@ class ModuleRegistry
                 'display_mode'    => $row['mode_affichage'] ?? 'embedded',
                 'quota_mode'      => $row['quota_mode'] ?? 'none',
                 'default_quota'   => (int) ($row['default_quota'] ?? 0),
+                'categorie_id'    => $row['categorie_id'] ?? null,
             ];
 
             self::$modules[$slug] = new ModuleDescriptor($row['chemin_source'], $data);
         }
+    }
+
+    /**
+     * Retourne toutes les catégories ordonnées par sort_order.
+     *
+     * @return array<int, array{id: int, nom: string, icone: string, sort_order: int}>
+     */
+    public static function chargerCategories(PDO $db): array
+    {
+        return $db->query(
+            'SELECT * FROM categories ORDER BY sort_order, nom'
+        )->fetchAll();
     }
 
     public static function get(string $slug): ?ModuleDescriptor

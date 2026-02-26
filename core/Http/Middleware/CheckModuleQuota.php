@@ -47,14 +47,20 @@ class CheckModuleQuota implements Middleware
             return;
         }
 
-        $shouldCheck = ($module->quotaMode === QuotaMode::Request)
-            || ($module->quotaMode === QuotaMode::FormSubmit && $request->method() === 'POST');
+        // 1. Déterminer si le quota doit être vérifié pour ce mode
+        $doitVerifier = $module->quotaMode->estSuivi(); // true pour request, form_submit, api_call
 
-        if (!$shouldCheck) {
+        // En mode form_submit, seuls les POST sont vérifiés
+        if ($module->quotaMode === QuotaMode::FormSubmit && $request->method() !== 'POST') {
+            $doitVerifier = false;
+        }
+
+        if (!$doitVerifier) {
             $next($request);
             return;
         }
 
+        // 2. Bloquer si quota dépassé — s'applique à TOUS les modes suivis (y compris api_call)
         if (Quota::isOverQuota($user['id'], $slug)) {
             if ($request->isAjax()) {
                 Response::json(['error' => 'Quota dépassé', 'quota_exceeded' => true], 429);
@@ -78,8 +84,12 @@ class CheckModuleQuota implements Middleware
             exit;
         }
 
-        // Auto-increment
-        Quota::increment($user['id'], $slug);
+        // 3. Auto-incrémenter uniquement pour request et form_submit
+        //    Le mode api_call est incrémenté manuellement par le plugin via Quota::track()
+        if ($module->quotaMode === QuotaMode::Request
+            || ($module->quotaMode === QuotaMode::FormSubmit && $request->method() === 'POST')) {
+            Quota::increment($user['id'], $slug);
+        }
 
         $next($request);
     }

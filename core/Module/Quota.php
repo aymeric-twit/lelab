@@ -137,6 +137,56 @@ class Quota
     }
 
     /**
+     * Vérifie le quota restant, incrémente si disponible, retourne le succès.
+     * Retourne false si aucun utilisateur connecté ou quota dépassé.
+     * Retourne true (et incrémente) si le quota est suffisant ou illimité.
+     */
+    public static function trackerSiDisponible(string $slug, int $amount = 1): bool
+    {
+        $userId = Auth::id();
+        if (!$userId) {
+            return false;
+        }
+
+        $limit = self::getLimit($userId, $slug);
+
+        // Quota illimité
+        if ($limit === 0) {
+            self::increment($userId, $slug, $amount);
+            return true;
+        }
+
+        $usage = self::getUsage($userId, $slug);
+        if ($usage + $amount > $limit) {
+            return false;
+        }
+
+        self::increment($userId, $slug, $amount);
+        return true;
+    }
+
+    /**
+     * Retourne le nombre d'unités restantes pour l'utilisateur courant.
+     * Retourne null si quota illimité, 0 si atteint/dépassé (jamais négatif).
+     */
+    public static function restant(string $slug): ?int
+    {
+        $userId = Auth::id();
+        if (!$userId) {
+            return 0;
+        }
+
+        $limit = self::getLimit($userId, $slug);
+
+        if ($limit === 0) {
+            return null;
+        }
+
+        $usage = self::getUsage($userId, $slug);
+        return max(0, $limit - $usage);
+    }
+
+    /**
      * Get quota summary for all modules accessible by a user.
      * Returns [slug => ['usage' => int, 'limit' => int, 'quota_mode' => QuotaMode]]
      */

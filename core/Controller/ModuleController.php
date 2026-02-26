@@ -30,13 +30,33 @@ class ModuleController
             Response::abort(404);
         }
 
-        if ($module->passthroughAll) {
+        // Mode passthrough : le module gère tout, pas de layout
+        if ($module->modeAffichage->estPassthrough()) {
             ModuleRenderer::passthrough($module, $module->entryPoint);
             return;
         }
 
         $modules = $ac->getAccessibleModules($user['id']);
         $quotaSummary = Quota::getUserQuotaSummary($user['id']);
+
+        // Mode iframe : le contenu est un iframe, le layout parent reste
+        if ($module->modeAffichage->estIframe()) {
+            $result = ModuleRenderer::renderIframe($module);
+            Layout::render('layout', [
+                'content'           => $result['content'],
+                'headExtra'         => $result['headExtra'],
+                'footExtra'         => $result['footExtra'],
+                'pageTitle'         => $module->name,
+                'currentUser'       => $user,
+                'accessibleModules' => $modules,
+                'activeModule'      => $slug,
+                'quotaSummary'      => $quotaSummary,
+                'modeIframe'        => true,
+            ]);
+            return;
+        }
+
+        // Mode embedded : extractParts classique
         $result = ModuleRenderer::render($module);
 
         Layout::render('layout', [
@@ -68,11 +88,23 @@ class ModuleController
             Response::abort(404);
         }
 
-        if ($module->passthroughAll) {
+        // Mode passthrough : tout passe directement
+        if ($module->modeAffichage->estPassthrough()) {
             ModuleRenderer::passthrough($module, $module->entryPoint);
             return;
         }
 
+        // Mode iframe : _app sert l'app complète, les autres sous-routes aussi
+        if ($module->modeAffichage->estIframe()) {
+            if ($sub === '_app') {
+                ModuleRenderer::servirApp($module);
+            } else {
+                ModuleRenderer::servirApp($module, $sub);
+            }
+            return;
+        }
+
+        // Mode embedded : sous-routes ajax/stream en passthrough, pages en layout
         $routeType = $module->getRouteType($sub);
         if ($routeType->estPassthrough()) {
             ModuleRenderer::passthrough($module, $sub);

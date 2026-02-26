@@ -40,6 +40,13 @@ class CheckModuleQuota implements Middleware
             return;
         }
 
+        // Mode iframe : la requête parente (/m/{slug}) charge juste l'iframe,
+        // le quota sera compté sur les sous-routes réelles (_app, etc.)
+        if ($module->modeAffichage->estIframe() && !preg_match('#^/m/[^/]+/.+#', $path)) {
+            $next($request);
+            return;
+        }
+
         $shouldCheck = ($module->quotaMode === QuotaMode::Request)
             || ($module->quotaMode === QuotaMode::FormSubmit && $request->method() === 'POST');
 

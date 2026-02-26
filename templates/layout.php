@@ -101,13 +101,15 @@
         </nav>
 
         <!-- Main content -->
-        <main class="main-content flex-grow-1 p-4">
-            <?php foreach ($flash ?? [] as $msg): ?>
-                <div class="alert alert-<?= htmlspecialchars($msg['type']) ?> alert-dismissible fade show" role="alert">
-                    <?= htmlspecialchars($msg['message']) ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endforeach; ?>
+        <main class="<?= !empty($modeIframe) ? 'main-content-iframe' : 'main-content flex-grow-1 p-4' ?>">
+            <?php if (empty($modeIframe)): ?>
+                <?php foreach ($flash ?? [] as $msg): ?>
+                    <div class="alert alert-<?= htmlspecialchars($msg['type']) ?> alert-dismissible fade show" role="alert">
+                        <?= htmlspecialchars($msg['message']) ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
 
             <?php
             if (isset($template)) {

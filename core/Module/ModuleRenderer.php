@@ -64,6 +64,58 @@ class ModuleRenderer
     }
 
     /**
+     * Génère le HTML d'un iframe pointant vers l'app complète du module.
+     *
+     * @return array{content: string, headExtra: string, footExtra: string}
+     */
+    public static function renderIframe(ModuleDescriptor $module): array
+    {
+        $slug = htmlspecialchars($module->slug, ENT_QUOTES, 'UTF-8');
+        $iframeSrc = "/m/{$slug}/_app";
+
+        return [
+            'content' => '<iframe src="' . $iframeSrc . '" class="module-iframe" allowfullscreen></iframe>',
+            'headExtra' => '',
+            'footExtra' => '',
+        ];
+    }
+
+    /**
+     * Sert le HTML complet du module en mode iframe (passthrough avec contexte).
+     * Le module s'exécute comme une app autonome dans l'iframe.
+     */
+    public static function servirApp(ModuleDescriptor $module, ?string $subRoute = null): void
+    {
+        $file = $subRoute
+            ? $module->path . '/' . $subRoute
+            : $module->getEntryFile();
+
+        if (!file_exists($file)) {
+            http_response_code(404);
+            echo 'Not found';
+            return;
+        }
+
+        $bootFile = $module->path . '/boot.php';
+        if (file_exists($bootFile)) {
+            require_once $bootFile;
+        }
+
+        if (!defined('PLATFORM_IFRAME')) {
+            define('PLATFORM_IFRAME', true);
+        }
+
+        $oldCwd = getcwd();
+        chdir($module->path);
+
+        try {
+            require $file;
+        } finally {
+            chdir($oldCwd);
+        }
+    }
+
+    /**
      * Execute a sub-route in passthrough mode (no layout wrapping).
      * Used for AJAX endpoints, SSE streams, etc.
      */

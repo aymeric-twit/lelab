@@ -1,5 +1,6 @@
 <?php
 
+use Platform\Enum\ModeAffichage;
 use Platform\Enum\QuotaMode;
 use Platform\Enum\RouteType;
 use Platform\Module\ModuleDescriptor;
@@ -66,4 +67,41 @@ test('getRouteType retourne le bon type', function () {
 test('getRouteType retourne Page par défaut', function () {
     $desc = creerDescriptor();
     expect($desc->getRouteType('inexistant.php'))->toBe(RouteType::Page);
+});
+
+// Tests ModeAffichage
+
+test('il devrait utiliser ModeAffichage::Embedded par défaut', function () {
+    $desc = creerDescriptor();
+    expect($desc->modeAffichage)->toBe(ModeAffichage::Embedded);
+    expect($desc->passthroughAll)->toBeFalse();
+});
+
+test('display_mode iframe est correctement reconnu', function () {
+    $desc = creerDescriptor(['display_mode' => 'iframe']);
+    expect($desc->modeAffichage)->toBe(ModeAffichage::Iframe);
+    expect($desc->passthroughAll)->toBeFalse();
+});
+
+test('display_mode passthrough est correctement reconnu', function () {
+    $desc = creerDescriptor(['display_mode' => 'passthrough']);
+    expect($desc->modeAffichage)->toBe(ModeAffichage::Passthrough);
+    expect($desc->passthroughAll)->toBeTrue();
+});
+
+test('display_mode invalide retombe sur Embedded', function () {
+    $desc = creerDescriptor(['display_mode' => 'invalide']);
+    expect($desc->modeAffichage)->toBe(ModeAffichage::Embedded);
+});
+
+test('rétrocompat : passthrough_all=true sans display_mode donne Passthrough', function () {
+    $desc = creerDescriptor(['passthrough_all' => true]);
+    expect($desc->modeAffichage)->toBe(ModeAffichage::Passthrough);
+    expect($desc->passthroughAll)->toBeTrue();
+});
+
+test('display_mode a la priorité sur passthrough_all', function () {
+    $desc = creerDescriptor(['display_mode' => 'iframe', 'passthrough_all' => true]);
+    expect($desc->modeAffichage)->toBe(ModeAffichage::Iframe);
+    expect($desc->passthroughAll)->toBeFalse();
 });

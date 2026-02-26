@@ -150,11 +150,14 @@
                         <small class="text-muted">Séparées par des virgules</small>
                     </div>
 
-                    <div class="form-check mt-3">
-                        <input type="checkbox" class="form-check-input" id="passthrough_all" name="passthrough_all" value="1">
-                        <label class="form-check-label" for="passthrough_all">
-                            Mode passthrough <small class="text-muted">(toutes les sous-routes sont transmises)</small>
-                        </label>
+                    <div class="mb-3 mt-3">
+                        <label for="mode_affichage" class="form-label">Mode d'affichage</label>
+                        <select class="form-select" id="mode_affichage" name="mode_affichage">
+                            <?php foreach (\Platform\Enum\ModeAffichage::cases() as $mode): ?>
+                                <option value="<?= $mode->value ?>"><?= htmlspecialchars($mode->label()) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted">Intégré : extraction HTML. Iframe : app complète isolée. Passthrough : sans layout.</small>
                     </div>
                 </div>
             </div>
@@ -330,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('quota_mode').value = data.quota_mode || 'none';
         document.getElementById('default_quota').value = data.default_quota || 0;
         document.getElementById('cles_env').value = (data.env_keys || []).join(', ');
-        document.getElementById('passthrough_all').checked = !!data.passthrough_all;
+        document.getElementById('mode_affichage').value = data.display_mode || 'embedded';
     }
 
     function escapeHtml(text) {

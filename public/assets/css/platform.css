@@ -523,6 +523,23 @@ h2 {
 }
 
 /* ------------------------------------------------
+   Module iframe
+   ------------------------------------------------ */
+.module-iframe {
+    width: 100%;
+    height: calc(100vh - 56px);
+    border: none;
+    display: block;
+}
+
+/* En mode iframe, le main n'a pas de padding */
+.main-content-iframe {
+    margin-left: var(--sidebar-width);
+    min-height: calc(100vh - 56px);
+    padding: 0 !important;
+}
+
+/* ------------------------------------------------
    Module content wrapper
    ------------------------------------------------ */
 .module-content {
@@ -634,7 +651,8 @@ h2 {
         transform: translateX(0);
     }
 
-    .main-content {
+    .main-content,
+    .main-content-iframe {
         margin-left: 0;
     }
 }

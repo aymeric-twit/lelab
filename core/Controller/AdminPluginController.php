@@ -184,7 +184,8 @@ class AdminPluginController
             'point_entree'    => trim($req->post('point_entree', 'index.php')),
             'cles_env'        => $clesEnv !== [] ? $clesEnv : null,
             'routes_config'   => null,
-            'passthrough_all' => !empty($req->post('passthrough_all')),
+            'passthrough_all' => $req->post('mode_affichage', 'embedded') === 'passthrough',
+            'mode_affichage'  => $req->post('mode_affichage', 'embedded'),
         ];
 
         // Récupérer routes_config depuis module.json si détecté
@@ -266,6 +267,7 @@ class AdminPluginController
                     'cles_env'        => $clesEnv,
                     'routes_config'   => !empty($moduleJson['routes']) ? $moduleJson['routes'] : null,
                     'passthrough_all' => !empty($moduleJson['passthrough_all']),
+                    'mode_affichage'  => $moduleJson['display_mode'] ?? 'embedded',
                 ]);
 
                 AuditLogger::instance()->log(
@@ -306,7 +308,8 @@ class AdminPluginController
             'point_entree'    => trim($req->post('point_entree', 'index.php')),
             'cles_env'        => $clesEnv !== [] ? $clesEnv : null,
             'routes_config'   => null,
-            'passthrough_all' => !empty($req->post('passthrough_all')),
+            'passthrough_all' => $req->post('mode_affichage', 'embedded') === 'passthrough',
+            'mode_affichage'  => $req->post('mode_affichage', 'embedded'),
         ]);
 
         AuditLogger::instance()->log(

@@ -64,6 +64,7 @@ class ModuleRegistry
                 'env_keys'        => $row['cles_env'] ? json_decode($row['cles_env'], true) : [],
                 'routes'          => $row['routes_config'] ? json_decode($row['routes_config'], true) : [],
                 'passthrough_all' => (bool) $row['passthrough_all'],
+                'display_mode'    => $row['mode_affichage'] ?? 'embedded',
                 'quota_mode'      => $row['quota_mode'] ?? 'none',
                 'default_quota'   => (int) ($row['default_quota'] ?? 0),
             ];
@@ -90,8 +91,8 @@ class ModuleRegistry
     public static function syncToDatabase(PDO $db): void
     {
         $stmt = $db->prepare('
-            INSERT INTO modules (slug, name, description, version, icon, sort_order, quota_mode, default_quota)
-            VALUES (:slug, :name, :description, :version, :icon, :sort_order, :quota_mode, :default_quota)
+            INSERT INTO modules (slug, name, description, version, icon, sort_order, quota_mode, default_quota, mode_affichage)
+            VALUES (:slug, :name, :description, :version, :icon, :sort_order, :quota_mode, :default_quota, :mode_affichage)
             ON DUPLICATE KEY UPDATE
                 name = IF(chemin_source IS NULL, VALUES(name), name),
                 description = IF(chemin_source IS NULL, VALUES(description), description),
@@ -99,19 +100,21 @@ class ModuleRegistry
                 icon = IF(chemin_source IS NULL, VALUES(icon), icon),
                 sort_order = IF(chemin_source IS NULL, VALUES(sort_order), sort_order),
                 quota_mode = IF(chemin_source IS NULL, VALUES(quota_mode), quota_mode),
-                default_quota = IF(chemin_source IS NULL, VALUES(default_quota), default_quota)
+                default_quota = IF(chemin_source IS NULL, VALUES(default_quota), default_quota),
+                mode_affichage = IF(chemin_source IS NULL, VALUES(mode_affichage), mode_affichage)
         ');
 
         foreach (self::$modules as $module) {
             $stmt->execute([
-                'slug'          => $module->slug,
-                'name'          => $module->name,
-                'description'   => $module->description,
-                'version'       => $module->version,
-                'icon'          => $module->icon,
-                'sort_order'    => $module->sortOrder,
-                'quota_mode'    => $module->quotaMode->value,
-                'default_quota' => $module->defaultQuota,
+                'slug'           => $module->slug,
+                'name'           => $module->name,
+                'description'    => $module->description,
+                'version'        => $module->version,
+                'icon'           => $module->icon,
+                'sort_order'     => $module->sortOrder,
+                'quota_mode'     => $module->quotaMode->value,
+                'default_quota'  => $module->defaultQuota,
+                'mode_affichage' => $module->modeAffichage->value,
             ]);
         }
     }

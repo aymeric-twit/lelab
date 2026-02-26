@@ -139,12 +139,17 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
                         <small class="text-muted">Séparées par des virgules</small>
                     </div>
 
-                    <div class="form-check mt-3">
-                        <input type="checkbox" class="form-check-input" id="passthrough_all" name="passthrough_all" value="1"
-                               <?= !empty($module['passthrough_all']) ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="passthrough_all">
-                            Mode passthrough <small class="text-muted">(toutes les sous-routes sont transmises)</small>
-                        </label>
+                    <div class="mb-3">
+                        <label for="mode_affichage" class="form-label">Mode d'affichage</label>
+                        <select class="form-select" id="mode_affichage" name="mode_affichage">
+                            <?php foreach (\Platform\Enum\ModeAffichage::cases() as $mode): ?>
+                                <option value="<?= $mode->value ?>"
+                                    <?= ($module['mode_affichage'] ?? 'embedded') === $mode->value ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($mode->label()) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted">Intégré : extraction HTML. Iframe : app complète isolée. Passthrough : sans layout.</small>
                     </div>
                 </div>
             </div>

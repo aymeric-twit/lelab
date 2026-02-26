@@ -101,7 +101,7 @@
         </nav>
 
         <!-- Main content -->
-        <main class="<?= !empty($modeIframe) ? 'main-content-iframe' : 'main-content flex-grow-1 p-4' ?>">
+        <main class="<?= !empty($modeIframe) ? 'main-content-iframe flex-grow-1' : 'main-content flex-grow-1 p-4' ?>">
             <?php if (empty($modeIframe)): ?>
                 <?php foreach ($flash ?? [] as $msg): ?>
                     <div class="alert alert-<?= htmlspecialchars($msg['type']) ?> alert-dismissible fade show" role="alert">

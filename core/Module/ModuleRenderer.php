@@ -116,6 +116,47 @@ class ModuleRenderer
     }
 
     /**
+     * Sert un fichier statique du module avec le bon Content-Type.
+     * Retourne true si le fichier a été servi, false si ce n'est pas un asset statique.
+     */
+    public static function servirAssetStatique(ModuleDescriptor $module, string $subRoute): bool
+    {
+        $ext = strtolower(pathinfo($subRoute, PATHINFO_EXTENSION));
+
+        $mimeTypes = [
+            'css'   => 'text/css',
+            'js'    => 'application/javascript',
+            'json'  => 'application/json',
+            'png'   => 'image/png',
+            'jpg'   => 'image/jpeg',
+            'jpeg'  => 'image/jpeg',
+            'gif'   => 'image/gif',
+            'svg'   => 'image/svg+xml',
+            'ico'   => 'image/x-icon',
+            'woff'  => 'font/woff',
+            'woff2' => 'font/woff2',
+            'ttf'   => 'font/ttf',
+            'map'   => 'application/json',
+        ];
+
+        if (!isset($mimeTypes[$ext])) {
+            return false;
+        }
+
+        $filePath = realpath($module->path . '/' . $subRoute);
+        $modulePath = realpath($module->path);
+
+        if (!$filePath || !$modulePath || !str_starts_with($filePath, $modulePath)) {
+            return false;
+        }
+
+        header('Content-Type: ' . $mimeTypes[$ext]);
+        header('Cache-Control: public, max-age=86400');
+        readfile($filePath);
+        exit;
+    }
+
+    /**
      * Execute a sub-route in passthrough mode (no layout wrapping).
      * Used for AJAX endpoints, SSE streams, etc.
      */

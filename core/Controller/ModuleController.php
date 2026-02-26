@@ -94,8 +94,13 @@ class ModuleController
             return;
         }
 
-        // Mode iframe : _app sert l'app complète, les autres sous-routes aussi
+        // Mode iframe : assets statiques, _app, ou sous-routes PHP
         if ($module->modeAffichage->estIframe()) {
+            // Servir les fichiers statiques (js, css, images) avec le bon Content-Type
+            if (ModuleRenderer::servirAssetStatique($module, $sub)) {
+                return;
+            }
+
             if ($sub === '_app') {
                 ModuleRenderer::servirApp($module);
             } else {

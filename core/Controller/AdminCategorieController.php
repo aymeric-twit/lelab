@@ -20,11 +20,12 @@ class AdminCategorieController
         $db = Connection::get();
 
         $categories = $db->query(
-            'SELECT c.*, COUNT(m.id) AS nb_plugins
+            "SELECT c.*, COUNT(m.id) AS nb_plugins,
+                    GROUP_CONCAT(m.name ORDER BY m.sort_order SEPARATOR '||') AS plugins_noms
              FROM categories c
              LEFT JOIN modules m ON m.categorie_id = c.id
              GROUP BY c.id
-             ORDER BY c.sort_order, c.nom'
+             ORDER BY c.sort_order, c.nom"
         )->fetchAll();
 
         Layout::render('layout', [

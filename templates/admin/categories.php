@@ -15,7 +15,8 @@
                         <th>Nom</th>
                         <th>Icône</th>
                         <th>Ordre</th>
-                        <th>Plugins</th>
+                        <th>Nombre de plugins</th>
+                        <th>Installés</th>
                         <th style="width: 130px;">Actions</th>
                     </tr>
                 </thead>
@@ -37,6 +38,17 @@
                             <?php endif; ?>
                         </td>
                         <td>
+                            <?php if (!empty($cat['plugins_noms'])): ?>
+                                <ul class="mb-0">
+                                    <?php foreach (explode('||', $cat['plugins_noms']) as $nomPlugin): ?>
+                                        <li><?= htmlspecialchars($nomPlugin) ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php else: ?>
+                                <span class="text-muted">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
                             <div class="d-flex gap-1">
                                 <a href="/admin/categories/<?= $cat['id'] ?>/editer" class="btn btn-sm btn-outline-secondary" title="Éditer">
                                     <i class="bi bi-pencil"></i>
@@ -55,7 +67,7 @@
 
                     <?php if (empty($categories)): ?>
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">Aucune catégorie créée.</td>
+                        <td colspan="7" class="text-center text-muted py-4">Aucune catégorie créée.</td>
                     </tr>
                     <?php endif; ?>
                 </tbody>

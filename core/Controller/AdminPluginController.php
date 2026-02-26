@@ -25,9 +25,10 @@ class AdminPluginController
         $db = Connection::get();
 
         $modules = $db->query(
-            'SELECT m.*, u.username AS installe_par_nom
+            'SELECT m.*, u.username AS installe_par_nom, c.nom AS categorie_nom
              FROM modules m
              LEFT JOIN users u ON u.id = m.installe_par
+             LEFT JOIN categories c ON c.id = m.categorie_id
              ORDER BY m.sort_order'
         )->fetchAll();
 

@@ -12,6 +12,7 @@
                 <thead>
                     <tr>
                         <th>Module</th>
+                        <th>Catégorie</th>
                         <th>Source</th>
                         <th>Version</th>
                         <th>Mode quota</th>
@@ -27,6 +28,13 @@
                             <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
                             <strong><?= htmlspecialchars($mod['name']) ?></strong>
                             <small class="text-muted d-block"><?= htmlspecialchars($mod['slug']) ?></small>
+                        </td>
+                        <td>
+                            <?php if (!empty($mod['categorie_nom'])): ?>
+                                <span><?= htmlspecialchars($mod['categorie_nom']) ?></span>
+                            <?php else: ?>
+                                <span class="text-muted">—</span>
+                            <?php endif; ?>
                         </td>
                         <td>
                             <?php if ($mod['chemin_source']): ?>
@@ -89,7 +97,7 @@
 
                     <?php if (empty($modules)): ?>
                     <tr>
-                        <td colspan="7" class="text-center text-muted py-4">Aucun module installé.</td>
+                        <td colspan="8" class="text-center text-muted py-4">Aucun module installé.</td>
                     </tr>
                     <?php endif; ?>
                 </tbody>

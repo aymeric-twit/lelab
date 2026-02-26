@@ -472,20 +472,38 @@ echo json_encode(['donnees' => $resultats]);
 
 ## 8. Charte graphique CSS
 
-### Variables obligatoires
+Source de référence : `public/assets/css/platform.css` (design system de la plateforme).
+
+### Variables CSS
+
+Le plugin doit déclarer les variables brand dans son `:root`. En mode embedded, la plateforme les fournit déjà ; en mode iframe/standalone, le plugin doit les définir lui-même.
 
 ```css
 :root {
-    /* Couleurs de la plateforme */
-    --brand-teal:        #66b2b2;   /* Accents, bordures actives, liens hover */
+    /* ── Palette brand ─────────────────────────────── */
+    --brand-teal:        #66b2b2;   /* Bleu givre — accents, liens, focus */
     --brand-teal-light:  #e8f4f4;   /* Fonds légers, highlights */
-    --brand-gold:        #fbb03b;   /* Bordure header, badges, attention */
+    --brand-gold:        #fbb03b;   /* Jaune tournesol — header border, badges */
     --brand-gold-light:  #fef4e0;   /* Fonds d'alerte doux */
-    --brand-dark:        #004c4c;   /* Header, boutons primaires */
-    --brand-linen:       #f2f2f2;   /* Background body */
+    --brand-dark:        #004c4c;   /* Canard profond — header, btn-primary */
+    --brand-linen:       #f2f2f2;   /* Lin léger — background body */
     --brand-anthracite:  #333333;   /* Texte principal */
 
-    /* Couleurs de statut CWV (si pertinent) */
+    /* ── Couleurs sémantiques ──────────────────────── */
+    --color-good:   #22c55e;   /* Succès, bon score */
+    --color-warn:   #f97316;   /* Attention, moyen */
+    --color-bad:    #ef4444;   /* Erreur, mauvais */
+
+    /* ── Palette neutre ────────────────────────────── */
+    --bg-body:       #f2f2f2;
+    --bg-card:       #ffffff;
+    --bg-card-alt:   #f1f5f9;   /* Fond alterné, thead tables */
+    --border-color:  #e2e8f0;
+    --text-primary:  #0f172a;   /* Quasi-noir — texte principal */
+    --text-secondary:#475569;   /* Labels, texte secondaire */
+    --text-muted:    #94a3b8;   /* Placeholders, texte discret */
+
+    /* ── CWV (si pertinent pour le plugin) ─────────── */
     --cwv-good: #22c55e;
     --cwv-ni:   #f97316;
     --cwv-poor: #ef4444;
@@ -498,9 +516,24 @@ echo json_encode(['donnees' => $resultats]);
 
 ```css
 body {
-    background: var(--brand-linen);
-    color: var(--brand-anthracite);
     font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+    background: var(--bg-body);
+    color: var(--brand-anthracite);
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+a       { color: var(--brand-teal); }
+a:hover { color: var(--brand-dark); }
+
+::selection {
+    background: rgba(102, 178, 178, 0.3);
+    color: #fff;
+}
+
+h2 {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 1.35rem;
 }
 ```
 
@@ -509,73 +542,254 @@ body {
 ```css
 .card {
     border-radius: 1rem;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
     box-shadow: 0 2px 8px rgba(0, 76, 76, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
+
 .card-header {
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--border-color);
     background: linear-gradient(135deg, rgba(102, 178, 178, 0.04) 0%, transparent 60%);
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
 }
+
+/* Variantes d'accent */
+.card-accent-teal { border-top: 3px solid var(--brand-teal); }
+.card-accent-gold { border-left: 3px solid var(--brand-gold); }
 ```
 
 #### Navbar (visible uniquement en mode standalone/iframe)
 
+En mode embedded, la navbar du plugin est automatiquement supprimée par `extractParts`.
+
 ```css
 .navbar {
     background: var(--brand-dark);
-    padding: 0.75rem 0;
-    border-bottom: 2.5px solid var(--brand-gold);
+    border-bottom: 3px solid var(--brand-gold);   /* Ligne dorée signature */
+    padding: 0.75rem 1rem;
 }
+
 .navbar-brand {
-    color: #fff !important;
+    color: #fff;
     font-weight: 700;
+}
+
+.navbar-brand span {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);   /* Sous-titre gris clair */
 }
 ```
 
 #### Boutons
 
 ```css
+/* Primaire — fond canard profond */
 .btn-primary {
-    background: var(--brand-dark);
+    background-color: var(--brand-dark);
     border-color: var(--brand-dark);
-    border-radius: 6px;
+    color: #fff;
+    font-weight: 600;
 }
-.btn-primary:hover {
-    background: var(--brand-teal);
+.btn-primary:hover,
+.btn-primary:focus-visible {
+    background-color: #006666;
+    border-color: #006666;
+    box-shadow: 0 0 0 0.2rem rgba(102, 178, 178, 0.35);
+}
+
+/* Outline primary — bordure teal */
+.btn-outline-primary {
     border-color: var(--brand-teal);
+    color: var(--brand-dark);
+    font-weight: 600;
+    background: transparent;
+}
+.btn-outline-primary:hover {
+    background: var(--brand-teal-light);
+    border-color: var(--brand-teal);
+    color: var(--brand-dark);
+}
+
+/* Outline secondary — bordure grise */
+.btn-outline-secondary {
+    border-color: #cbd5e1;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.btn-outline-secondary:hover {
+    background: var(--bg-card-alt);
+    border-color: #cbd5e1;
+    color: var(--text-primary);
+}
+
+/* Toggle actif (ex: filtres, toggles de mode) */
+.btn-outline-secondary.active {
+    background: var(--brand-teal-light);
+    border-color: rgba(102, 178, 178, 0.5);
+    color: var(--brand-dark);
 }
 ```
 
 #### Tables
 
 ```css
-table { font-size: 16px; }
-thead { background: #f1f5f9; }
-/* Texte quasi-noir pour la lisibilité */
-td, th { color: #0f172a; }
+.table {
+    color: var(--text-primary);              /* #0f172a quasi-noir */
+    --bs-table-bg: transparent;
+    background-color: transparent;
+}
+
+.table th {
+    color: var(--text-secondary);            /* #475569 */
+    font-weight: 600;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    border-color: var(--border-color);
+}
+
+.table td {
+    border-color: var(--border-color);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+/* Header gris bleuté */
+.table thead tr {
+    background: var(--bg-card-alt);          /* #f1f5f9 */
+}
+
+/* Zebra striping léger */
+.table tbody tr:nth-child(even) { background: #f8fafc; }
+.table tbody tr:nth-child(odd)  { background: #ffffff; }
+
+/* Hover sur les lignes */
+.table tbody tr:hover {
+    background: var(--bg-card-alt);
+}
+
+/* En-têtes triables */
+.sortable-th {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+.sortable-th::after         { content: ' ⇅'; font-size: 0.7em; color: var(--text-muted); }
+.sortable-th.sort-asc::after  { content: ' ▲'; color: var(--text-primary); }
+.sortable-th.sort-desc::after { content: ' ▼'; color: var(--text-primary); }
+.sortable-th:hover          { color: var(--text-primary); }
+
+/* Cellule URL tronquée */
+.bulk-url-cell {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 ```
 
-#### KPI Cards
+#### Formulaires
 
 ```css
-.kpi-card {
-    text-align: center;
-    padding: 1rem;
+.form-label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
 }
-.kpi-card .kpi-value {
-    font-size: 1.8rem;
-    font-weight: 700;
+
+.form-control,
+.form-select {
+    border-color: var(--border-color);       /* #e2e8f0 */
+    color: var(--text-primary);
 }
-/* Couleurs selon le statut */
-.kpi-card.good .kpi-value { color: var(--cwv-good); }
-.kpi-card.ni .kpi-value   { color: var(--cwv-ni); }
-.kpi-card.poor .kpi-value { color: var(--cwv-poor); }
+
+.form-control::placeholder {
+    color: var(--text-muted);                /* #94a3b8 */
+    opacity: 1;
+}
+
+/* Focus ring teal */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 0.2rem rgba(102, 178, 178, 0.25);
+}
+
+/* Checkbox/radio cochés */
+.form-check-input:checked {
+    background-color: var(--brand-teal);
+    border-color: var(--brand-teal);
+}
+
+.form-check-label {
+    color: var(--text-primary);
+}
+
+textarea {
+    font-family: monospace;
+}
+```
+
+#### Onglets / Tabs
+
+```css
+.nav-tabs {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.nav-tabs .nav-link {
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.88rem;
+    border-color: transparent;
+    letter-spacing: 0.04em;
+}
+
+.nav-tabs .nav-link:hover {
+    color: var(--text-primary);
+    border-color: transparent;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--brand-dark);
+    background: transparent;
+    border-bottom: 3px solid var(--brand-teal);   /* Underline teal signature */
+    border-top-color: transparent;
+    border-left-color: transparent;
+    border-right-color: transparent;
+}
 ```
 
 #### Badges
 
 ```css
+/* Badges de rôle */
+.badge-role-admin {
+    background: var(--brand-gold);
+    color: var(--brand-dark);
+    font-weight: 600;
+}
+.badge-role-user {
+    background: var(--bg-card-alt);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Badges de statut */
+.badge-active {
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--color-good);
+    font-weight: 600;
+}
+.badge-inactive {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--color-bad);
+    font-weight: 600;
+}
+
+/* Badge générique (métriques, versions) */
 .badge {
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -583,14 +797,146 @@ td, th { color: #0f172a; }
 }
 ```
 
+#### Alertes
+
+```css
+.alert-success {
+    background: rgba(34, 197, 94, 0.08);
+    border-color: rgba(34, 197, 94, 0.2);
+    color: #166534;
+}
+
+.alert-danger {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: var(--color-bad);
+}
+
+.alert-warning {
+    background: var(--brand-gold-light);
+    border-color: rgba(251, 176, 59, 0.35);
+    color: #92690d;
+}
+```
+
+#### Barres de progression
+
+```css
+.progress {
+    background-color: var(--bg-card-alt);
+    border-radius: 0.5rem;
+}
+
+.progress-bar-teal   { background-color: var(--brand-teal); }
+.progress-bar-warn   { background-color: var(--color-warn); }
+.progress-bar-danger { background-color: var(--color-bad); }
+```
+
+#### Pagination
+
+```css
+.bulk-pagination .page-link {
+    background-color: #fff;
+    border-color: var(--border-color);
+    color: #64748b;
+    font-size: 0.78rem;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+.bulk-pagination .page-item.active .page-link {
+    background-color: var(--brand-teal-light);
+    border-color: rgba(102, 178, 178, 0.5);
+    color: var(--brand-dark);
+}
+.bulk-pagination .page-item.disabled .page-link {
+    background-color: #f8fafc;
+    border-color: var(--border-color);
+    color: #cbd5e1;
+}
+.bulk-pagination .page-link:hover {
+    background-color: var(--bg-card-alt);
+    color: var(--text-primary);
+}
+```
+
+#### KPI Cards (métriques)
+
+```css
+.cwv-kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--border-color);  /* Coloré selon le statut */
+    border-radius: 0.75rem;
+    padding: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+
+.cwv-kpi-card:hover {
+    border-color: rgba(102, 178, 178, 0.5);
+    box-shadow: 0 0 0 1px rgba(102, 178, 178, 0.25), 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.cwv-kpi-name {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.cwv-kpi-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+```
+
+#### Panneau d'aide contextuel
+
+```css
+.config-help-panel {
+    background: var(--brand-linen);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--brand-gold);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+}
+
+.config-help-panel .help-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--brand-dark);
+}
+
+.config-help-panel ul { padding-left: 1.1rem; margin-bottom: 0; }
+.config-help-panel li { margin-bottom: 0.25rem; }
+```
+
+#### Scrollbars
+
+```css
+::-webkit-scrollbar       { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+```
+
 ### Principes de design
 
-- **Fond clair** (`--brand-linen`) avec cards blanches
+- **Fond clair** (`--bg-body` / `--brand-linen`) avec cards blanches — interface aérée
 - **Header sombre** (`--brand-dark`) ancre visuellement la page
-- **Ligne dorée** (`--brand-gold`) sous le header : signature visuelle obligatoire
-- **Ombres douces** : jamais d'ombres lourdes, teinte teal subtile
-- **Coins arrondis** : `1rem` cards, `6px` boutons, `4px` inputs
-- **Espacement généreux** : ne pas tasser les elements
+- **Ligne dorée** (`--brand-gold`) sous le header : signature visuelle, toujours `3px solid`
+- **Focus ring teal** : tous les champs de formulaire ont un `box-shadow` teal au focus
+- **Ombres douces** : jamais d'ombres lourdes, teinte teal subtile (`rgba(0, 76, 76, 0.06)`)
+- **Coins arrondis** : `1rem` cards, `0.75rem` KPI/panneaux, `0.5rem` sidebar links/progress
+- **Zebra striping** sur les tableaux : `#f8fafc` / `#ffffff` en alternance, hover `#f1f5f9`
+- **Espacement généreux** : ne pas tasser les elements, `padding: 0.75rem 1rem` minimum
+- **Couleurs sémantiques** : vert (`--color-good`) / orange (`--color-warn`) / rouge (`--color-bad`)
+- **Transitions** : `0.15s–0.2s ease` sur hover/transform pour les éléments interactifs
 
 ---
 

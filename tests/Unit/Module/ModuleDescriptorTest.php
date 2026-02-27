@@ -105,3 +105,27 @@ test('display_mode a la priorité sur passthrough_all', function () {
     expect($desc->modeAffichage)->toBe(ModeAffichage::Iframe);
     expect($desc->passthroughAll)->toBeFalse();
 });
+
+// Tests langues
+
+test('devrait lire les langues depuis les données du module', function () {
+    $desc = creerDescriptor(['languages' => ['fr', 'en']]);
+    expect($desc->langues)->toBe(['fr', 'en']);
+});
+
+test('devrait retourner un tableau vide si pas de langues', function () {
+    $desc = creerDescriptor();
+    expect($desc->langues)->toBe([]);
+});
+
+test('devrait garder les propriétés intactes avec langues définies', function () {
+    $desc = creerDescriptor([
+        'languages'     => ['fr', 'en', 'de'],
+        'quota_mode'    => 'api_call',
+        'default_quota' => 500,
+    ]);
+
+    expect($desc->langues)->toBe(['fr', 'en', 'de']);
+    expect($desc->quotaMode)->toBe(QuotaMode::ApiCall);
+    expect($desc->defaultQuota)->toBe(500);
+});

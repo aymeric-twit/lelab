@@ -77,7 +77,7 @@ class PluginInstaller
             return "Le répertoire n'est pas lisible.";
         }
 
-        $stmt = $this->db->prepare('SELECT id FROM modules WHERE chemin_source = ?');
+        $stmt = $this->db->prepare('SELECT id FROM modules WHERE chemin_source = ? AND desinstalle_le IS NULL');
         $stmt->execute([$chemin]);
 
         if ($stmt->fetch()) {
@@ -98,7 +98,7 @@ class PluginInstaller
             return 'Le slug doit contenir uniquement des lettres minuscules, chiffres et tirets (2-50 caractères).';
         }
 
-        $stmt = $this->db->prepare('SELECT id FROM modules WHERE slug = ?');
+        $stmt = $this->db->prepare('SELECT id FROM modules WHERE slug = ? AND desinstalle_le IS NULL');
         $stmt->execute([$slug]);
 
         if ($stmt->fetch()) {
@@ -109,24 +109,35 @@ class PluginInstaller
     }
 
     /**
-     * Insère un plugin en base.
+     * Insère un plugin en base, ou réactive un module soft-deleted ayant le même slug.
      *
      * @param array<string, mixed> $donnees
-     * @return int ID du module créé
+     * @return int ID du module créé ou réactivé
      */
     public function installer(array $donnees, int $installeParId): int
     {
+        // Vérifier si un module soft-deleted avec le même slug existe
+        $stmtSoftDeleted = $this->db->prepare(
+            'SELECT id FROM modules WHERE slug = ? AND desinstalle_le IS NOT NULL'
+        );
+        $stmtSoftDeleted->execute([$donnees['slug']]);
+        $moduleSoftDeleted = $stmtSoftDeleted->fetch();
+
+        if ($moduleSoftDeleted) {
+            return $this->reactiver((int) $moduleSoftDeleted['id'], $donnees, $installeParId);
+        }
+
         $stmt = $this->db->prepare('
             INSERT INTO modules (
                 slug, name, description, version, icon, sort_order,
                 quota_mode, default_quota, enabled,
                 chemin_source, point_entree, cles_env, routes_config, passthrough_all,
-                mode_affichage, categorie_id, installe_par, installe_le
+                mode_affichage, langues, categorie_id, installe_par, installe_le
             ) VALUES (
                 :slug, :name, :description, :version, :icon, :sort_order,
                 :quota_mode, :default_quota, 1,
                 :chemin_source, :point_entree, :cles_env, :routes_config, :passthrough_all,
-                :mode_affichage, :categorie_id, :installe_par, NOW()
+                :mode_affichage, :langues, :categorie_id, :installe_par, NOW()
             )
         ');
 
@@ -145,6 +156,7 @@ class PluginInstaller
             'routes_config'   => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
             'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
             'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
+            'langues'         => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
             'categorie_id'    => $donnees['categorie_id'] ?? null,
             'installe_par'    => $installeParId,
         ]);
@@ -157,6 +169,86 @@ class PluginInstaller
              VALUES (?, ?, 1, ?)'
         );
         $stmtAccess->execute([$installeParId, $moduleId, $installeParId]);
+
+        // Créer le symlink pour les assets statiques
+        if (!empty($donnees['chemin_source'])) {
+            $this->creerSymlinkAssets($donnees['slug'], $donnees['chemin_source']);
+        }
+
+        return $moduleId;
+    }
+
+    /**
+     * Réactive un module précédemment soft-deleted.
+     * Conserve le même ID → toutes les FK (accès, quotas, usage) restent intactes.
+     *
+     * @param array<string, mixed> $donnees
+     */
+    private function reactiver(int $moduleId, array $donnees, int $installeParId): int
+    {
+        $stmt = $this->db->prepare('
+            UPDATE modules SET
+                name = :name,
+                description = :description,
+                version = :version,
+                icon = :icon,
+                sort_order = :sort_order,
+                quota_mode = :quota_mode,
+                default_quota = :default_quota,
+                enabled = 1,
+                chemin_source = :chemin_source,
+                point_entree = :point_entree,
+                cles_env = :cles_env,
+                routes_config = :routes_config,
+                passthrough_all = :passthrough_all,
+                mode_affichage = :mode_affichage,
+                langues = :langues,
+                categorie_id = :categorie_id,
+                installe_par = :installe_par,
+                installe_le = NOW(),
+                desinstalle_le = NULL,
+                desinstalle_par = NULL
+            WHERE id = :id
+        ');
+
+        $stmt->execute([
+            'id'              => $moduleId,
+            'name'            => $donnees['name'],
+            'description'     => $donnees['description'] ?? '',
+            'version'         => $donnees['version'] ?? '1.0.0',
+            'icon'            => $donnees['icon'] ?? 'bi-tools',
+            'sort_order'      => (int) ($donnees['sort_order'] ?? 100),
+            'quota_mode'      => $donnees['quota_mode'] ?? 'none',
+            'default_quota'   => (int) ($donnees['default_quota'] ?? 0),
+            'chemin_source'   => $donnees['chemin_source'],
+            'point_entree'    => $donnees['point_entree'] ?? 'index.php',
+            'cles_env'        => !empty($donnees['cles_env']) ? json_encode($donnees['cles_env']) : null,
+            'routes_config'   => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
+            'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
+            'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
+            'langues'         => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
+            'categorie_id'    => $donnees['categorie_id'] ?? null,
+            'installe_par'    => $installeParId,
+        ]);
+
+        // S'assurer que l'admin installateur a accès (ne pas écraser un accès existant)
+        $stmtCheck = $this->db->prepare(
+            'SELECT id FROM user_module_access WHERE user_id = ? AND module_id = ?'
+        );
+        $stmtCheck->execute([$installeParId, $moduleId]);
+
+        if (!$stmtCheck->fetch()) {
+            $stmtAccess = $this->db->prepare(
+                'INSERT INTO user_module_access (user_id, module_id, granted, granted_by)
+                 VALUES (?, ?, 1, ?)'
+            );
+            $stmtAccess->execute([$installeParId, $moduleId, $installeParId]);
+        }
+
+        // Recréer le symlink pour les assets statiques
+        if (!empty($donnees['chemin_source'])) {
+            $this->creerSymlinkAssets($donnees['slug'], $donnees['chemin_source']);
+        }
 
         return $moduleId;
     }
@@ -182,6 +274,7 @@ class PluginInstaller
                 routes_config = :routes_config,
                 passthrough_all = :passthrough_all,
                 mode_affichage = :mode_affichage,
+                langues = :langues,
                 categorie_id = :categorie_id
             WHERE id = :id
         ');
@@ -200,17 +293,21 @@ class PluginInstaller
             'routes_config'   => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
             'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
             'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
+            'langues'         => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
             'categorie_id'    => $donnees['categorie_id'] ?? null,
         ]);
     }
 
     /**
-     * Supprime un module de la base et nettoie les fichiers selon le type :
-     * - Plugin ZIP (chemin_source sous storage/plugins/) → supprime le répertoire extrait
-     * - Module embarqué (chemin_source NULL) → supprime modules/{slug}/
-     * - Plugin chemin externe → ne touche pas aux fichiers sources
+     * Désinstalle un module.
+     *
+     * - conserverReglages = true (défaut) → soft delete : marque le module comme désinstallé
+     *   mais conserve les accès, quotas et historique pour une réinstallation future.
+     * - conserverReglages = false → hard delete : supprime le module et toutes les données associées.
+     *
+     * Dans les deux cas, les fichiers sources sont nettoyés selon le type de plugin.
      */
-    public function desinstaller(int $moduleId): void
+    public function desinstaller(int $moduleId, bool $conserverReglages = true, ?int $desinstalleParId = null): void
     {
         $stmt = $this->db->prepare('SELECT chemin_source, slug FROM modules WHERE id = ?');
         $stmt->execute([$moduleId]);
@@ -223,20 +320,30 @@ class PluginInstaller
         $cheminSource = $row['chemin_source'];
         $slug = $row['slug'];
 
-        $this->db->prepare('DELETE FROM user_module_access WHERE module_id = ?')->execute([$moduleId]);
-        $this->db->prepare('DELETE FROM user_module_quotas WHERE module_id = ?')->execute([$moduleId]);
-        $this->db->prepare('DELETE FROM module_usage WHERE module_id = ?')->execute([$moduleId]);
-        $this->db->prepare('DELETE FROM modules WHERE id = ?')->execute([$moduleId]);
+        // Supprimer le symlink des assets
+        $this->supprimerSymlinkAssets($slug);
 
+        if ($conserverReglages) {
+            // Soft delete : conserver la ligne modules et les FK dépendantes
+            $stmt = $this->db->prepare(
+                'UPDATE modules SET desinstalle_le = NOW(), desinstalle_par = ?, enabled = 0 WHERE id = ?'
+            );
+            $stmt->execute([$desinstalleParId, $moduleId]);
+        } else {
+            // Hard delete : supprimer toutes les données associées
+            $this->db->prepare('DELETE FROM user_module_access WHERE module_id = ?')->execute([$moduleId]);
+            $this->db->prepare('DELETE FROM user_module_quotas WHERE module_id = ?')->execute([$moduleId]);
+            $this->db->prepare('DELETE FROM module_usage WHERE module_id = ?')->execute([$moduleId]);
+            $this->db->prepare('DELETE FROM modules WHERE id = ?')->execute([$moduleId]);
+        }
+
+        // Nettoyage fichiers dans les deux cas
         if ($cheminSource !== null) {
-            // Plugin ZIP extrait sous storage/plugins/ → supprimer le répertoire
             $repertoirePlugins = $this->repertoirePlugins();
             if (str_starts_with(realpath($cheminSource) ?: '', realpath($repertoirePlugins) ?: "\0")) {
                 $this->supprimerRepertoire($cheminSource);
             }
-            // Plugin chemin externe → ne rien faire
         } else {
-            // Module embarqué → supprimer modules/{slug}/
             $cheminEmbarque = $this->repertoireModulesEmbarques() . '/' . $slug;
             if (is_dir($cheminEmbarque)) {
                 $this->supprimerRepertoire($cheminEmbarque);
@@ -510,6 +617,7 @@ class PluginInstaller
             'routes_config'   => !empty($moduleJson['routes']) ? $moduleJson['routes'] : null,
             'passthrough_all' => !empty($moduleJson['passthrough_all']),
             'mode_affichage'  => $moduleJson['display_mode'] ?? 'embedded',
+            'langues'         => $moduleJson['languages'] ?? [],
         ];
 
         $moduleId = $this->installer($donneesInstall, $installeParId);
@@ -583,6 +691,7 @@ class PluginInstaller
                 'routes_config'   => !empty($moduleJson['routes']) ? $moduleJson['routes'] : null,
                 'passthrough_all' => !empty($moduleJson['passthrough_all']),
                 'mode_affichage'  => $moduleJson['display_mode'] ?? $module['mode_affichage'],
+                'langues'         => $moduleJson['languages'] ?? [],
                 'categorie_id'    => $module['categorie_id'],
             ]);
 
@@ -708,9 +817,53 @@ class PluginInstaller
             'routes_config'   => !empty($donnees['routes']) ? $donnees['routes'] : null,
             'passthrough_all' => !empty($donnees['passthrough_all']),
             'mode_affichage'  => $donnees['display_mode'] ?? 'embedded',
+            'langues'         => $donnees['languages'] ?? [],
         ];
 
         return $this->installer($donneesInstall, $installeParId);
+    }
+
+    /**
+     * Crée un symlink public/module-assets/{slug} → répertoire source du plugin.
+     * Permet au serveur PHP intégré de servir les fichiers statiques directement.
+     */
+    public function creerSymlinkAssets(string $slug, string $cheminSource): void
+    {
+        $repertoireAssets = $this->repertoireAssetsPublics();
+        if (!is_dir($repertoireAssets)) {
+            mkdir($repertoireAssets, 0755, true);
+        }
+
+        $lien = $repertoireAssets . '/' . $slug;
+
+        // Supprimer l'ancien symlink s'il existe (réinstallation)
+        if (is_link($lien)) {
+            unlink($lien);
+        } elseif (is_dir($lien)) {
+            // Si c'est un vrai dossier (cas anormal), ne pas toucher
+            return;
+        }
+
+        symlink($cheminSource, $lien);
+    }
+
+    /**
+     * Supprime le symlink public/module-assets/{slug} s'il existe.
+     */
+    public function supprimerSymlinkAssets(string $slug): void
+    {
+        $lien = $this->repertoireAssetsPublics() . '/' . $slug;
+        if (is_link($lien)) {
+            unlink($lien);
+        }
+    }
+
+    /**
+     * Retourne le chemin absolu du répertoire public des assets modules.
+     */
+    public function repertoireAssetsPublics(): string
+    {
+        return dirname(__DIR__, 2) . '/public/module-assets';
     }
 
     /**

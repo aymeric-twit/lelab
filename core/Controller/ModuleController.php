@@ -59,15 +59,30 @@ class ModuleController
         // Mode embedded : extractParts classique
         $result = ModuleRenderer::render($module);
 
+        // Langue active : query param ?lg= > fallback 'fr' (localStorage géré côté JS)
+        $langueActive = $_GET['lg'] ?? 'fr';
+        if (!in_array($langueActive, $module->langues, true)) {
+            $langueActive = $module->langues[0] ?? 'fr';
+        }
+
+        $scriptLang = "<script>window.MODULE_BASE_URL='/m/{$slug}';";
+        if (!empty($module->langues)) {
+            $languesJson = json_encode($module->langues);
+            $langueActiveJs = htmlspecialchars($langueActive, ENT_QUOTES, 'UTF-8');
+            $scriptLang .= "window.PLATFORM_LANG='{$langueActiveJs}';window.MODULE_LANGUAGES={$languesJson};";
+        }
+        $scriptLang .= '</script>';
+
         Layout::render('layout', [
             'content'           => $result['content'],
-            'headExtra'         => $result['headExtra'] . "\n<script>window.MODULE_BASE_URL='/m/{$slug}';</script>",
+            'headExtra'         => $result['headExtra'] . "\n" . $scriptLang,
             'footExtra'         => $result['footExtra'],
             'pageTitle'         => $module->name,
             'currentUser'       => $user,
             'accessibleModules' => $modules,
             'activeModule'      => $slug,
             'quotaSummary'      => $quotaSummary,
+            'moduleLangages'    => $module->langues,
         ]);
     }
 
@@ -120,15 +135,29 @@ class ModuleController
         $quotaSummary = Quota::getUserQuotaSummary($user['id']);
         $result = ModuleRenderer::render($module, $sub);
 
+        $langueActive = $_GET['lg'] ?? 'fr';
+        if (!in_array($langueActive, $module->langues, true)) {
+            $langueActive = $module->langues[0] ?? 'fr';
+        }
+
+        $scriptLang = "<script>window.MODULE_BASE_URL='/m/{$slug}';";
+        if (!empty($module->langues)) {
+            $languesJson = json_encode($module->langues);
+            $langueActiveJs = htmlspecialchars($langueActive, ENT_QUOTES, 'UTF-8');
+            $scriptLang .= "window.PLATFORM_LANG='{$langueActiveJs}';window.MODULE_LANGUAGES={$languesJson};";
+        }
+        $scriptLang .= '</script>';
+
         Layout::render('layout', [
             'content'           => $result['content'],
-            'headExtra'         => $result['headExtra'] . "\n<script>window.MODULE_BASE_URL='/m/{$slug}';</script>",
+            'headExtra'         => $result['headExtra'] . "\n" . $scriptLang,
             'footExtra'         => $result['footExtra'],
             'pageTitle'         => $module->name,
             'currentUser'       => $user,
             'accessibleModules' => $modules,
             'activeModule'      => $slug,
             'quotaSummary'      => $quotaSummary,
+            'moduleLangages'    => $module->langues,
         ]);
     }
 

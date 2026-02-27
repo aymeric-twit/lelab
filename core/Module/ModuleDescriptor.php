@@ -22,6 +22,8 @@ class ModuleDescriptor
     public readonly QuotaMode $quotaMode;
     public readonly int $defaultQuota;
     public readonly ?int $categorieId;
+    /** @var string[] Langues supportées (ex: ['fr', 'en']), vide si non traduit */
+    public readonly array $langues;
     public readonly string $path;
 
     public function __construct(string $basePath, array $data)
@@ -50,6 +52,7 @@ class ModuleDescriptor
         $this->passthroughAll = $this->modeAffichage->estPassthrough();
         $this->quotaMode = QuotaMode::tryFrom($data['quota_mode'] ?? 'none') ?? QuotaMode::None;
         $this->defaultQuota = (int) ($data['default_quota'] ?? 0);
+        $this->langues = $data['languages'] ?? [];
     }
 
     public function getEntryFile(): string

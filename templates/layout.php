@@ -22,6 +22,13 @@
             <a class="navbar-brand" href="/"><?= htmlspecialchars($_ENV['APP_NAME'] ?? 'SEO Platform') ?></a>
         </div>
         <div class="d-flex align-items-center">
+            <?php if (!empty($moduleLangages) && count($moduleLangages) > 1): ?>
+                <div class="btn-group btn-group-sm me-3" id="platformLangSelector">
+                    <?php foreach ($moduleLangages as $lg): ?>
+                        <button type="button" class="btn btn-outline-light btn-lang" data-lang="<?= htmlspecialchars($lg) ?>"><?= strtoupper(htmlspecialchars($lg)) ?></button>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
             <span class="nav-user me-3">
                 <i class="bi bi-person-circle me-1"></i>
                 <?= htmlspecialchars($currentUser['username'] ?? '') ?>

@@ -39,7 +39,7 @@ class ModuleRegistry
     public static function chargerDepuisBase(PDO $db): void
     {
         $stmt = $db->query(
-            'SELECT * FROM modules WHERE chemin_source IS NOT NULL AND enabled = 1'
+            'SELECT * FROM modules WHERE chemin_source IS NOT NULL AND enabled = 1 AND desinstalle_le IS NULL'
         );
 
         foreach ($stmt->fetchAll() as $row) {
@@ -68,6 +68,7 @@ class ModuleRegistry
                 'quota_mode'      => $row['quota_mode'] ?? 'none',
                 'default_quota'   => (int) ($row['default_quota'] ?? 0),
                 'categorie_id'    => $row['categorie_id'] ?? null,
+                'languages'       => !empty($row['langues']) ? json_decode($row['langues'], true) : [],
             ];
 
             self::$modules[$slug] = new ModuleDescriptor($row['chemin_source'], $data);
@@ -100,6 +101,7 @@ class ModuleRegistry
      * Synchronise les modules embarqués vers la base.
      * Protège les plugins externes : le ON DUPLICATE KEY UPDATE ne touche
      * que les lignes où chemin_source IS NULL (modules embarqués).
+     * Crée aussi les symlinks d'assets manquants pour tous les modules.
      */
     public static function syncToDatabase(PDO $db): void
     {
@@ -114,7 +116,10 @@ class ModuleRegistry
                 sort_order = IF(chemin_source IS NULL, VALUES(sort_order), sort_order),
                 quota_mode = IF(chemin_source IS NULL, VALUES(quota_mode), quota_mode),
                 default_quota = IF(chemin_source IS NULL, VALUES(default_quota), default_quota),
-                mode_affichage = IF(chemin_source IS NULL, VALUES(mode_affichage), mode_affichage)
+                mode_affichage = IF(chemin_source IS NULL, VALUES(mode_affichage), mode_affichage),
+                desinstalle_le = IF(chemin_source IS NULL, NULL, desinstalle_le),
+                desinstalle_par = IF(chemin_source IS NULL, NULL, desinstalle_par),
+                enabled = IF(chemin_source IS NULL, 1, enabled)
         ');
 
         foreach (self::$modules as $module) {
@@ -129,6 +134,27 @@ class ModuleRegistry
                 'default_quota'  => $module->defaultQuota,
                 'mode_affichage' => $module->modeAffichage->value,
             ]);
+        }
+
+        // Créer les symlinks d'assets manquants pour les modules embarqués
+        self::creerSymlinksManquants();
+    }
+
+    /**
+     * Crée les symlinks public/module-assets/{slug} manquants pour chaque module du registre.
+     */
+    private static function creerSymlinksManquants(): void
+    {
+        $repertoireAssets = dirname(__DIR__, 2) . '/public/module-assets';
+        if (!is_dir($repertoireAssets)) {
+            mkdir($repertoireAssets, 0755, true);
+        }
+
+        foreach (self::$modules as $module) {
+            $lien = $repertoireAssets . '/' . $module->slug;
+            if (!is_link($lien) && !is_dir($lien)) {
+                @symlink($module->path, $lien);
+            }
         }
     }
 }

@@ -6,7 +6,9 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">Modifier le plugin</h2>
     <div class="d-flex align-items-center gap-2">
-        <?php if ($estExterne): ?>
+        <?php if (!empty($module['git_url'])): ?>
+            <span class="badge bg-dark"><i class="bi bi-github me-1"></i>Git</span>
+        <?php elseif ($estExterne): ?>
             <span class="badge badge-source-external">Externe</span>
         <?php else: ?>
             <span class="badge badge-source-embedded">Embarqué</span>
@@ -19,23 +21,78 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
 <div class="card card-accent-gold mb-4">
     <div class="card-body d-flex justify-content-between align-items-center py-2">
         <div>
-            <i class="bi bi-folder2-open me-1" style="color: var(--brand-gold);"></i>
-            <span class="chemin-source-text"><?= htmlspecialchars($module['chemin_source']) ?></span>
+            <?php if (!empty($module['git_url'])): ?>
+                <i class="bi bi-github me-1" style="color: var(--brand-gold);"></i>
+                <span class="chemin-source-text"><?= htmlspecialchars($module['git_url']) ?></span>
+                <small class="text-muted ms-2">
+                    branche <strong><?= htmlspecialchars($module['git_branche'] ?? 'main') ?></strong>
+                </small>
+            <?php else: ?>
+                <i class="bi bi-folder2-open me-1" style="color: var(--brand-gold);"></i>
+                <span class="chemin-source-text"><?= htmlspecialchars($module['chemin_source']) ?></span>
+            <?php endif; ?>
             <?php if ($module['installe_le']): ?>
                 <small class="text-muted ms-2">
                     Installé le <?= htmlspecialchars($module['installe_le']) ?>
                 </small>
             <?php endif; ?>
         </div>
-        <form method="POST" class="d-inline">
-            <?= \Platform\Http\Csrf::field() ?>
-            <input type="hidden" name="resync" value="1">
-            <button type="submit" class="btn btn-sm btn-outline-primary" title="Relire module.json">
-                <i class="bi bi-arrow-repeat me-1"></i> Resynchroniser
-            </button>
-        </form>
+        <div class="d-flex gap-2">
+            <?php if (!empty($module['git_url'])): ?>
+                <form method="POST" action="/admin/plugins/<?= $module['id'] ?>/maj-git" class="d-inline">
+                    <?= \Platform\Http\Csrf::field() ?>
+                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Mettre à jour depuis Git">
+                        <i class="bi bi-arrow-repeat me-1"></i> Mettre à jour (Git)
+                    </button>
+                </form>
+            <?php else: ?>
+                <form method="POST" class="d-inline">
+                    <?= \Platform\Http\Csrf::field() ?>
+                    <input type="hidden" name="resync" value="1">
+                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Relire module.json">
+                        <i class="bi bi-arrow-repeat me-1"></i> Resynchroniser
+                    </button>
+                </form>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
+<?php if (!empty($module['git_url'])): ?>
+<div class="card mb-4" style="border-left: 3px solid var(--brand-dark);">
+    <div class="card-body py-2">
+        <div class="row text-center">
+            <div class="col-md-3">
+                <small class="text-muted d-block">Dépôt</small>
+                <strong><?= htmlspecialchars($module['git_url']) ?></strong>
+            </div>
+            <div class="col-md-2">
+                <small class="text-muted d-block">Branche</small>
+                <strong><?= htmlspecialchars($module['git_branche'] ?? 'main') ?></strong>
+            </div>
+            <div class="col-md-3">
+                <small class="text-muted d-block">Dernier commit</small>
+                <?php if (!empty($module['git_dernier_commit'])): ?>
+                    <code title="<?= htmlspecialchars($module['git_dernier_commit']) ?>"><?= htmlspecialchars(substr($module['git_dernier_commit'], 0, 7)) ?></code>
+                <?php else: ?>
+                    <span class="text-muted">—</span>
+                <?php endif; ?>
+            </div>
+            <div class="col-md-2">
+                <small class="text-muted d-block">Dernier pull</small>
+                <?php if (!empty($module['git_dernier_pull'])): ?>
+                    <strong><?= htmlspecialchars($module['git_dernier_pull']) ?></strong>
+                <?php else: ?>
+                    <span class="text-muted">—</span>
+                <?php endif; ?>
+            </div>
+            <div class="col-md-2">
+                <small class="text-muted d-block">Chemin local</small>
+                <small class="chemin-source-text"><?= htmlspecialchars($module['chemin_source']) ?></small>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 <?php endif; ?>
 
 <form method="POST">

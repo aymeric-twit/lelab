@@ -620,7 +620,13 @@ class PluginInstaller
             'langues'         => $moduleJson['languages'] ?? [],
         ];
 
-        $moduleId = $this->installer($donneesInstall, $installeParId);
+        try {
+            $moduleId = $this->installer($donneesInstall, $installeParId);
+        } catch (\Throwable $e) {
+            // Nettoyage du répertoire cloné si l'INSERT échoue
+            $this->supprimerRepertoire($cheminDestination);
+            throw $e;
+        }
 
         // Enregistrer les infos Git en BDD
         $stmt = $this->db->prepare('
@@ -820,7 +826,13 @@ class PluginInstaller
             'langues'         => $donnees['languages'] ?? [],
         ];
 
-        return $this->installer($donneesInstall, $installeParId);
+        try {
+            return $this->installer($donneesInstall, $installeParId);
+        } catch (\Throwable $e) {
+            // Nettoyage du répertoire extrait si l'INSERT échoue
+            $this->supprimerRepertoire($cheminDestination);
+            throw $e;
+        }
     }
 
     /**

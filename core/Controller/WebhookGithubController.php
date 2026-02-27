@@ -56,7 +56,8 @@ class WebhookGithubController
         // Chercher le module par git_url (avec ou sans .git)
         $stmt = $db->prepare('
             SELECT id, slug, git_url FROM modules
-            WHERE git_url = :url1 OR git_url = :url2
+            WHERE (git_url = :url1 OR git_url = :url2)
+              AND desinstalle_le IS NULL
             LIMIT 1
         ');
         $stmt->execute([

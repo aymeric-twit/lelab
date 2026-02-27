@@ -30,6 +30,7 @@ class AdminPluginController
              FROM modules m
              LEFT JOIN users u ON u.id = m.installe_par
              LEFT JOIN categories c ON c.id = m.categorie_id
+             WHERE m.desinstalle_le IS NULL
              ORDER BY m.sort_order'
         )->fetchAll();
 
@@ -201,10 +202,15 @@ class AdminPluginController
             'categorie_id'    => $categorieId !== '' ? (int) $categorieId : null,
         ];
 
-        // Récupérer routes_config depuis module.json si détecté
+        // Récupérer routes_config et langues depuis module.json si détecté
         $moduleJson = $installer->detecterModuleJson($chemin);
-        if ($moduleJson !== null && !empty($moduleJson['routes'])) {
-            $donnees['routes_config'] = $moduleJson['routes'];
+        if ($moduleJson !== null) {
+            if (!empty($moduleJson['routes'])) {
+                $donnees['routes_config'] = $moduleJson['routes'];
+            }
+            if (!empty($moduleJson['languages'])) {
+                $donnees['langues'] = $moduleJson['languages'];
+            }
         }
 
         try {
@@ -437,6 +443,7 @@ class AdminPluginController
                     'routes_config'   => !empty($moduleJson['routes']) ? $moduleJson['routes'] : null,
                     'passthrough_all' => !empty($moduleJson['passthrough_all']),
                     'mode_affichage'  => $moduleJson['display_mode'] ?? 'embedded',
+                    'langues'         => $moduleJson['languages'] ?? [],
                     'categorie_id'    => $resyncCategorieId,
                 ]);
 
@@ -467,6 +474,10 @@ class AdminPluginController
         $clesEnv = array_filter(array_map('trim', explode(',', $req->post('cles_env', ''))));
         $categorieId = $req->post('categorie_id', '');
 
+        // Préserver les langues et routes existantes (pas de champ dans le formulaire d'édition)
+        $languesExistantes = !empty($module['langues']) ? json_decode($module['langues'], true) : [];
+        $routesExistantes = !empty($module['routes_config']) ? json_decode($module['routes_config'], true) : null;
+
         $installer = new PluginInstaller($db);
         $installer->mettreAJour($moduleId, [
             'name'            => trim($req->post('name', '')),
@@ -478,9 +489,10 @@ class AdminPluginController
             'default_quota'   => (int) $req->post('default_quota', 0),
             'point_entree'    => trim($req->post('point_entree', 'index.php')),
             'cles_env'        => $clesEnv !== [] ? $clesEnv : null,
-            'routes_config'   => null,
+            'routes_config'   => $routesExistantes,
             'passthrough_all' => $req->post('mode_affichage', 'embedded') === 'passthrough',
             'mode_affichage'  => $req->post('mode_affichage', 'embedded'),
+            'langues'         => $languesExistantes,
             'categorie_id'    => $categorieId !== '' ? (int) $categorieId : null,
         ]);
 
@@ -531,15 +543,24 @@ class AdminPluginController
             Response::redirect('/admin/plugins');
         }
 
+        $conserverReglages = (bool) $req->post('conserver_reglages', '1');
+
         $installer = new PluginInstaller($db);
-        $installer->desinstaller($moduleId);
+        $installer->desinstaller($moduleId, $conserverReglages, Auth::id());
 
         AuditLogger::instance()->log(
             AuditAction::PluginUninstall, $req->ip(), Auth::id(), 'module', $moduleId,
-            ['slug' => $module['slug'], 'chemin' => $module['chemin_source'] ?? null]
+            [
+                'slug' => $module['slug'],
+                'chemin' => $module['chemin_source'] ?? null,
+                'conserver_reglages' => $conserverReglages,
+            ]
         );
 
-        Flash::success("Module « {$module['name']} » supprimé.");
+        $messageSupplement = $conserverReglages
+            ? ' Les réglages utilisateurs ont été conservés pour une réinstallation future.'
+            : '';
+        Flash::success("Module « {$module['name']} » désinstallé.{$messageSupplement}");
         Response::redirect('/admin/plugins');
     }
 }

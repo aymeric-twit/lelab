@@ -24,7 +24,7 @@ class Quota
         }
 
         $db = self::getDb();
-        $stmt = $db->prepare('SELECT id FROM modules WHERE slug = ?');
+        $stmt = $db->prepare('SELECT id FROM modules WHERE slug = ? AND desinstalle_le IS NULL');
         $stmt->execute([$slug]);
         $row = $stmt->fetch();
         $id = $row ? (int) $row['id'] : null;

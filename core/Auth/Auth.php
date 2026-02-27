@@ -89,6 +89,12 @@ class Auth
     public static function requireAuth(): void
     {
         if (!self::check()) {
+            if (self::estRequeteAjax()) {
+                http_response_code(401);
+                header('Content-Type: application/json');
+                echo json_encode(['erreur' => 'Session expirée', 'redirect' => '/login']);
+                exit;
+            }
             header('Location: /login');
             exit;
         }
@@ -98,10 +104,40 @@ class Auth
     {
         self::requireAuth();
         if (!self::isAdmin()) {
+            if (self::estRequeteAjax()) {
+                http_response_code(403);
+                header('Content-Type: application/json');
+                echo json_encode(['erreur' => 'Accès interdit']);
+                exit;
+            }
             http_response_code(403);
             echo 'Forbidden';
             exit;
         }
+    }
+
+    /**
+     * Détecte si la requête courante est une requête AJAX (fetch/XMLHttpRequest).
+     */
+    private static function estRequeteAjax(): bool
+    {
+        // Header X-Requested-With (convention jQuery/fetch)
+        if (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest') {
+            return true;
+        }
+
+        // Content-Type JSON ou Accept JSON
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
+        if (str_contains($contentType, 'application/json')) {
+            return true;
+        }
+
+        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        if (str_contains($accept, 'application/json') && !str_contains($accept, 'text/html')) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

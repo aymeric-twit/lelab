@@ -95,20 +95,10 @@
                                         <i class="bi <?= $mod['enabled'] ? 'bi-toggle-on' : 'bi-toggle-off' ?>"></i>
                                     </button>
                                 </form>
-                                <?php
-                                    $confirmMsg = $mod['chemin_source']
-                                        ? (str_contains($mod['chemin_source'], 'storage/plugins')
-                                            ? 'Désinstaller « ' . addslashes($mod['name']) . ' » ? Le répertoire extrait sera supprimé.'
-                                            : 'Désinstaller « ' . addslashes($mod['name']) . ' » ? Les fichiers sources ne seront pas touchés.')
-                                        : 'Supprimer le module « ' . addslashes($mod['name']) . ' » et son répertoire modules/' . addslashes($mod['slug']) . '/ ?';
-                                ?>
-                                <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/desinstaller" class="d-inline"
-                                      onsubmit="return confirm('<?= $confirmMsg ?>')">
-                                    <?= \Platform\Http\Csrf::field() ?>
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
+                                <button type="button" class="btn btn-sm btn-outline-danger" title="Désinstaller"
+                                        data-bs-toggle="modal" data-bs-target="#modalDesinstaller<?= $mod['id'] ?>">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -124,3 +114,46 @@
         </div>
     </div>
 </div>
+
+<?php foreach ($modules as $mod): ?>
+<div class="modal fade" id="modalDesinstaller<?= $mod['id'] ?>" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/desinstaller">
+                <?= \Platform\Http\Csrf::field() ?>
+                <div class="modal-header">
+                    <h5 class="modal-title">Désinstaller « <?= htmlspecialchars($mod['name']) ?> »</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        <?php if ($mod['chemin_source']): ?>
+                            <?php if (str_contains($mod['chemin_source'], 'storage/plugins')): ?>
+                                Le répertoire extrait sera supprimé.
+                            <?php else: ?>
+                                Les fichiers sources ne seront pas touchés.
+                            <?php endif; ?>
+                        <?php else: ?>
+                            Le répertoire <code>modules/<?= htmlspecialchars($mod['slug']) ?>/</code> sera supprimé.
+                        <?php endif; ?>
+                    </p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="conserverReglages<?= $mod['id'] ?>"
+                               checked onchange="document.getElementById('conserverReglagesInput<?= $mod['id'] ?>').value = this.checked ? '1' : '0'">
+                        <label class="form-check-label" for="conserverReglages<?= $mod['id'] ?>">
+                            Conserver les réglages (accès, quotas, historique) pour une réinstallation future
+                        </label>
+                        <input type="hidden" name="conserver_reglages" id="conserverReglagesInput<?= $mod['id'] ?>" value="1">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i> Désinstaller
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endforeach; ?>

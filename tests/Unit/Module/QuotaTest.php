@@ -36,7 +36,8 @@ beforeEach(function () {
         slug TEXT NOT NULL,
         enabled INTEGER DEFAULT 1,
         default_quota INTEGER DEFAULT 0,
-        quota_mode TEXT DEFAULT "none"
+        quota_mode TEXT DEFAULT "none",
+        desinstalle_le TEXT DEFAULT NULL
     )');
     $pdo->exec('CREATE TABLE module_usage (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

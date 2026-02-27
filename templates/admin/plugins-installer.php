@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrfToken },
             body: formData
         })
-        .then(r => r.json())
+        .then(gererReponse)
         .then(data => {
             zipResultat.style.display = 'block';
 
@@ -292,47 +292,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Intercepter le submit du formulaire pour envoyer le fichier ZIP via fetch
-    // (le submit natif avec un input file créé via DataTransfer ne transmet pas
-    //  toujours le fichier correctement selon le navigateur)
+    // Avant le submit natif, injecter le fichier ZIP dans le formulaire
+    // via DataTransfer pour que le navigateur l'envoie avec la redirection
+    // (fetch avalait les flash messages en suivant le 302 silencieusement)
     form.addEventListener('submit', function(e) {
         if (document.getElementById('mode_installation').value !== 'zip') {
-            return; // Laisser le submit natif pour le mode chemin
+            return; // Laisser le submit natif pour le mode chemin et git
         }
 
-        e.preventDefault();
-
         if (!fichierZipSelectionne) {
+            e.preventDefault();
             return;
         }
 
-        const formData = new FormData(form);
-        // Remplacer / ajouter le fichier ZIP depuis la variable JS
-        formData.delete('fichier_zip');
-        formData.append('fichier_zip', fichierZipSelectionne);
+        // Injecter le fichier dans un input caché à l'intérieur du formulaire
+        let hiddenFileInput = form.querySelector('input[name="fichier_zip"]');
+        if (!hiddenFileInput) {
+            hiddenFileInput = document.createElement('input');
+            hiddenFileInput.type = 'file';
+            hiddenFileInput.name = 'fichier_zip';
+            hiddenFileInput.style.display = 'none';
+            form.appendChild(hiddenFileInput);
+        }
 
-        const btnInstaller = form.querySelector('button[type="submit"]');
-        btnInstaller.disabled = true;
-        btnInstaller.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Installation...';
+        const dt = new DataTransfer();
+        dt.items.add(fichierZipSelectionne);
+        hiddenFileInput.files = dt.files;
 
-        fetch(form.action, {
-            method: 'POST',
-            body: formData,
-        })
-        .then(r => {
-            // Le serveur redirige (302) → suivre la redirection
-            if (r.redirected) {
-                window.location.href = r.url;
-            } else {
-                window.location.href = '/admin/plugins';
-            }
-        })
-        .catch(() => {
-            btnInstaller.disabled = false;
-            btnInstaller.innerHTML = '<i class="bi bi-download me-1"></i> Installer';
-            zipResultat.style.display = 'block';
-            zipResultat.innerHTML = '<div class="alert alert-danger mb-0"><i class="bi bi-x-circle me-1"></i> Erreur de communication avec le serveur.</div>';
-        });
+        // Laisser le submit natif se poursuivre → le navigateur suit le 302
+        // et affiche correctement les flash messages (succès ou erreur)
     });
 
     // ========================================
@@ -360,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: 'git_url=' + encodeURIComponent(url) + '&git_branche=' + encodeURIComponent(branche) + '&_csrf_token=' + encodeURIComponent(csrfToken)
         })
-        .then(r => r.json())
+        .then(gererReponse)
         .then(data => {
             gitResultat.style.display = 'block';
 
@@ -417,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: 'chemin=' + encodeURIComponent(chemin) + '&_csrf_token=' + encodeURIComponent(csrfToken)
         })
-        .then(r => r.json())
+        .then(gererReponse)
         .then(data => {
             resultat.style.display = 'block';
 
@@ -465,6 +453,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('cles_env').value = (data.env_keys || []).join(', ');
         document.getElementById('mode_affichage').value = data.display_mode || 'embedded';
         document.getElementById('categorie_id').value = data.categorie_id || '';
+    }
+
+    function gererReponse(response) {
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return Promise.reject(new Error('session_expiree'));
+        }
+        return response.json();
     }
 
     function escapeHtml(text) {

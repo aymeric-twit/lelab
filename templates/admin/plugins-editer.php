@@ -234,19 +234,49 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
             <a href="/admin/plugins" class="btn btn-outline-secondary">Annuler</a>
         </div>
 
-        <?php
-            $confirmEditer = $estExterne
-                ? (str_contains($module['chemin_source'] ?? '', 'storage/plugins')
-                    ? 'Désinstaller « ' . addslashes($module['name']) . ' » ? Le répertoire extrait sera supprimé.'
-                    : 'Désinstaller « ' . addslashes($module['name']) . ' » ? Les fichiers sources ne seront pas touchés.')
-                : 'Supprimer le module « ' . addslashes($module['name']) . ' » et son répertoire modules/' . addslashes($module['slug']) . '/ ?';
-        ?>
-        <form method="POST" action="/admin/plugins/<?= $module['id'] ?>/desinstaller" class="d-inline"
-              onsubmit="return confirm('<?= $confirmEditer ?>')">
-            <?= \Platform\Http\Csrf::field() ?>
-            <button type="submit" class="btn btn-outline-danger">
-                <i class="bi bi-trash me-1"></i> Supprimer
-            </button>
-        </form>
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalDesinstallerEditer">
+            <i class="bi bi-trash me-1"></i> Désinstaller
+        </button>
     </div>
 </form>
+
+<div class="modal fade" id="modalDesinstallerEditer" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/admin/plugins/<?= $module['id'] ?>/desinstaller">
+                <?= \Platform\Http\Csrf::field() ?>
+                <div class="modal-header">
+                    <h5 class="modal-title">Désinstaller « <?= htmlspecialchars($module['name']) ?> »</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        <?php if ($estExterne): ?>
+                            <?php if (str_contains($module['chemin_source'] ?? '', 'storage/plugins')): ?>
+                                Le répertoire extrait sera supprimé.
+                            <?php else: ?>
+                                Les fichiers sources ne seront pas touchés.
+                            <?php endif; ?>
+                        <?php else: ?>
+                            Le répertoire <code>modules/<?= htmlspecialchars($module['slug']) ?>/</code> sera supprimé.
+                        <?php endif; ?>
+                    </p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="conserverReglagesEditer"
+                               checked onchange="document.getElementById('conserverReglagesInputEditer').value = this.checked ? '1' : '0'">
+                        <label class="form-check-label" for="conserverReglagesEditer">
+                            Conserver les réglages (accès, quotas, historique) pour une réinstallation future
+                        </label>
+                        <input type="hidden" name="conserver_reglages" id="conserverReglagesInputEditer" value="1">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i> Désinstaller
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -227,13 +227,15 @@ class ModuleRenderer
             // Extract <script> tags from end of body
             preg_match_all('#<script[^>]*>.*?</script>#si', $content, $scripts);
             foreach ($scripts[0] as $script) {
-                // Skip CDN scripts
+                // CDN scripts: remove from content (already in layout) but don't add to footExtra
                 if (preg_match('#(cdn|jsdelivr|googleapis|cloudflare|bootstrap)#i', $script)) {
+                    $content = str_replace($script, '', $content);
                     continue;
                 }
+                $original = $script;
                 $script = self::rewriteAssetPaths($script, $slug);
                 $footExtra .= "\n" . $script;
-                $content = str_replace($script, '', $content);
+                $content = str_replace($original, '', $content);
             }
         }
 

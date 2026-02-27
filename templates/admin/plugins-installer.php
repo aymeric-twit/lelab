@@ -11,6 +11,12 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-git" data-bs-toggle="tab" data-bs-target="#pane-git"
+                        type="button" role="tab" aria-controls="pane-git" aria-selected="false">
+                    <i class="bi bi-github me-1"></i> GitHub
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="tab-chemin" data-bs-toggle="tab" data-bs-target="#pane-chemin"
                         type="button" role="tab" aria-controls="pane-chemin" aria-selected="false">
                     <i class="bi bi-folder me-1"></i> Chemin sur disque <small class="text-muted">(avancé)</small>
@@ -35,6 +41,29 @@
                     </div>
                 </div>
                 <div id="zip-resultat" class="mt-3" style="display: none;"></div>
+            </div>
+
+            <!-- Onglet GitHub -->
+            <div class="tab-pane fade" id="pane-git" role="tabpanel" aria-labelledby="tab-git">
+                <div class="row align-items-end">
+                    <div class="col-lg-7">
+                        <label for="git_url_detect" class="form-label">URL du dépôt GitHub</label>
+                        <input type="text" class="form-control" id="git_url_detect"
+                               placeholder="https://github.com/user/mon-plugin">
+                        <small class="text-muted">URL HTTPS d'un dépôt GitHub ou GitLab (repos privés supportés via token).</small>
+                    </div>
+                    <div class="col-lg-2 mt-2 mt-lg-0">
+                        <label for="git_branche_detect" class="form-label">Branche</label>
+                        <input type="text" class="form-control" id="git_branche_detect" value="main"
+                               placeholder="main">
+                    </div>
+                    <div class="col-lg-3 mt-2 mt-lg-0">
+                        <button type="button" class="btn btn-primary w-100" id="btn-detecter-git">
+                            <i class="bi bi-github me-1"></i> Détecter
+                        </button>
+                    </div>
+                </div>
+                <div id="git-resultat" class="mt-3" style="display: none;"></div>
             </div>
 
             <!-- Onglet Chemin -->
@@ -62,6 +91,8 @@
     <?= \Platform\Http\Csrf::field() ?>
     <input type="hidden" name="mode_installation" id="mode_installation" value="chemin">
     <input type="hidden" name="chemin_source" id="chemin_source">
+    <input type="hidden" name="git_url" id="git_url">
+    <input type="hidden" name="git_branche" id="git_branche" value="main">
 
     <div class="row g-4">
         <!-- Colonne gauche : Infos de base -->
@@ -209,6 +240,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // Vérification taille côté client (50 Mo max)
+        const TAILLE_MAX = 50 * 1024 * 1024;
+        if (fichierZipSelectionne.size > TAILLE_MAX) {
+            zipResultat.style.display = 'block';
+            zipResultat.innerHTML = '<div class="alert alert-danger mb-0"><i class="bi bi-x-circle me-1"></i> Le fichier fait ' + (fichierZipSelectionne.size / 1024 / 1024).toFixed(1) + ' Mo. Taille max : 50 Mo.</div>';
+            return;
+        }
+
         btnAnalyserZip.disabled = true;
         btnAnalyserZip.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Analyse...';
 
@@ -241,9 +280,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             document.getElementById('mode_installation').value = 'zip';
 
-            // Injecter le fichier ZIP dans le formulaire pour le POST final
-            injecterFichierZipDansFormulaire();
-
             form.style.display = 'block';
         })
         .catch(() => {
@@ -256,23 +292,107 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    function injecterFichierZipDansFormulaire() {
-        // Supprimer un éventuel input fichier précédent
-        const ancien = form.querySelector('input[name="fichier_zip"]');
-        if (ancien) ancien.remove();
+    // Intercepter le submit du formulaire pour envoyer le fichier ZIP via fetch
+    // (le submit natif avec un input file créé via DataTransfer ne transmet pas
+    //  toujours le fichier correctement selon le navigateur)
+    form.addEventListener('submit', function(e) {
+        if (document.getElementById('mode_installation').value !== 'zip') {
+            return; // Laisser le submit natif pour le mode chemin
+        }
 
-        // Créer un input file caché dans le formulaire et y copier le fichier
-        const inputHidden = document.createElement('input');
-        inputHidden.type = 'file';
-        inputHidden.name = 'fichier_zip';
-        inputHidden.style.display = 'none';
-        form.appendChild(inputHidden);
+        e.preventDefault();
 
-        // Utiliser DataTransfer pour assigner le fichier
-        const dt = new DataTransfer();
-        dt.items.add(fichierZipSelectionne);
-        inputHidden.files = dt.files;
-    }
+        if (!fichierZipSelectionne) {
+            return;
+        }
+
+        const formData = new FormData(form);
+        // Remplacer / ajouter le fichier ZIP depuis la variable JS
+        formData.delete('fichier_zip');
+        formData.append('fichier_zip', fichierZipSelectionne);
+
+        const btnInstaller = form.querySelector('button[type="submit"]');
+        btnInstaller.disabled = true;
+        btnInstaller.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Installation...';
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+        })
+        .then(r => {
+            // Le serveur redirige (302) → suivre la redirection
+            if (r.redirected) {
+                window.location.href = r.url;
+            } else {
+                window.location.href = '/admin/plugins';
+            }
+        })
+        .catch(() => {
+            btnInstaller.disabled = false;
+            btnInstaller.innerHTML = '<i class="bi bi-download me-1"></i> Installer';
+            zipResultat.style.display = 'block';
+            zipResultat.innerHTML = '<div class="alert alert-danger mb-0"><i class="bi bi-x-circle me-1"></i> Erreur de communication avec le serveur.</div>';
+        });
+    });
+
+    // ========================================
+    // Onglet GitHub
+    // ========================================
+    const btnDetecterGit = document.getElementById('btn-detecter-git');
+    const gitUrlInput = document.getElementById('git_url_detect');
+    const gitBrancheInput = document.getElementById('git_branche_detect');
+    const gitResultat = document.getElementById('git-resultat');
+
+    btnDetecterGit.addEventListener('click', function() {
+        const url = gitUrlInput.value.trim();
+        const branche = gitBrancheInput.value.trim() || 'main';
+        if (!url) return;
+
+        btnDetecterGit.disabled = true;
+        btnDetecterGit.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Détection...';
+
+        fetch('/admin/plugins/detecter-git', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: 'git_url=' + encodeURIComponent(url) + '&git_branche=' + encodeURIComponent(branche) + '&_csrf_token=' + encodeURIComponent(csrfToken)
+        })
+        .then(r => r.json())
+        .then(data => {
+            gitResultat.style.display = 'block';
+
+            if (!data.succes) {
+                gitResultat.innerHTML = '<div class="alert alert-danger mb-0"><i class="bi bi-x-circle me-1"></i> ' + escapeHtml(data.erreur) + '</div>';
+                form.style.display = 'none';
+                return;
+            }
+
+            if (data.detecte && data.donnees) {
+                gitResultat.innerHTML = '<div class="alert alert-success mb-0"><i class="bi bi-check-circle me-1"></i> <strong>module.json détecté !</strong> Les champs ont été pré-remplis.</div>';
+                remplirFormulaire('', data.donnees, data.point_entree || 'index.php');
+            } else {
+                gitResultat.innerHTML = '<div class="alert alert-warning mb-0"><i class="bi bi-exclamation-triangle me-1"></i> Aucun module.json trouvé dans le dépôt. Remplissez les champs manuellement.</div>';
+                remplirFormulaire('', {slug: data.slug || ''}, 'index.php');
+            }
+
+            document.getElementById('mode_installation').value = 'git';
+            document.getElementById('git_url').value = url;
+            document.getElementById('git_branche').value = branche;
+
+            form.style.display = 'block';
+        })
+        .catch(() => {
+            gitResultat.style.display = 'block';
+            gitResultat.innerHTML = '<div class="alert alert-danger mb-0"><i class="bi bi-x-circle me-1"></i> Erreur de communication avec le serveur.</div>';
+        })
+        .finally(() => {
+            btnDetecterGit.disabled = false;
+            btnDetecterGit.innerHTML = '<i class="bi bi-github me-1"></i> Détecter';
+        });
+    });
 
     // ========================================
     // Onglet Chemin

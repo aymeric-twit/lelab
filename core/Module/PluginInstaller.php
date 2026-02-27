@@ -272,8 +272,36 @@ class PluginInstaller
     {
         if (empty($fichierUpload['tmp_name']) || ($fichierUpload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             $codeErreur = $fichierUpload['error'] ?? UPLOAD_ERR_NO_FILE;
+
+            // Quand post_max_size est dépassé, PHP vide $_POST et $_FILES silencieusement.
+            // On détecte ce cas en vérifiant CONTENT_LENGTH vs les limites PHP.
+            if ($codeErreur === UPLOAD_ERR_NO_FILE || $codeErreur === UPLOAD_ERR_INI_SIZE) {
+                $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+                $postMaxSize = self::convertirEnOctets(ini_get('post_max_size') ?: '8M');
+                $uploadMaxSize = self::convertirEnOctets(ini_get('upload_max_filesize') ?: '2M');
+
+                if ($contentLength > 0 && $contentLength > $postMaxSize) {
+                    return sprintf(
+                        'Le fichier dépasse la limite post_max_size de PHP (%s). '
+                        . 'Lancez le serveur avec : php -d post_max_size=55M -d upload_max_filesize=50M -S localhost:8000 -t public',
+                        ini_get('post_max_size')
+                    );
+                }
+
+                if ($contentLength > 0 && $contentLength > $uploadMaxSize && $codeErreur === UPLOAD_ERR_NO_FILE) {
+                    return sprintf(
+                        'Le fichier dépasse la limite upload_max_filesize de PHP (%s). '
+                        . 'Lancez le serveur avec : php -d post_max_size=55M -d upload_max_filesize=50M -S localhost:8000 -t public',
+                        ini_get('upload_max_filesize')
+                    );
+                }
+            }
+
             return match ($codeErreur) {
-                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Le fichier dépasse la taille maximale autorisée.',
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => sprintf(
+                    'Le fichier dépasse la taille maximale autorisée (upload_max_filesize = %s).',
+                    ini_get('upload_max_filesize')
+                ),
                 UPLOAD_ERR_NO_FILE => 'Aucun fichier n\'a été envoyé.',
                 default => 'Erreur lors de l\'upload du fichier (code ' . $codeErreur . ').',
             };
@@ -367,6 +395,23 @@ class PluginInstaller
     }
 
     /**
+     * Convertit une valeur PHP ini (ex: '2M', '128K', '1G') en octets.
+     */
+    private static function convertirEnOctets(string $valeur): int
+    {
+        $valeur = trim($valeur);
+        $nombre = (int) $valeur;
+        $suffixe = strtoupper(substr($valeur, -1));
+
+        return match ($suffixe) {
+            'G' => $nombre * 1024 * 1024 * 1024,
+            'M' => $nombre * 1024 * 1024,
+            'K' => $nombre * 1024,
+            default => $nombre,
+        };
+    }
+
+    /**
      * Détecte si toutes les entrées du ZIP (hors fichiers à la racine) sont dans un sous-dossier unique.
      * Ex: un ZIP contenant crux/index.php, crux/app.js, module.json → retourne "crux".
      */
@@ -396,6 +441,162 @@ class PluginInstaller
         }
 
         return $sousDossier;
+    }
+
+    /**
+     * Installe un plugin depuis un dépôt Git (GitHub/GitLab).
+     *
+     * @return array{module_id: int, slug: string, commit: string|null}
+     * @throws \RuntimeException
+     */
+    public function installerDepuisGit(string $url, string $branche = 'main', int $installeParId = 0): array
+    {
+        if (!GitClient::validerUrl($url)) {
+            throw new \RuntimeException('URL de dépôt Git invalide. Seuls GitHub et GitLab en HTTPS sont acceptés.');
+        }
+
+        $slug = GitClient::extraireSlug($url);
+        if ($slug === null) {
+            throw new \RuntimeException('Impossible de déterminer le slug depuis l\'URL.');
+        }
+
+        $erreurSlug = $this->validerSlug($slug);
+        if ($erreurSlug !== null) {
+            throw new \RuntimeException($erreurSlug);
+        }
+
+        $cheminDestination = $this->repertoirePlugins() . '/' . $slug;
+
+        if (is_dir($cheminDestination)) {
+            throw new \RuntimeException("Le répertoire de destination existe déjà : storage/plugins/{$slug}/");
+        }
+
+        $gitClient = new GitClient();
+
+        if (!$gitClient->cloner($url, $cheminDestination, $branche)) {
+            throw new \RuntimeException('Échec du clonage du dépôt. Vérifiez l\'URL, la branche et le token GitHub.');
+        }
+
+        $moduleJson = $this->detecterModuleJson($cheminDestination);
+        if ($moduleJson === null) {
+            // Nettoyage si pas de module.json
+            $this->supprimerRepertoire($cheminDestination);
+            throw new \RuntimeException('Aucun module.json valide trouvé dans le dépôt.');
+        }
+
+        if ($moduleJson['slug'] !== $slug) {
+            $this->supprimerRepertoire($cheminDestination);
+            throw new \RuntimeException(
+                "Le slug du module.json (« {$moduleJson['slug']} ») ne correspond pas au nom du dépôt (« {$slug} »)."
+            );
+        }
+
+        $commit = $gitClient->getDernierCommit($cheminDestination);
+        $pointEntree = $this->detecterPointEntree($cheminDestination);
+        $clesEnv = !empty($moduleJson['env_keys']) ? $moduleJson['env_keys'] : null;
+
+        $donneesInstall = [
+            'slug'            => $slug,
+            'name'            => $moduleJson['name'] ?? $slug,
+            'description'     => $moduleJson['description'] ?? '',
+            'version'         => $moduleJson['version'] ?? '1.0.0',
+            'icon'            => $moduleJson['icon'] ?? 'bi-tools',
+            'sort_order'      => (int) ($moduleJson['sort_order'] ?? 100),
+            'quota_mode'      => $moduleJson['quota_mode'] ?? 'none',
+            'default_quota'   => (int) ($moduleJson['default_quota'] ?? 0),
+            'chemin_source'   => $cheminDestination,
+            'point_entree'    => $moduleJson['entry_point'] ?? $pointEntree,
+            'cles_env'        => $clesEnv,
+            'routes_config'   => !empty($moduleJson['routes']) ? $moduleJson['routes'] : null,
+            'passthrough_all' => !empty($moduleJson['passthrough_all']),
+            'mode_affichage'  => $moduleJson['display_mode'] ?? 'embedded',
+        ];
+
+        $moduleId = $this->installer($donneesInstall, $installeParId);
+
+        // Enregistrer les infos Git en BDD
+        $stmt = $this->db->prepare('
+            UPDATE modules SET git_url = :git_url, git_branche = :git_branche,
+                   git_dernier_pull = NOW(), git_dernier_commit = :git_dernier_commit
+            WHERE id = :id
+        ');
+        $stmt->execute([
+            'git_url'            => $url,
+            'git_branche'        => $branche,
+            'git_dernier_commit' => $commit,
+            'id'                 => $moduleId,
+        ]);
+
+        return ['module_id' => $moduleId, 'slug' => $slug, 'commit' => $commit];
+    }
+
+    /**
+     * Met à jour un plugin installé via Git (git pull).
+     *
+     * @return array{succes: bool, commit: string|null, version: string|null}
+     * @throws \RuntimeException
+     */
+    public function mettreAJourDepuisGit(int $moduleId): array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM modules WHERE id = ?');
+        $stmt->execute([$moduleId]);
+        $module = $stmt->fetch();
+
+        if (!$module) {
+            throw new \RuntimeException('Module introuvable.');
+        }
+
+        if (empty($module['git_url'])) {
+            throw new \RuntimeException('Ce module n\'est pas installé via Git.');
+        }
+
+        $cheminSource = $module['chemin_source'];
+        if (!is_dir($cheminSource)) {
+            throw new \RuntimeException('Le répertoire source du plugin est introuvable.');
+        }
+
+        $gitClient = new GitClient();
+
+        if (!$gitClient->pull($cheminSource)) {
+            throw new \RuntimeException('Échec du git pull. Vérifiez la connexion et les permissions.');
+        }
+
+        $commit = $gitClient->getDernierCommit($cheminSource);
+
+        // Re-détecter module.json pour mettre à jour les métadonnées
+        $moduleJson = $this->detecterModuleJson($cheminSource);
+        $version = $module['version'];
+
+        if ($moduleJson !== null) {
+            $clesEnv = !empty($moduleJson['env_keys']) ? $moduleJson['env_keys'] : null;
+
+            $this->mettreAJour($moduleId, [
+                'name'            => $moduleJson['name'] ?? $module['name'],
+                'description'     => $moduleJson['description'] ?? $module['description'],
+                'version'         => $moduleJson['version'] ?? $module['version'],
+                'icon'            => $moduleJson['icon'] ?? $module['icon'],
+                'sort_order'      => (int) ($moduleJson['sort_order'] ?? $module['sort_order']),
+                'quota_mode'      => $moduleJson['quota_mode'] ?? $module['quota_mode'],
+                'default_quota'   => (int) ($moduleJson['default_quota'] ?? $module['default_quota']),
+                'point_entree'    => $moduleJson['entry_point'] ?? $module['point_entree'],
+                'cles_env'        => $clesEnv,
+                'routes_config'   => !empty($moduleJson['routes']) ? $moduleJson['routes'] : null,
+                'passthrough_all' => !empty($moduleJson['passthrough_all']),
+                'mode_affichage'  => $moduleJson['display_mode'] ?? $module['mode_affichage'],
+                'categorie_id'    => $module['categorie_id'],
+            ]);
+
+            $version = $moduleJson['version'] ?? $module['version'];
+        }
+
+        // Mettre à jour les infos Git
+        $stmtGit = $this->db->prepare('
+            UPDATE modules SET git_dernier_pull = NOW(), git_dernier_commit = :commit
+            WHERE id = :id
+        ');
+        $stmtGit->execute(['commit' => $commit, 'id' => $moduleId]);
+
+        return ['succes' => true, 'commit' => $commit, 'version' => $version];
     }
 
     /**

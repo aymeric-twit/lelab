@@ -22,6 +22,7 @@ use Platform\Controller\AdminAccessController;
 use Platform\Controller\AdminQuotaController;
 use Platform\Controller\AdminCategorieController;
 use Platform\Controller\AdminPluginController;
+use Platform\Controller\WebhookGithubController;
 use Platform\Database\Connection;
 
 // Bootstrap
@@ -94,12 +95,21 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->get('/admin/plugins/installer', [$adminPlugin, 'formulaireInstallation']);
     $r->post('/admin/plugins/detecter', [$adminPlugin, 'detecter']);
     $r->post('/admin/plugins/analyser-zip', [$adminPlugin, 'analyserZip']);
+    $r->post('/admin/plugins/detecter-git', [$adminPlugin, 'detecterGit']);
     $r->post('/admin/plugins/installer', [$adminPlugin, 'installer']);
     $r->get('/admin/plugins/{id}/editer', [$adminPlugin, 'formulaireEdition']);
     $r->post('/admin/plugins/{id}/editer', [$adminPlugin, 'mettreAJour']);
+    $r->post('/admin/plugins/{id}/maj-git', [$adminPlugin, 'mettreAJourGit']);
     $r->post('/admin/plugins/{id}/basculer', [$adminPlugin, 'basculer']);
     $r->post('/admin/plugins/{id}/desinstaller', [$adminPlugin, 'desinstaller']);
 });
+
+// -----------------------------------------------
+// Webhook (public, sans CSRF ni auth — protégé par HMAC)
+// -----------------------------------------------
+
+$webhook = new WebhookGithubController();
+$router->post('/webhook/github', [$webhook, 'handle']);
 
 // -----------------------------------------------
 // Dispatch

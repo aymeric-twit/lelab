@@ -8,6 +8,7 @@ use Platform\Enum\AuditAction;
 use Platform\Enum\QuotaMode;
 use Platform\Http\Request;
 use Platform\Http\Response;
+use Platform\Module\GitClient;
 use Platform\Module\ModuleRegistry;
 use Platform\Module\PluginInstaller;
 use Platform\Service\AuditLogger;
@@ -88,6 +89,11 @@ class AdminPluginController
 
         if ($modeInstallation === 'zip') {
             $this->installerDepuisZip($req, $installer);
+            return;
+        }
+
+        if ($modeInstallation === 'git') {
+            $this->installerDepuisGit($req, $installer);
             return;
         }
 
@@ -215,6 +221,150 @@ class AdminPluginController
 
         Flash::success("Plugin « {$donnees['name']} » installé avec succès.");
         Response::redirect('/admin/plugins');
+    }
+
+    /**
+     * POST /admin/plugins/detecter-git — AJAX : clone temporaire pour détecter module.json.
+     */
+    public function detecterGit(Request $req): void
+    {
+        $url = trim($req->post('git_url', ''));
+        $branche = trim($req->post('git_branche', 'main')) ?: 'main';
+
+        if (!GitClient::validerUrl($url)) {
+            Response::json(['succes' => false, 'erreur' => 'URL de dépôt Git invalide. Seuls GitHub et GitLab en HTTPS sont acceptés.']);
+        }
+
+        $slug = GitClient::extraireSlug($url);
+        if ($slug === null) {
+            Response::json(['succes' => false, 'erreur' => 'Impossible de déterminer le slug depuis l\'URL.']);
+        }
+
+        // Clone temporaire pour détecter module.json
+        $tmpDir = sys_get_temp_dir() . '/seo-platform-git-detect-' . uniqid();
+        $gitClient = new GitClient();
+
+        if (!$gitClient->cloner($url, $tmpDir, $branche)) {
+            Response::json(['succes' => false, 'erreur' => 'Échec du clonage. Vérifiez l\'URL, la branche et le token GitHub.']);
+        }
+
+        $db = Connection::get();
+        $installer = new PluginInstaller($db);
+        $moduleJson = $installer->detecterModuleJson($tmpDir);
+        $pointEntree = $installer->detecterPointEntree($tmpDir);
+
+        // Nettoyage du clone temporaire
+        $this->supprimerRepertoireTemporaire($tmpDir);
+
+        Response::json([
+            'succes'       => true,
+            'detecte'      => $moduleJson !== null,
+            'donnees'      => $moduleJson,
+            'point_entree' => $pointEntree,
+            'slug'         => $slug,
+        ]);
+    }
+
+    /**
+     * POST /admin/plugins/{id}/maj-git — Met à jour un plugin Git via pull.
+     */
+    public function mettreAJourGit(Request $req, array $params): void
+    {
+        $db = Connection::get();
+        $moduleId = (int) $params['id'];
+
+        $stmt = $db->prepare('SELECT * FROM modules WHERE id = ?');
+        $stmt->execute([$moduleId]);
+        $module = $stmt->fetch();
+
+        if (!$module) {
+            Response::abort(404);
+        }
+
+        if (empty($module['git_url'])) {
+            Flash::error('Ce module n\'est pas installé via Git.');
+            Response::redirect('/admin/plugins');
+        }
+
+        $installer = new PluginInstaller($db);
+
+        try {
+            $resultat = $installer->mettreAJourDepuisGit($moduleId);
+
+            AuditLogger::instance()->log(
+                AuditAction::PluginUpdate, $req->ip(), Auth::id(), 'module', $moduleId,
+                ['action' => 'git-pull', 'commit' => $resultat['commit']]
+            );
+
+            Flash::success("Plugin « {$module['name']} » mis à jour (commit : " . substr($resultat['commit'] ?? '', 0, 7) . ').');
+        } catch (\Throwable $e) {
+            Flash::error('Échec de la mise à jour Git : ' . $e->getMessage());
+        }
+
+        Response::redirect('/admin/plugins');
+    }
+
+    private function installerDepuisGit(Request $req, PluginInstaller $installer): void
+    {
+        $url = trim($req->post('git_url', ''));
+        $branche = trim($req->post('git_branche', 'main')) ?: 'main';
+
+        if (!GitClient::validerUrl($url)) {
+            Flash::error('URL de dépôt Git invalide.');
+            Response::redirect('/admin/plugins/installer');
+        }
+
+        try {
+            $resultat = $installer->installerDepuisGit($url, $branche, Auth::id());
+
+            $stmt = Connection::get()->prepare('SELECT slug, chemin_source, name FROM modules WHERE id = ?');
+            $stmt->execute([$resultat['module_id']]);
+            $module = $stmt->fetch();
+
+            AuditLogger::instance()->log(
+                AuditAction::PluginInstall, $req->ip(), Auth::id(), 'module', $resultat['module_id'],
+                ['slug' => $resultat['slug'], 'git_url' => $url, 'mode' => 'git']
+            );
+
+            Flash::success("Plugin « {$module['name']} » installé depuis Git.");
+        } catch (\Throwable $e) {
+            Flash::error($e->getMessage() ?: 'Erreur lors de l\'installation du plugin.');
+        }
+
+        Response::redirect('/admin/plugins');
+    }
+
+    /**
+     * Supprime un répertoire temporaire de manière récursive.
+     */
+    private function supprimerRepertoireTemporaire(string $chemin): void
+    {
+        if (!is_dir($chemin)) {
+            return;
+        }
+
+        $elements = scandir($chemin);
+        if ($elements === false) {
+            return;
+        }
+
+        foreach ($elements as $element) {
+            if ($element === '.' || $element === '..') {
+                continue;
+            }
+
+            $cheminComplet = $chemin . '/' . $element;
+
+            if (is_link($cheminComplet)) {
+                unlink($cheminComplet);
+            } elseif (is_dir($cheminComplet)) {
+                $this->supprimerRepertoireTemporaire($cheminComplet);
+            } else {
+                unlink($cheminComplet);
+            }
+        }
+
+        rmdir($chemin);
     }
 
     public function formulaireEdition(Request $req, array $params): void

@@ -37,7 +37,18 @@
                             <?php endif; ?>
                         </td>
                         <td>
-                            <?php if ($mod['chemin_source']): ?>
+                            <?php if (!empty($mod['git_url'])): ?>
+                                <span class="badge bg-dark"><i class="bi bi-github me-1"></i>Git</span>
+                                <small class="text-muted d-block mt-1" title="<?= htmlspecialchars($mod['git_url']) ?>">
+                                    <?= htmlspecialchars($mod['git_branche'] ?? 'main') ?>
+                                    <?php if (!empty($mod['git_dernier_commit'])): ?>
+                                        · <code><?= htmlspecialchars(substr($mod['git_dernier_commit'], 0, 7)) ?></code>
+                                    <?php endif; ?>
+                                </small>
+                                <?php if (!empty($mod['git_dernier_pull'])): ?>
+                                    <small class="text-muted d-block"><?= htmlspecialchars($mod['git_dernier_pull']) ?></small>
+                                <?php endif; ?>
+                            <?php elseif ($mod['chemin_source']): ?>
                                 <span class="badge badge-source-external">Externe</span>
                                 <span class="chemin-source-text d-block mt-1"><?= htmlspecialchars($mod['chemin_source']) ?></span>
                             <?php else: ?>
@@ -70,6 +81,14 @@
                                 <a href="/admin/plugins/<?= $mod['id'] ?>/editer" class="btn btn-sm btn-outline-secondary" title="Éditer">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                <?php if (!empty($mod['git_url'])): ?>
+                                <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/maj-git" class="d-inline">
+                                    <?= \Platform\Http\Csrf::field() ?>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Mettre à jour depuis Git">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </button>
+                                </form>
+                                <?php endif; ?>
                                 <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/basculer" class="d-inline">
                                     <?= \Platform\Http\Csrf::field() ?>
                                     <button type="submit" class="btn btn-sm btn-outline-secondary" title="<?= $mod['enabled'] ? 'Désactiver' : 'Activer' ?>">

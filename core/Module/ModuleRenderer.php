@@ -83,12 +83,27 @@ class ModuleRenderer
     /**
      * Sert le HTML complet du module en mode iframe (passthrough avec contexte).
      * Le module s'exécute comme une app autonome dans l'iframe.
+     *
+     * Réécriture de REQUEST_URI : les modules iframe avec routeur interne
+     * lisent $_SERVER['REQUEST_URI'] pour dispatcher leurs routes.
+     * Sans réécriture, le routeur verrait '/m/{slug}/api/analyser' au lieu de '/api/analyser'.
      */
     public static function servirApp(ModuleDescriptor $module, ?string $subRoute = null): void
     {
         $file = $subRoute
             ? $module->path . '/' . $subRoute
             : $module->getEntryFile();
+
+        // Si le fichier sous-route n'existe pas, router via l'entry point
+        // (le module a probablement son propre routeur interne)
+        $queryString = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
+        if ($subRoute && !file_exists($file)) {
+            $file = $module->getEntryFile();
+            $_SERVER['REQUEST_URI'] = '/' . $subRoute . $queryString;
+        } elseif (!$subRoute) {
+            // Chargement initial (_app) — le routeur interne attend '/'
+            $_SERVER['REQUEST_URI'] = '/' . $queryString;
+        }
 
         if (!file_exists($file)) {
             http_response_code(404);

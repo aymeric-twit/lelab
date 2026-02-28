@@ -4,8 +4,10 @@ namespace Platform\Controller;
 
 use Platform\Auth\Auth;
 use Platform\Enum\Role;
+use Platform\Enum\RouteType;
 use Platform\Http\Request;
 use Platform\Http\Response;
+use Platform\Log\Logger;
 use Platform\Module\ModuleRegistry;
 use Platform\Module\ModuleRenderer;
 use Platform\Module\Quota;
@@ -34,6 +36,18 @@ class ModuleController
         if ($module->modeAffichage->estPassthrough()) {
             ModuleRenderer::passthrough($module, $module->entryPoint);
             return;
+        }
+
+        // Redirection trailing slash pour embedded (GET uniquement)
+        // /m/suggest → 301 → /m/suggest/
+        // Filet de sécurité : fetch('process.php') se résout vers /m/suggest/process.php
+        if ($module->modeAffichage->estEmbedded() && $req->method() === 'GET') {
+            $rawPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '';
+            if (!str_ends_with($rawPath, '/')) {
+                $queryString = $_SERVER['QUERY_STRING'] ?? '';
+                $destination = $rawPath . '/' . ($queryString !== '' ? '?' . $queryString : '');
+                Response::redirect($destination, 301);
+            }
         }
 
         $modules = $ac->getAccessibleModules($user['id']);
@@ -126,6 +140,26 @@ class ModuleController
 
         // Mode embedded : sous-routes ajax/stream en passthrough, pages en layout
         $routeType = $module->getRouteType($sub);
+
+        // Fallback : si la route n'est pas déclarée, détecter automatiquement
+        // les requêtes AJAX/SSE pour éviter de wrapper du JSON dans le layout HTML
+        if (!$module->hasSubRoute($sub)) {
+            if ($req->estRequeteAjax()) {
+                $routeType = RouteType::Ajax;
+                Logger::warning('Route non déclarée traitée comme AJAX', [
+                    'module' => $module->slug,
+                    'sousRoute' => $sub,
+                    'signal' => $this->detecterSignalAjax($req),
+                ]);
+            } elseif ($req->estRequeteSSE()) {
+                $routeType = RouteType::Stream;
+                Logger::warning('Route non déclarée traitée comme SSE', [
+                    'module' => $module->slug,
+                    'sousRoute' => $sub,
+                ]);
+            }
+        }
+
         if ($routeType->estPassthrough()) {
             ModuleRenderer::passthrough($module, $sub);
             return;
@@ -159,6 +193,28 @@ class ModuleController
             'quotaSummary'      => $quotaSummary,
             'moduleLangages'    => $module->langues,
         ]);
+    }
+
+    /**
+     * Identifie le signal HTTP ayant déclenché la détection AJAX (pour les logs).
+     */
+    private function detecterSignalAjax(Request $req): string
+    {
+        if ($req->isAjax()) {
+            return 'X-Requested-With: XMLHttpRequest';
+        }
+
+        $accept = $req->header('Accept') ?? '';
+        if (str_contains($accept, 'application/json')) {
+            return 'Accept: application/json';
+        }
+
+        $contentType = $req->header('Content-Type') ?? '';
+        if (str_contains($contentType, 'application/json')) {
+            return 'Content-Type: application/json';
+        }
+
+        return 'inconnu';
     }
 
     public function assets(Request $req, array $params): void

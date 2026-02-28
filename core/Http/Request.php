@@ -73,4 +73,39 @@ class Request
     {
         return $this->header('X-Requested-With') === 'XMLHttpRequest';
     }
+
+    /**
+     * Détection élargie d'une requête AJAX/API.
+     * Utilisée comme fallback quand la sous-route n'est pas déclarée dans module.json.
+     *
+     * Vérifie : X-Requested-With, Accept: application/json, Content-Type: application/json.
+     */
+    public function estRequeteAjax(): bool
+    {
+        if ($this->isAjax()) {
+            return true;
+        }
+
+        $accept = $this->header('Accept') ?? '';
+        if (str_contains($accept, 'application/json')) {
+            return true;
+        }
+
+        $contentType = $this->header('Content-Type') ?? '';
+        if (str_contains($contentType, 'application/json')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Détecte une requête Server-Sent Events (EventSource).
+     * Le navigateur envoie Accept: text/event-stream automatiquement.
+     */
+    public function estRequeteSSE(): bool
+    {
+        $accept = $this->header('Accept') ?? '';
+        return str_contains($accept, 'text/event-stream');
+    }
 }

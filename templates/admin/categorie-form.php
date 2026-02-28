@@ -42,7 +42,7 @@
         <button type="submit" class="btn btn-primary">
             <?= isset($categorie) ? 'Enregistrer' : 'Créer' ?>
         </button>
-        <a href="/admin/categories" class="btn btn-outline-secondary">Annuler</a>
+        <a href="/admin/plugins?onglet=categories" class="btn btn-outline-secondary">Annuler</a>
     </div>
 </form>
 

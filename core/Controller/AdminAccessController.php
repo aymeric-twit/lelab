@@ -11,27 +11,12 @@ use Platform\Service\AuditLogger;
 use Platform\User\AccessControl;
 use Platform\User\UserRepository;
 use Platform\View\Flash;
-use Platform\View\Layout;
 
 class AdminAccessController
 {
     public function index(): void
     {
-        $user = Auth::user();
-        $ac = new AccessControl();
-        $repo = new UserRepository();
-        $db = Connection::get();
-
-        Layout::render('layout', [
-            'template'          => 'admin/user-access',
-            'pageTitle'         => 'Matrice d\'accès',
-            'currentUser'       => $user,
-            'accessibleModules' => $ac->getAccessibleModules($user['id']),
-            'adminPage'         => 'access',
-            'users'             => $repo->findAll(),
-            'modules'           => $db->query('SELECT * FROM modules WHERE enabled = 1 ORDER BY sort_order')->fetchAll(),
-            'matrix'            => $ac->getAccessMatrix(),
-        ]);
+        Response::redirect('/admin/users?onglet=acces');
     }
 
     public function mettreAJour(Request $req): void
@@ -56,6 +41,6 @@ class AdminAccessController
         );
 
         Flash::success('Accès mis à jour.');
-        Response::redirect('/admin/access');
+        Response::redirect('/admin/users?onglet=acces');
     }
 }

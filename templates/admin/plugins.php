@@ -1,3 +1,6 @@
+<?php
+$ongletActif = $onglet ?? 'plugins';
+?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">Plugins</h2>
     <a href="/admin/plugins/installer" class="btn btn-primary btn-sm">
@@ -5,116 +8,353 @@
     </a>
 </div>
 
-<div class="card">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-sm mb-0">
-                <thead>
-                    <tr>
-                        <th>Module</th>
-                        <th>Catégorie</th>
-                        <th>Source</th>
-                        <th>Version</th>
-                        <th>Mode quota</th>
-                        <th>Quota défaut</th>
-                        <th>Statut</th>
-                        <th style="width: 180px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($modules as $mod): ?>
-                    <tr>
-                        <td>
-                            <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
-                            <strong><?= htmlspecialchars($mod['name']) ?></strong>
-                            <small class="text-muted d-block"><?= htmlspecialchars($mod['slug']) ?></small>
-                        </td>
-                        <td>
-                            <?php if (!empty($mod['categorie_nom'])): ?>
-                                <span><?= htmlspecialchars($mod['categorie_nom']) ?></span>
-                            <?php else: ?>
-                                <span class="text-muted">—</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if (!empty($mod['git_url'])): ?>
-                                <span class="badge bg-dark"><i class="bi bi-github me-1"></i>Git</span>
-                                <small class="text-muted d-block mt-1" title="<?= htmlspecialchars($mod['git_url']) ?>">
-                                    <?= htmlspecialchars($mod['git_branche'] ?? 'main') ?>
-                                    <?php if (!empty($mod['git_dernier_commit'])): ?>
-                                        · <code><?= htmlspecialchars(substr($mod['git_dernier_commit'], 0, 7)) ?></code>
-                                    <?php endif; ?>
-                                </small>
-                                <?php if (!empty($mod['git_dernier_pull'])): ?>
-                                    <small class="text-muted d-block"><?= htmlspecialchars($mod['git_dernier_pull']) ?></small>
-                                <?php endif; ?>
-                            <?php elseif ($mod['chemin_source']): ?>
-                                <span class="badge badge-source-external">Externe</span>
-                                <span class="chemin-source-text d-block mt-1"><?= htmlspecialchars($mod['chemin_source']) ?></span>
-                            <?php else: ?>
-                                <span class="badge badge-source-embedded">Embarqué</span>
-                            <?php endif; ?>
-                        </td>
-                        <td><?= htmlspecialchars($mod['version'] ?? '-') ?></td>
-                        <td>
-                            <?php
-                                $qm = \Platform\Enum\QuotaMode::tryFrom($mod['quota_mode'] ?? 'none') ?? \Platform\Enum\QuotaMode::None;
-                                echo htmlspecialchars($qm->label());
-                            ?>
-                        </td>
-                        <td>
-                            <?php if ($qm->estSuivi()): ?>
-                                <?= (int) $mod['default_quota'] ?>
-                            <?php else: ?>
-                                <span class="text-muted">&mdash;</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ($mod['enabled']): ?>
-                                <span class="badge badge-active">Actif</span>
-                            <?php else: ?>
-                                <span class="badge badge-inactive">Inactif</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <div class="d-flex gap-1">
-                                <a href="/admin/plugins/<?= $mod['id'] ?>/editer" class="btn btn-sm btn-outline-secondary" title="Éditer">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <?php if (!empty($mod['git_url'])): ?>
-                                <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/maj-git" class="d-inline">
-                                    <?= \Platform\Http\Csrf::field() ?>
-                                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Mettre à jour depuis Git">
-                                        <i class="bi bi-arrow-repeat"></i>
-                                    </button>
-                                </form>
-                                <?php endif; ?>
-                                <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/basculer" class="d-inline">
-                                    <?= \Platform\Http\Csrf::field() ?>
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="<?= $mod['enabled'] ? 'Désactiver' : 'Activer' ?>">
-                                        <i class="bi <?= $mod['enabled'] ? 'bi-toggle-on' : 'bi-toggle-off' ?>"></i>
-                                    </button>
-                                </form>
-                                <button type="button" class="btn btn-sm btn-outline-danger" title="Désinstaller"
-                                        data-bs-toggle="modal" data-bs-target="#modalDesinstaller<?= $mod['id'] ?>">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
+<ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link <?= $ongletActif === 'plugins' ? 'active' : '' ?>"
+           id="tab-plugins-btn" data-bs-toggle="tab" href="#tab-plugins"
+           role="tab" aria-selected="<?= $ongletActif === 'plugins' ? 'true' : 'false' ?>">
+            <i class="bi bi-puzzle me-1"></i> Plugins
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link <?= $ongletActif === 'categories' ? 'active' : '' ?>"
+           id="tab-categories-btn" data-bs-toggle="tab" href="#tab-categories"
+           role="tab" aria-selected="<?= $ongletActif === 'categories' ? 'true' : 'false' ?>">
+            <i class="bi bi-folder me-1"></i> Cat&eacute;gories
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link <?= $ongletActif === 'cles-api' ? 'active' : '' ?>"
+           id="tab-cles-api-btn" data-bs-toggle="tab" href="#tab-cles-api"
+           role="tab" aria-selected="<?= $ongletActif === 'cles-api' ? 'true' : 'false' ?>">
+            <i class="bi bi-key me-1"></i> Cl&eacute;s d'API
+        </a>
+    </li>
+</ul>
 
-                    <?php if (empty($modules)): ?>
-                    <tr>
-                        <td colspan="8" class="text-center text-muted py-4">Aucun module installé.</td>
-                    </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+<div class="tab-content">
+    <!-- Onglet Plugins -->
+    <div class="tab-pane fade <?= $ongletActif === 'plugins' ? 'show active' : '' ?>"
+         id="tab-plugins" role="tabpanel">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0" id="tablePlugins">
+                        <thead>
+                            <tr>
+                                <th class="sortable-th" data-sort-key="module" data-sort-type="string">
+                                    Module <i class="bi bi-chevron-expand sort-icon"></i>
+                                </th>
+                                <th class="sortable-th" data-sort-key="categorie" data-sort-type="string">
+                                    Cat&eacute;gorie <i class="bi bi-chevron-expand sort-icon"></i>
+                                </th>
+                                <th>Source</th>
+                                <th class="sortable-th" data-sort-key="version" data-sort-type="string">
+                                    Version <i class="bi bi-chevron-expand sort-icon"></i>
+                                </th>
+                                <th>API</th>
+                                <th class="sortable-th" data-sort-key="quota-mode" data-sort-type="string">
+                                    Mode quota <i class="bi bi-chevron-expand sort-icon"></i>
+                                </th>
+                                <th class="sortable-th" data-sort-key="quota-defaut" data-sort-type="number">
+                                    Quota d&eacute;faut <i class="bi bi-chevron-expand sort-icon"></i>
+                                </th>
+                                <th class="sortable-th" data-sort-key="statut" data-sort-type="string">
+                                    Statut <i class="bi bi-chevron-expand sort-icon"></i>
+                                </th>
+                                <th style="width: 180px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($modules as $mod):
+                                $qm = \Platform\Enum\QuotaMode::tryFrom($mod['quota_mode'] ?? 'none') ?? \Platform\Enum\QuotaMode::None;
+                            ?>
+                            <tr data-sort-module="<?= htmlspecialchars(strtolower($mod['name'])) ?>"
+                                data-sort-categorie="<?= htmlspecialchars(strtolower($mod['categorie_nom'] ?? '')) ?>"
+                                data-sort-version="<?= htmlspecialchars($mod['version'] ?? '') ?>"
+                                data-sort-quota-mode="<?= htmlspecialchars($qm->label()) ?>"
+                                data-sort-quota-defaut="<?= (int) $mod['default_quota'] ?>"
+                                data-sort-statut="<?= $mod['enabled'] ? 'actif' : 'inactif' ?>">
+                                <td>
+                                    <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
+                                    <strong><?= htmlspecialchars($mod['name']) ?></strong>
+                                    <small class="text-muted d-block"><?= htmlspecialchars($mod['slug']) ?></small>
+                                </td>
+                                <td>
+                                    <?php if (!empty($mod['categorie_nom'])): ?>
+                                        <span><?= htmlspecialchars($mod['categorie_nom']) ?></span>
+                                    <?php else: ?>
+                                        <span class="text-muted">&mdash;</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if (!empty($mod['git_url'])): ?>
+                                        <span class="badge bg-dark"><i class="bi bi-github me-1"></i>Git</span>
+                                        <small class="text-muted d-block mt-1" title="<?= htmlspecialchars($mod['git_url']) ?>">
+                                            <?= htmlspecialchars($mod['git_branche'] ?? 'main') ?>
+                                            <?php if (!empty($mod['git_dernier_commit'])): ?>
+                                                &middot; <code><?= htmlspecialchars(substr($mod['git_dernier_commit'], 0, 7)) ?></code>
+                                            <?php endif; ?>
+                                        </small>
+                                        <?php if (!empty($mod['git_dernier_pull'])): ?>
+                                            <small class="text-muted d-block"><?= htmlspecialchars($mod['git_dernier_pull']) ?></small>
+                                        <?php endif; ?>
+                                    <?php elseif ($mod['chemin_source']): ?>
+                                        <span class="badge badge-source-external">Externe</span>
+                                        <span class="chemin-source-text d-block mt-1"><?= htmlspecialchars($mod['chemin_source']) ?></span>
+                                    <?php else: ?>
+                                        <span class="badge badge-source-embedded">Embarqu&eacute;</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= htmlspecialchars($mod['version'] ?? '-') ?></td>
+                                <td>
+                                    <?php if (empty($mod['_cles_env_liste'])): ?>
+                                        <span class="text-muted">&mdash;</span>
+                                    <?php else: ?>
+                                        <?php
+                                            $toutesPresentes = !empty($mod['_cles_env_statut']) && !in_array(false, $mod['_cles_env_statut'], true);
+                                            $aucunePresente = !empty($mod['_cles_env_statut']) && !in_array(true, $mod['_cles_env_statut'], true);
+                                        ?>
+                                        <?php if ($toutesPresentes): ?>
+                                            <span class="badge badge-active" title="<?= htmlspecialchars(implode(', ', $mod['_cles_env_liste'])) ?>">
+                                                <i class="bi bi-check-circle me-1"></i>OK
+                                            </span>
+                                        <?php elseif ($aucunePresente): ?>
+                                            <span class="badge badge-inactive" title="<?= htmlspecialchars(implode(', ', $mod['_cles_env_liste'])) ?>">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>Manquante<?= count($mod['_cles_env_liste']) > 1 ? 's' : '' ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="badge" style="background: rgba(249, 115, 22, 0.12); color: #f97316; font-weight: 600;" title="<?= htmlspecialchars(implode(', ', array_keys(array_filter($mod['_cles_env_statut'], fn($v) => !$v)))) ?>">
+                                                <i class="bi bi-exclamation-circle me-1"></i>Partiel
+                                            </span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($mod['_api_doc_url'])): ?>
+                                            <a href="<?= htmlspecialchars($mod['_api_doc_url']) ?>" target="_blank" class="ms-1" title="Documentation API" style="font-size: 0.75rem;">
+                                                <i class="bi bi-box-arrow-up-right"></i>
+                                            </a>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= htmlspecialchars($qm->label()) ?></td>
+                                <td>
+                                    <?php if ($qm->estSuivi()): ?>
+                                        <?= (int) $mod['default_quota'] ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">&mdash;</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($mod['enabled']): ?>
+                                        <span class="badge badge-active">Actif</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-inactive">Inactif</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="/admin/plugins/<?= $mod['id'] ?>/editer" class="btn btn-sm btn-outline-secondary" title="&Eacute;diter">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <?php if (!empty($mod['git_url'])): ?>
+                                        <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/maj-git" class="d-inline">
+                                            <?= \Platform\Http\Csrf::field() ?>
+                                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Mettre &agrave; jour depuis Git">
+                                                <i class="bi bi-arrow-repeat"></i>
+                                            </button>
+                                        </form>
+                                        <?php endif; ?>
+                                        <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/basculer" class="d-inline">
+                                            <?= \Platform\Http\Csrf::field() ?>
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary" title="<?= $mod['enabled'] ? 'D&eacute;sactiver' : 'Activer' ?>">
+                                                <i class="bi <?= $mod['enabled'] ? 'bi-toggle-on' : 'bi-toggle-off' ?>"></i>
+                                            </button>
+                                        </form>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="D&eacute;sinstaller"
+                                                data-bs-toggle="modal" data-bs-target="#modalDesinstaller<?= $mod['id'] ?>">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+
+                            <?php if (empty($modules)): ?>
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-4">Aucun module install&eacute;.</td>
+                            </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
+    </div>
+
+    <!-- Onglet Cat&eacute;gories -->
+    <div class="tab-pane fade <?= $ongletActif === 'categories' ? 'show active' : '' ?>"
+         id="tab-categories" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <p class="text-muted mb-0" style="font-size:0.9rem;">
+                <i class="bi bi-grip-vertical me-1"></i> Glissez les lignes pour r&eacute;ordonner les cat&eacute;gories.
+            </p>
+            <a href="/admin/categories/creer" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg me-1"></i> Nouvelle cat&eacute;gorie
+            </a>
+        </div>
+
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;"></th>
+                                <th>Nom</th>
+                                <th>Ic&ocirc;ne</th>
+                                <th>Ordre</th>
+                                <th>Plugins</th>
+                                <th style="width: 130px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesBody">
+                            <?php foreach ($categories as $cat): ?>
+                            <tr data-id="<?= $cat['id'] ?>">
+                                <td class="drag-handle" style="cursor: grab; color: var(--brand-teal);">
+                                    <i class="bi bi-grip-vertical"></i>
+                                </td>
+                                <td><strong><?= htmlspecialchars($cat['nom']) ?></strong></td>
+                                <td>
+                                    <i class="bi <?= htmlspecialchars($cat['icone'] ?? 'bi-folder') ?> me-1" style="color: var(--brand-teal);"></i>
+                                    <code style="font-size: 0.8rem;"><?= htmlspecialchars($cat['icone'] ?? 'bi-folder') ?></code>
+                                </td>
+                                <td class="sort-order-cell"><?= (int) $cat['sort_order'] ?></td>
+                                <td>
+                                    <?php if ((int) $cat['nb_plugins'] > 0): ?>
+                                        <span class="badge badge-active"><?= (int) $cat['nb_plugins'] ?></span>
+                                        <?php if (!empty($cat['plugins_noms'])): ?>
+                                            <small class="text-muted d-block"><?= htmlspecialchars(implode(', ', explode('||', $cat['plugins_noms']))) ?></small>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">0</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="/admin/categories/<?= $cat['id'] ?>/editer" class="btn btn-sm btn-outline-secondary" title="&Eacute;diter">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <form method="POST" action="/admin/categories/<?= $cat['id'] ?>/supprimer" class="d-inline"
+                                              onsubmit="return confirm('Supprimer la cat&eacute;gorie &laquo; <?= addslashes($cat['nom']) ?> &raquo; ? Les plugins associ&eacute;s deviendront non class&eacute;s.')">
+                                            <?= \Platform\Http\Csrf::field() ?>
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+
+                            <?php if (empty($categories)): ?>
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">Aucune cat&eacute;gorie cr&eacute;&eacute;e.</td>
+                            </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onglet Cl&eacute;s d'API -->
+    <div class="tab-pane fade <?= $ongletActif === 'cles-api' ? 'show active' : '' ?>"
+         id="tab-cles-api" role="tabpanel">
+        <p class="text-muted mb-3" style="font-size:0.9rem;">
+            G&eacute;rez les cl&eacute;s d'API utilis&eacute;es par les plugins. Les valeurs sont stock&eacute;es dans le fichier <code>.env</code> de la plateforme.
+        </p>
+
+        <?php if (empty($modulesAvecCles)): ?>
+            <div class="card">
+                <div class="card-body text-center text-muted py-4">
+                    Aucun plugin ne d&eacute;clare de cl&eacute; d'environnement.
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Module</th>
+                                    <th>Cl&eacute;</th>
+                                    <th>Valeur actuelle</th>
+                                    <th>Statut</th>
+                                    <th style="width: 200px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($modulesAvecCles as $mod): ?>
+                                    <?php foreach ($mod['_cles_env_liste'] as $cle): ?>
+                                        <?php
+                                            $valeur = array_key_exists($cle, $_ENV) ? (string) $_ENV[$cle] : '';
+                                            if ($valeur === '') {
+                                                $envGetenv = getenv($cle);
+                                                $valeur = $envGetenv !== false ? $envGetenv : '';
+                                            }
+                                            $estPresente = $valeur !== '';
+                                            $valeurMasquee = $estPresente && strlen($valeur) > 4
+                                                ? str_repeat('&bull;', 4) . htmlspecialchars(substr($valeur, -4))
+                                                : ($estPresente ? '****' : '');
+                                        ?>
+                                        <tr>
+                                            <td>
+                                                <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
+                                                <?= htmlspecialchars($mod['name']) ?>
+                                            </td>
+                                            <td><code><?= htmlspecialchars($cle) ?></code></td>
+                                            <td class="cle-valeur-masquee"><?= $valeurMasquee ?: '<span class="text-muted">&mdash;</span>' ?></td>
+                                            <td>
+                                                <?php if ($estPresente): ?>
+                                                    <span class="badge badge-active"><i class="bi bi-check-circle me-1"></i>Configur&eacute;e</span>
+                                                <?php else: ?>
+                                                    <span class="badge badge-inactive"><i class="bi bi-exclamation-triangle me-1"></i>Manquante</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <div class="cle-api-action" data-cle="<?= htmlspecialchars($cle) ?>">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary btn-modifier-cle">
+                                                        <i class="bi bi-pencil me-1"></i> <?= $estPresente ? 'Modifier' : 'D&eacute;finir' ?>
+                                                    </button>
+                                                    <div class="cle-api-edit d-none">
+                                                        <div class="input-group input-group-sm">
+                                                            <input type="text" class="form-control cle-api-input"
+                                                                   placeholder="Nouvelle valeur"
+                                                                   value="">
+                                                            <button type="button" class="btn btn-primary btn-sauver-cle">
+                                                                <i class="bi bi-check-lg"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-secondary btn-annuler-cle">
+                                                                <i class="bi bi-x-lg"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
+<!-- Modales de d&eacute;sinstallation -->
 <?php foreach ($modules as $mod): ?>
 <div class="modal fade" id="modalDesinstaller<?= $mod['id'] ?>" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -122,26 +362,26 @@
             <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/desinstaller">
                 <?= \Platform\Http\Csrf::field() ?>
                 <div class="modal-header">
-                    <h5 class="modal-title">Désinstaller « <?= htmlspecialchars($mod['name']) ?> »</h5>
+                    <h5 class="modal-title">D&eacute;sinstaller &laquo; <?= htmlspecialchars($mod['name']) ?> &raquo;</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                 </div>
                 <div class="modal-body">
                     <p>
                         <?php if ($mod['chemin_source']): ?>
                             <?php if (str_contains($mod['chemin_source'], 'storage/plugins')): ?>
-                                Le répertoire extrait sera supprimé.
+                                Le r&eacute;pertoire extrait sera supprim&eacute;.
                             <?php else: ?>
-                                Les fichiers sources ne seront pas touchés.
+                                Les fichiers sources ne seront pas touch&eacute;s.
                             <?php endif; ?>
                         <?php else: ?>
-                            Le répertoire <code>modules/<?= htmlspecialchars($mod['slug']) ?>/</code> sera supprimé.
+                            Le r&eacute;pertoire <code>modules/<?= htmlspecialchars($mod['slug']) ?>/</code> sera supprim&eacute;.
                         <?php endif; ?>
                     </p>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="conserverReglages<?= $mod['id'] ?>"
                                checked onchange="document.getElementById('conserverReglagesInput<?= $mod['id'] ?>').value = this.checked ? '1' : '0'">
                         <label class="form-check-label" for="conserverReglages<?= $mod['id'] ?>">
-                            Conserver les réglages (accès, quotas, historique) pour une réinstallation future
+                            Conserver les r&eacute;glages (acc&egrave;s, quotas, historique) pour une r&eacute;installation future
                         </label>
                         <input type="hidden" name="conserver_reglages" id="conserverReglagesInput<?= $mod['id'] ?>" value="1">
                     </div>
@@ -149,7 +389,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
                     <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash me-1"></i> Désinstaller
+                        <i class="bi bi-trash me-1"></i> D&eacute;sinstaller
                     </button>
                 </div>
             </form>
@@ -157,3 +397,163 @@
     </div>
 </div>
 <?php endforeach; ?>
+
+<script>
+(function() {
+    // --- Tri par colonnes ---
+    const table = document.getElementById('tablePlugins');
+    if (table) {
+        const thead = table.querySelector('thead');
+        const tbody = table.querySelector('tbody');
+        let triActuel = { cle: null, direction: 'asc' };
+
+        thead.querySelectorAll('.sortable-th').forEach(th => {
+            th.addEventListener('click', () => {
+                const cle = th.dataset.sortKey;
+                const type = th.dataset.sortType;
+
+                if (triActuel.cle === cle) {
+                    triActuel.direction = triActuel.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    triActuel.cle = cle;
+                    triActuel.direction = 'asc';
+                }
+
+                // Mise à jour des icônes
+                thead.querySelectorAll('.sort-icon').forEach(icon => {
+                    icon.className = 'bi bi-chevron-expand sort-icon';
+                });
+                const icon = th.querySelector('.sort-icon');
+                icon.className = 'bi sort-icon ' + (triActuel.direction === 'asc' ? 'bi-chevron-up' : 'bi-chevron-down');
+
+                // Tri des lignes
+                const lignes = Array.from(tbody.querySelectorAll('tr'));
+                lignes.sort((a, b) => {
+                    let va = a.dataset['sort' + cle.charAt(0).toUpperCase() + cle.slice(1).replace(/-(\w)/g, (_, c) => c.toUpperCase())] || '';
+                    let vb = b.dataset['sort' + cle.charAt(0).toUpperCase() + cle.slice(1).replace(/-(\w)/g, (_, c) => c.toUpperCase())] || '';
+
+                    if (type === 'number') {
+                        va = parseFloat(va) || 0;
+                        vb = parseFloat(vb) || 0;
+                    }
+
+                    let resultat = va < vb ? -1 : va > vb ? 1 : 0;
+                    return triActuel.direction === 'desc' ? -resultat : resultat;
+                });
+
+                lignes.forEach(ligne => tbody.appendChild(ligne));
+            });
+        });
+    }
+
+    // --- Drag-and-drop catégories (SortableJS) ---
+    const categoriesBody = document.getElementById('categoriesBody');
+    if (categoriesBody && typeof Sortable !== 'undefined') {
+        Sortable.create(categoriesBody, {
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            onEnd: function() {
+                const lignes = categoriesBody.querySelectorAll('tr[data-id]');
+                const ordres = [];
+                lignes.forEach((tr, index) => {
+                    ordres.push(tr.dataset.id);
+                    // Mettre à jour l'affichage de l'ordre
+                    const cellOrdre = tr.querySelector('.sort-order-cell');
+                    if (cellOrdre) cellOrdre.textContent = (index + 1) * 10;
+                });
+
+                const formData = new FormData();
+                ordres.forEach((id, i) => formData.append('ordres[' + i + ']', id));
+
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+                    || document.querySelector('input[name="_csrf_token"]')?.value || '';
+                formData.append('_csrf_token', csrfToken);
+
+                fetch('/admin/categories/reordonner', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.ok) {
+                        console.error('Erreur reordonner:', data.erreur);
+                    }
+                })
+                .catch(err => console.error('Erreur réseau:', err));
+            }
+        });
+    }
+
+    // --- Gestion des clés d'API ---
+    document.querySelectorAll('.cle-api-action').forEach(container => {
+        const cle = container.dataset.cle;
+        const btnModifier = container.querySelector('.btn-modifier-cle');
+        const editZone = container.querySelector('.cle-api-edit');
+        const input = container.querySelector('.cle-api-input');
+        const btnSauver = container.querySelector('.btn-sauver-cle');
+        const btnAnnuler = container.querySelector('.btn-annuler-cle');
+
+        if (!btnModifier) return;
+
+        btnModifier.addEventListener('click', () => {
+            btnModifier.classList.add('d-none');
+            editZone.classList.remove('d-none');
+            input.focus();
+        });
+
+        btnAnnuler.addEventListener('click', () => {
+            editZone.classList.add('d-none');
+            btnModifier.classList.remove('d-none');
+            input.value = '';
+        });
+
+        btnSauver.addEventListener('click', () => {
+            const valeur = input.value.trim();
+            if (valeur === '') return;
+
+            const formData = new FormData();
+            formData.append('cle', cle);
+            formData.append('valeur', valeur);
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="_csrf_token"]')?.value || '';
+            formData.append('_csrf_token', csrfToken);
+
+            btnSauver.disabled = true;
+
+            fetch('/admin/plugins/cles-env', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    // Recharger la page sur l'onglet clés d'API
+                    window.location.href = '/admin/plugins?onglet=cles-api';
+                } else {
+                    alert(data.erreur || 'Erreur lors de la sauvegarde.');
+                    btnSauver.disabled = false;
+                }
+            })
+            .catch(() => {
+                alert('Erreur réseau.');
+                btnSauver.disabled = false;
+            });
+        });
+
+        // Soumettre avec Entrée
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                btnSauver.click();
+            }
+            if (e.key === 'Escape') {
+                btnAnnuler.click();
+            }
+        });
+    });
+})();
+</script>

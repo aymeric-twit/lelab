@@ -24,18 +24,31 @@ class AdminUserController
         $user = Auth::user();
         $repo = new UserRepository();
         $ac = new AccessControl();
+        $db = Connection::get();
+
+        $onglet = $req->get('onglet', 'utilisateurs');
 
         $page = max(1, (int) $req->get('page', 1));
         $pagination = $repo->findAllPagine($page, 20);
 
+        $tousLesUtilisateurs = $repo->findAll();
+        $modulesActifs = $db->query('SELECT * FROM modules WHERE enabled = 1 ORDER BY sort_order')->fetchAll();
+        $matriceAcces = $ac->getAccessMatrix();
+        $matriceQuotas = Quota::getQuotaMatrix();
+
         Layout::render('layout', [
-            'template'          => 'admin/users',
-            'pageTitle'         => 'Utilisateurs',
-            'currentUser'       => $user,
-            'accessibleModules' => $ac->getAccessibleModules($user['id']),
-            'adminPage'         => 'users',
-            'users'             => $pagination['donnees'],
-            'pagination'        => $pagination,
+            'template'              => 'admin/users',
+            'pageTitle'             => 'Utilisateurs',
+            'currentUser'           => $user,
+            'accessibleModules'     => $ac->getAccessibleModules($user['id']),
+            'adminPage'             => 'users',
+            'onglet'                => $onglet,
+            'users'                 => $pagination['donnees'],
+            'pagination'            => $pagination,
+            'tousLesUtilisateurs'   => $tousLesUtilisateurs,
+            'modulesActifs'         => $modulesActifs,
+            'matriceAcces'          => $matriceAcces,
+            'matriceQuotas'         => $matriceQuotas,
         ]);
     }
 

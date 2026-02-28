@@ -90,6 +90,7 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->get('/admin/categories/{id}/editer', [$adminCategorie, 'formulaireEdition']);
     $r->post('/admin/categories/{id}/editer', [$adminCategorie, 'mettreAJour']);
     $r->post('/admin/categories/{id}/supprimer', [$adminCategorie, 'supprimer']);
+    $r->post('/admin/categories/reordonner', [$adminCategorie, 'reordonner']);
 
     $r->get('/admin/plugins', [$adminPlugin, 'index']);
     $r->get('/admin/plugins/installer', [$adminPlugin, 'formulaireInstallation']);
@@ -102,6 +103,7 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->post('/admin/plugins/{id}/maj-git', [$adminPlugin, 'mettreAJourGit']);
     $r->post('/admin/plugins/{id}/basculer', [$adminPlugin, 'basculer']);
     $r->post('/admin/plugins/{id}/desinstaller', [$adminPlugin, 'desinstaller']);
+    $r->post('/admin/plugins/cles-env', [$adminPlugin, 'mettreAJourCleEnv']);
 });
 
 // -----------------------------------------------

@@ -19,11 +19,13 @@ use Platform\View\Layout;
 
 class AdminPluginController
 {
-    public function index(): void
+    public function index(Request $req): void
     {
         $user = Auth::user();
         $ac = new AccessControl();
         $db = Connection::get();
+
+        $onglet = $req->get('onglet', 'plugins');
 
         $modules = $db->query(
             'SELECT m.*, u.username AS installe_par_nom, c.nom AS categorie_nom
@@ -34,13 +36,55 @@ class AdminPluginController
              ORDER BY m.sort_order'
         )->fetchAll();
 
+        // Enrichir chaque module avec le statut des cles d'environnement
+        foreach ($modules as &$mod) {
+            $clesEnv = !empty($mod['cles_env']) ? json_decode($mod['cles_env'], true) : [];
+            $mod['_cles_env_liste'] = is_array($clesEnv) ? $clesEnv : [];
+            $mod['_cles_env_statut'] = [];
+            foreach ($mod['_cles_env_liste'] as $cle) {
+                $valeur = array_key_exists($cle, $_ENV) ? (string) $_ENV[$cle] : '';
+                if ($valeur === '') {
+                    $envGetenv = getenv($cle);
+                    $valeur = $envGetenv !== false ? $envGetenv : '';
+                }
+                $mod['_cles_env_statut'][$cle] = $valeur !== '';
+            }
+            // Lire api_doc_url depuis module.json si disponible
+            $mod['_api_doc_url'] = '';
+            $cheminSource = $mod['chemin_source'] ?? '';
+            if ($cheminSource !== '') {
+                $cheminModuleJson = $cheminSource . '/module.json';
+                if (file_exists($cheminModuleJson)) {
+                    $moduleJsonData = json_decode(file_get_contents($cheminModuleJson), true);
+                    $mod['_api_doc_url'] = $moduleJsonData['api_doc_url'] ?? '';
+                }
+            }
+        }
+        unset($mod);
+
+        // Catégories avec compteur plugins
+        $categories = $db->query(
+            "SELECT c.*, COUNT(m.id) AS nb_plugins,
+                    GROUP_CONCAT(m.name ORDER BY m.sort_order SEPARATOR '||') AS plugins_noms
+             FROM categories c
+             LEFT JOIN modules m ON m.categorie_id = c.id
+             GROUP BY c.id
+             ORDER BY c.sort_order, c.nom"
+        )->fetchAll();
+
+        // Modules avec clés d'environnement (pour l'onglet Clés d'API)
+        $modulesAvecCles = array_filter($modules, fn(array $m) => !empty($m['_cles_env_liste']));
+
         Layout::render('layout', [
             'template'          => 'admin/plugins',
             'pageTitle'         => 'Plugins',
             'currentUser'       => $user,
             'accessibleModules' => $ac->getAccessibleModules($user['id']),
             'adminPage'         => 'plugins',
+            'onglet'            => $onglet,
             'modules'           => $modules,
+            'categories'        => $categories,
+            'modulesAvecCles'   => $modulesAvecCles,
         ]);
     }
 
@@ -562,5 +606,67 @@ class AdminPluginController
             : '';
         Flash::success("Module « {$module['name']} » désinstallé.{$messageSupplement}");
         Response::redirect('/admin/plugins');
+    }
+
+    /**
+     * POST /admin/plugins/cles-env — Met à jour une clé d'environnement dans le .env plateforme.
+     */
+    public function mettreAJourCleEnv(Request $req): void
+    {
+        $cle = trim($req->post('cle', ''));
+        $valeur = trim($req->post('valeur', ''));
+
+        // Valider que la clé est dans la liste des env_keys déclarées par les modules
+        $db = Connection::get();
+        $modules = $db->query('SELECT cles_env FROM modules WHERE enabled = 1 AND cles_env IS NOT NULL')->fetchAll();
+
+        $clesAutorisees = [];
+        foreach ($modules as $mod) {
+            $envKeys = json_decode($mod['cles_env'], true);
+            if (is_array($envKeys)) {
+                $clesAutorisees = array_merge($clesAutorisees, $envKeys);
+            }
+        }
+        $clesAutorisees = array_unique($clesAutorisees);
+
+        if (!in_array($cle, $clesAutorisees, true)) {
+            Response::json(['ok' => false, 'erreur' => 'Clé non autorisée.']);
+        }
+
+        // Réécrire le .env
+        $envPath = dirname(__DIR__, 2) . '/.env';
+        $this->ecrireDansEnv($envPath, $cle, $valeur);
+
+        // Recharger pour la session courante
+        $_ENV[$cle] = $valeur;
+        putenv("{$cle}={$valeur}");
+
+        Response::json(['ok' => true]);
+    }
+
+    /**
+     * Écrit ou met à jour une clé dans le fichier .env.
+     */
+    private function ecrireDansEnv(string $cheminEnv, string $cle, string $valeur): void
+    {
+        $contenu = file_exists($cheminEnv) ? file_get_contents($cheminEnv) : '';
+        $lignes = explode("\n", $contenu);
+        $trouve = false;
+        $valeurEchappee = str_contains($valeur, ' ') || str_contains($valeur, '#') ? '"' . $valeur . '"' : $valeur;
+
+        foreach ($lignes as &$ligne) {
+            if (preg_match('/^' . preg_quote($cle, '/') . '\s*=/', $ligne)) {
+                $ligne = "{$cle}={$valeurEchappee}";
+                $trouve = true;
+                break;
+            }
+        }
+        unset($ligne);
+
+        if (!$trouve) {
+            $lignes[] = "{$cle}={$valeurEchappee}";
+        }
+
+        file_put_contents($cheminEnv, implode("\n", $lignes));
     }
 }

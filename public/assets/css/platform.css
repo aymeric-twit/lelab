@@ -660,6 +660,46 @@ h2 {
 }
 
 /* ------------------------------------------------
+   Sortable table headers
+   ------------------------------------------------ */
+.sortable-th {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.sortable-th:hover {
+    color: var(--brand-dark);
+}
+
+.sort-icon {
+    font-size: 0.7rem;
+    opacity: 0.4;
+    margin-left: 0.25rem;
+}
+
+.sortable-th:hover .sort-icon {
+    opacity: 1;
+}
+
+/* ------------------------------------------------
+   Drag-and-drop (SortableJS)
+   ------------------------------------------------ */
+.drag-handle {
+    cursor: grab;
+    padding: 0.25rem 0.5rem;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.sortable-ghost {
+    background: var(--brand-teal-light) !important;
+    opacity: 0.6;
+}
+
+/* ------------------------------------------------
    Responsive
    ------------------------------------------------ */
 @media (max-width: 991.98px) {

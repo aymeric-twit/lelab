@@ -141,21 +141,6 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link <?= ($adminPage ?? '') === 'access' ? 'active' : '' ?>" href="/admin/access">
-                                <i class="bi bi-key me-2"></i> Accès
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?= ($adminPage ?? '') === 'quotas' ? 'active' : '' ?>" href="/admin/quotas">
-                                <i class="bi bi-speedometer me-2"></i> Quotas
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link <?= ($adminPage ?? '') === 'categories' ? 'active' : '' ?>" href="/admin/categories">
-                                <i class="bi bi-tag me-2"></i> Catégories
-                            </a>
-                        </li>
-                        <li class="nav-item">
                             <a class="nav-link <?= ($adminPage ?? '') === 'plugins' ? 'active' : '' ?>" href="/admin/plugins">
                                 <i class="bi bi-puzzle me-2"></i> Plugins
                             </a>
@@ -187,6 +172,9 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <?php if (($currentUser['role'] ?? '') === 'admin'): ?>
+        <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+    <?php endif; ?>
     <script src="/assets/js/platform.js"></script>
     <?= $footExtra ?? '' ?>
 </body>

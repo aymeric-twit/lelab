@@ -15,27 +15,7 @@ class AdminCategorieController
 {
     public function index(): void
     {
-        $user = Auth::user();
-        $ac = new AccessControl();
-        $db = Connection::get();
-
-        $categories = $db->query(
-            "SELECT c.*, COUNT(m.id) AS nb_plugins,
-                    GROUP_CONCAT(m.name ORDER BY m.sort_order SEPARATOR '||') AS plugins_noms
-             FROM categories c
-             LEFT JOIN modules m ON m.categorie_id = c.id
-             GROUP BY c.id
-             ORDER BY c.sort_order, c.nom"
-        )->fetchAll();
-
-        Layout::render('layout', [
-            'template'          => 'admin/categories',
-            'pageTitle'         => 'Catégories',
-            'currentUser'       => $user,
-            'accessibleModules' => $ac->getAccessibleModules($user['id']),
-            'adminPage'         => 'categories',
-            'categories'        => $categories,
-        ]);
+        Response::redirect('/admin/plugins?onglet=categories');
     }
 
     public function formulaireCreation(): void
@@ -48,7 +28,7 @@ class AdminCategorieController
             'pageTitle'         => 'Nouvelle catégorie',
             'currentUser'       => $user,
             'accessibleModules' => $ac->getAccessibleModules($user['id']),
-            'adminPage'         => 'categories',
+            'adminPage'         => 'plugins',
         ]);
     }
 
@@ -85,7 +65,7 @@ class AdminCategorieController
         $stmt->execute([$nom, $icone, $sortOrder]);
 
         Flash::success("Catégorie « {$nom} » créée.");
-        Response::redirect('/admin/categories');
+        Response::redirect('/admin/plugins?onglet=categories');
     }
 
     public function formulaireEdition(Request $req, array $params): void
@@ -107,7 +87,7 @@ class AdminCategorieController
             'pageTitle'         => 'Modifier ' . $categorie['nom'],
             'currentUser'       => $user,
             'accessibleModules' => $ac->getAccessibleModules($user['id']),
-            'adminPage'         => 'categories',
+            'adminPage'         => 'plugins',
             'categorie'         => $categorie,
         ]);
     }
@@ -154,7 +134,7 @@ class AdminCategorieController
         $stmt->execute([$nom, $icone, $sortOrder, $id]);
 
         Flash::success('Catégorie mise à jour.');
-        Response::redirect('/admin/categories');
+        Response::redirect('/admin/plugins?onglet=categories');
     }
 
     public function supprimer(Request $req, array $params): void
@@ -168,7 +148,7 @@ class AdminCategorieController
 
         if (!$categorie) {
             Flash::error('Catégorie introuvable.');
-            Response::redirect('/admin/categories');
+            Response::redirect('/admin/plugins?onglet=categories');
         }
 
         // ON DELETE SET NULL gère le reset des plugins, mais on peut aussi le faire explicitement
@@ -176,6 +156,27 @@ class AdminCategorieController
         $db->prepare('DELETE FROM categories WHERE id = ?')->execute([$id]);
 
         Flash::success("Catégorie « {$categorie['nom']} » supprimée. Les plugins associés sont désormais non classés.");
-        Response::redirect('/admin/categories');
+        Response::redirect('/admin/plugins?onglet=categories');
+    }
+
+    /**
+     * POST /admin/categories/reordonner — AJAX : réordonne les catégories par drag-and-drop.
+     */
+    public function reordonner(Request $req): void
+    {
+        $ordres = $req->post('ordres') ?? [];
+
+        if (!is_array($ordres) || $ordres === []) {
+            Response::json(['ok' => false, 'erreur' => 'Données manquantes.']);
+        }
+
+        $db = Connection::get();
+        $stmt = $db->prepare('UPDATE categories SET sort_order = ? WHERE id = ?');
+
+        foreach ($ordres as $position => $id) {
+            $stmt->execute([(int) $position * 10 + 10, (int) $id]);
+        }
+
+        Response::json(['ok' => true]);
     }
 }

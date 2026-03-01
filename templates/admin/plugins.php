@@ -615,7 +615,10 @@ $ongletActif = $onglet ?? 'plugins';
                 })
                 .then(r => r.json())
                 .then(data => {
-                    if (!data.ok) {
+                    if (data.ok) {
+                        // Recharger pour mettre à jour la sidebar
+                        window.location.href = '/admin/plugins?onglet=categories';
+                    } else {
                         console.error('Erreur reordonner:', data.erreur);
                     }
                 })

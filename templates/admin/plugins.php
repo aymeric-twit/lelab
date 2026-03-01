@@ -532,7 +532,7 @@ $ongletActif = $onglet ?? 'plugins';
 <?php endforeach; ?>
 
 <script>
-(function() {
+document.addEventListener('DOMContentLoaded', function() {
     // --- Drag-and-drop plugins entre catégories (SortableJS) ---
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
@@ -756,5 +756,5 @@ $ongletActif = $onglet ?? 'plugins';
             });
         });
     }
-})();
+});
 </script>

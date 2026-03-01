@@ -28,6 +28,7 @@ beforeEach(function () {
         passthrough_all INTEGER DEFAULT 0,
         mode_affichage TEXT DEFAULT "embedded",
         langues TEXT,
+        domain_field TEXT,
         categorie_id INTEGER,
         installe_par INTEGER,
         installe_le TEXT,

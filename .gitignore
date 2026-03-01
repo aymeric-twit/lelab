@@ -4,3 +4,7 @@
 /modules/*/node_modules/
 /storage/logs/*.log
 /storage/plugins/*/
+.claude/
+.phpunit.cache/
+database/database.sqlite
+/public/module-assets/

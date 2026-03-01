@@ -221,6 +221,24 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
                         </select>
                         <small class="text-muted">Intégré : extraction HTML. Iframe : app complète isolée. Passthrough : sans layout.</small>
                     </div>
+
+                    <hr class="my-3">
+                    <h6 class="text-muted mb-3"><i class="bi bi-github me-1"></i> Dépôt Git</h6>
+
+                    <div class="mb-3">
+                        <label for="git_url" class="form-label">URL du dépôt</label>
+                        <input type="url" class="form-control" id="git_url" name="git_url"
+                               placeholder="https://github.com/user/repo"
+                               value="<?= htmlspecialchars($module['git_url'] ?? '') ?>">
+                        <small class="text-muted">GitHub ou GitLab en HTTPS. Permet la mise à jour via Git.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="git_branche" class="form-label">Branche</label>
+                        <input type="text" class="form-control" id="git_branche" name="git_branche"
+                               placeholder="main"
+                               value="<?= htmlspecialchars($module['git_branche'] ?? 'main') ?>">
+                    </div>
                 </div>
             </div>
         </div>

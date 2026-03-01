@@ -129,3 +129,15 @@ test('devrait garder les propriétés intactes avec langues définies', function
     expect($desc->quotaMode)->toBe(QuotaMode::ApiCall);
     expect($desc->defaultQuota)->toBe(500);
 });
+
+// Tests domain_field
+
+test('devrait lire domain_field depuis les données du module', function () {
+    $desc = creerDescriptor(['domain_field' => 'urlDomaine']);
+    expect($desc->domainField)->toBe('urlDomaine');
+});
+
+test('devrait retourner null si domain_field absent', function () {
+    $desc = creerDescriptor();
+    expect($desc->domainField)->toBeNull();
+});

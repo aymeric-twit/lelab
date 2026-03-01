@@ -61,11 +61,12 @@ class UserRepository
     public function create(array $data): int
     {
         $stmt = $this->db->prepare(
-            'INSERT INTO users (username, email, password_hash, role, active) VALUES (?, ?, ?, ?, ?)'
+            'INSERT INTO users (username, email, domaine, password_hash, role, active) VALUES (?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $data['username'],
             $data['email'] ?: null,
+            $data['domaine'] ?? null,
             $data['password_hash'],
             $data['role'] ?? 'user',
             $data['active'] ?? 1,
@@ -78,7 +79,7 @@ class UserRepository
         $fields = [];
         $values = [];
 
-        foreach (['username', 'email', 'password_hash', 'role', 'active'] as $field) {
+        foreach (['username', 'email', 'domaine', 'password_hash', 'role', 'active'] as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "{$field} = ?";
                 $values[] = $data[$field];

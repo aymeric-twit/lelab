@@ -22,6 +22,14 @@
                     </div>
 
                     <div class="mb-3">
+                        <label for="domaine" class="form-label">Domaine</label>
+                        <input type="text" class="form-control" id="domaine" name="domaine"
+                               placeholder="example.com"
+                               value="<?= htmlspecialchars($editUser['domaine'] ?? '') ?>">
+                        <small class="text-muted">Pré-rempli automatiquement dans les plugins avec champ domaine</small>
+                    </div>
+
+                    <div class="mb-3">
                         <label for="password" class="form-label">
                             Mot de passe <?= isset($editUser) ? '(laisser vide pour ne pas changer)' : '' ?>
                         </label>

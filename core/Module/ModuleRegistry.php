@@ -69,6 +69,7 @@ class ModuleRegistry
                 'default_quota'   => (int) ($row['default_quota'] ?? 0),
                 'categorie_id'    => $row['categorie_id'] ?? null,
                 'languages'       => !empty($row['langues']) ? json_decode($row['langues'], true) : [],
+                'domain_field'    => $row['domain_field'] ?? null,
             ];
 
             self::$modules[$slug] = new ModuleDescriptor($row['chemin_source'], $data);
@@ -106,8 +107,8 @@ class ModuleRegistry
     public static function syncToDatabase(PDO $db): void
     {
         $stmt = $db->prepare('
-            INSERT INTO modules (slug, name, description, version, icon, sort_order, quota_mode, default_quota, mode_affichage)
-            VALUES (:slug, :name, :description, :version, :icon, :sort_order, :quota_mode, :default_quota, :mode_affichage)
+            INSERT INTO modules (slug, name, description, version, icon, sort_order, quota_mode, default_quota, mode_affichage, domain_field)
+            VALUES (:slug, :name, :description, :version, :icon, :sort_order, :quota_mode, :default_quota, :mode_affichage, :domain_field)
             ON DUPLICATE KEY UPDATE
                 name = IF(chemin_source IS NULL, VALUES(name), name),
                 description = IF(chemin_source IS NULL, VALUES(description), description),
@@ -117,6 +118,7 @@ class ModuleRegistry
                 quota_mode = IF(chemin_source IS NULL, VALUES(quota_mode), quota_mode),
                 default_quota = IF(chemin_source IS NULL, VALUES(default_quota), default_quota),
                 mode_affichage = IF(chemin_source IS NULL, VALUES(mode_affichage), mode_affichage),
+                domain_field = IF(chemin_source IS NULL, VALUES(domain_field), domain_field),
                 desinstalle_le = IF(chemin_source IS NULL, NULL, desinstalle_le),
                 desinstalle_par = IF(chemin_source IS NULL, NULL, desinstalle_par),
                 enabled = IF(chemin_source IS NULL, 1, enabled)
@@ -133,6 +135,7 @@ class ModuleRegistry
                 'quota_mode'     => $module->quotaMode->value,
                 'default_quota'  => $module->defaultQuota,
                 'mode_affichage' => $module->modeAffichage->value,
+                'domain_field'   => $module->domainField,
             ]);
         }
 

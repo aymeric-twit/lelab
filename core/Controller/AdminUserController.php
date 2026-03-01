@@ -74,6 +74,7 @@ class AdminUserController
         $repo = new UserRepository();
         $username = trim($req->post('username', ''));
         $email = trim($req->post('email', ''));
+        $domaine = trim($req->post('domaine', ''));
         $password = $req->post('password', '');
         $role = Role::tryFrom($req->post('role', 'user')) ?? Role::User;
         $active = $req->post('active') ? 1 : 0;
@@ -100,6 +101,7 @@ class AdminUserController
             $userId = $repo->create([
                 'username'      => $username,
                 'email'         => $email ?: null,
+                'domaine'       => $domaine !== '' ? $domaine : null,
                 'password_hash' => PasswordHasher::hash($password),
                 'role'          => $role->value,
                 'active'        => $active,
@@ -164,9 +166,11 @@ class AdminUserController
 
         $role = Role::tryFrom($req->post('role', 'user')) ?? Role::User;
 
+        $domaine = trim($req->post('domaine', ''));
         $data = [
             'username' => trim($req->post('username', '')),
             'email'    => trim($req->post('email', '')) ?: null,
+            'domaine'  => $domaine !== '' ? $domaine : null,
             'role'     => $role->value,
             'active'   => $req->post('active') ? 1 : 0,
         ];

@@ -132,12 +132,12 @@ class PluginInstaller
                 slug, name, description, version, icon, sort_order,
                 quota_mode, default_quota, enabled,
                 chemin_source, point_entree, cles_env, routes_config, passthrough_all,
-                mode_affichage, langues, categorie_id, installe_par, installe_le
+                mode_affichage, langues, domain_field, categorie_id, installe_par, installe_le
             ) VALUES (
                 :slug, :name, :description, :version, :icon, :sort_order,
                 :quota_mode, :default_quota, 1,
                 :chemin_source, :point_entree, :cles_env, :routes_config, :passthrough_all,
-                :mode_affichage, :langues, :categorie_id, :installe_par, NOW()
+                :mode_affichage, :langues, :domain_field, :categorie_id, :installe_par, NOW()
             )
         ');
 
@@ -157,6 +157,7 @@ class PluginInstaller
             'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
             'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
             'langues'         => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
+            'domain_field'    => $donnees['domain_field'] ?? null,
             'categorie_id'    => $donnees['categorie_id'] ?? null,
             'installe_par'    => $installeParId,
         ]);
@@ -203,6 +204,7 @@ class PluginInstaller
                 passthrough_all = :passthrough_all,
                 mode_affichage = :mode_affichage,
                 langues = :langues,
+                domain_field = :domain_field,
                 categorie_id = :categorie_id,
                 installe_par = :installe_par,
                 installe_le = NOW(),
@@ -227,6 +229,7 @@ class PluginInstaller
             'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
             'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
             'langues'         => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
+            'domain_field'    => $donnees['domain_field'] ?? null,
             'categorie_id'    => $donnees['categorie_id'] ?? null,
             'installe_par'    => $installeParId,
         ]);
@@ -275,6 +278,7 @@ class PluginInstaller
                 passthrough_all = :passthrough_all,
                 mode_affichage = :mode_affichage,
                 langues = :langues,
+                domain_field = :domain_field,
                 categorie_id = :categorie_id
             WHERE id = :id
         ');
@@ -294,6 +298,7 @@ class PluginInstaller
             'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
             'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
             'langues'         => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
+            'domain_field'    => $donnees['domain_field'] ?? null,
             'categorie_id'    => $donnees['categorie_id'] ?? null,
         ]);
     }
@@ -618,6 +623,7 @@ class PluginInstaller
             'passthrough_all' => !empty($moduleJson['passthrough_all']),
             'mode_affichage'  => $moduleJson['display_mode'] ?? 'embedded',
             'langues'         => $moduleJson['languages'] ?? [],
+            'domain_field'    => $moduleJson['domain_field'] ?? null,
         ];
 
         try {
@@ -698,6 +704,7 @@ class PluginInstaller
                 'passthrough_all' => !empty($moduleJson['passthrough_all']),
                 'mode_affichage'  => $moduleJson['display_mode'] ?? $module['mode_affichage'],
                 'langues'         => $moduleJson['languages'] ?? [],
+                'domain_field'    => $moduleJson['domain_field'] ?? null,
                 'categorie_id'    => $module['categorie_id'],
             ]);
 
@@ -824,15 +831,25 @@ class PluginInstaller
             'passthrough_all' => !empty($donnees['passthrough_all']),
             'mode_affichage'  => $donnees['display_mode'] ?? 'embedded',
             'langues'         => $donnees['languages'] ?? [],
+            'domain_field'    => $donnees['domain_field'] ?? null,
         ];
 
         try {
-            return $this->installer($donneesInstall, $installeParId);
+            $moduleId = $this->installer($donneesInstall, $installeParId);
         } catch (\Throwable $e) {
             // Nettoyage du répertoire extrait si l'INSERT échoue
             $this->supprimerRepertoire($cheminDestination);
             throw $e;
         }
+
+        // Sauvegarder git_url depuis module.json si présent
+        if (!empty($donnees['git_url']) && GitClient::validerUrl($donnees['git_url'])) {
+            $gitBranche = $donnees['git_branche'] ?? 'main';
+            $this->db->prepare('UPDATE modules SET git_url = ?, git_branche = ? WHERE id = ?')
+                ->execute([$donnees['git_url'], $gitBranche, $moduleId]);
+        }
+
+        return $moduleId;
     }
 
     /**

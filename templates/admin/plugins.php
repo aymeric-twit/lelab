@@ -30,6 +30,13 @@ $ongletActif = $onglet ?? 'plugins';
             <i class="bi bi-key me-1"></i> Cl&eacute;s d'API
         </a>
     </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link <?= $ongletActif === 'maj-git' ? 'active' : '' ?>"
+           id="tab-maj-git-btn" data-bs-toggle="tab" href="#tab-maj-git"
+           role="tab" aria-selected="<?= $ongletActif === 'maj-git' ? 'true' : 'false' ?>">
+            <i class="bi bi-github me-1"></i> MAJ Github
+        </a>
+    </li>
 </ul>
 
 <div class="tab-content">
@@ -352,6 +359,137 @@ $ongletActif = $onglet ?? 'plugins';
             </div>
         <?php endif; ?>
     </div>
+
+    <!-- Onglet MAJ Github -->
+    <div class="tab-pane fade <?= $ongletActif === 'maj-git' ? 'show active' : '' ?>"
+         id="tab-maj-git" role="tabpanel">
+
+        <?php if (!empty($modulesGit)): ?>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <p class="text-muted mb-0" style="font-size:0.9rem;">
+                    Plugins connect&eacute;s &agrave; un d&eacute;p&ocirc;t Git. Mettez &agrave; jour individuellement ou tous en une fois.
+                </p>
+                <button type="button" class="btn btn-primary btn-sm" id="btnMajTousGit">
+                    <i class="bi bi-arrow-repeat me-1"></i> Tout mettre &agrave; jour
+                </button>
+            </div>
+
+            <div id="majGitResultats" class="mb-3" style="display:none;"></div>
+
+            <div class="card mb-4">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Module</th>
+                                    <th>D&eacute;p&ocirc;t</th>
+                                    <th>Branche</th>
+                                    <th>Dernier commit</th>
+                                    <th>Dernier pull</th>
+                                    <th>Version</th>
+                                    <th style="width: 140px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($modulesGit as $mod): ?>
+                                <tr>
+                                    <td>
+                                        <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
+                                        <strong><?= htmlspecialchars($mod['name']) ?></strong>
+                                        <small class="text-muted d-block"><?= htmlspecialchars($mod['slug']) ?></small>
+                                    </td>
+                                    <td>
+                                        <a href="<?= htmlspecialchars($mod['git_url']) ?>" target="_blank" rel="noopener" class="text-decoration-none" style="font-size: 0.85rem;">
+                                            <?= htmlspecialchars(preg_replace('#^https://(github|gitlab)\.com/#', '', $mod['git_url'])) ?>
+                                            <i class="bi bi-box-arrow-up-right ms-1" style="font-size: 0.7rem;"></i>
+                                        </a>
+                                    </td>
+                                    <td><code><?= htmlspecialchars($mod['git_branche'] ?? 'main') ?></code></td>
+                                    <td>
+                                        <?php if (!empty($mod['git_dernier_commit'])): ?>
+                                            <code title="<?= htmlspecialchars($mod['git_dernier_commit']) ?>"><?= htmlspecialchars(substr($mod['git_dernier_commit'], 0, 7)) ?></code>
+                                        <?php else: ?>
+                                            <span class="text-muted">&mdash;</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($mod['git_dernier_pull'])): ?>
+                                            <span style="font-size: 0.85rem;"><?= htmlspecialchars($mod['git_dernier_pull']) ?></span>
+                                        <?php else: ?>
+                                            <span class="text-muted">&mdash;</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?= htmlspecialchars($mod['version'] ?? '-') ?></td>
+                                    <td>
+                                        <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/maj-git" class="d-inline">
+                                            <input type="hidden" name="retour" value="maj-git">
+                                            <?= \Platform\Http\Csrf::field() ?>
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-arrow-repeat me-1"></i> Mettre &agrave; jour
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="card mb-4">
+                <div class="card-body text-center text-muted py-4">
+                    Aucun plugin n'est connect&eacute; &agrave; un d&eacute;p&ocirc;t Git.
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($modulesSansGit)): ?>
+            <h6 class="text-muted mt-4 mb-3"><i class="bi bi-info-circle me-1"></i> Plugins sans d&eacute;p&ocirc;t Git</h6>
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Module</th>
+                                    <th>Source</th>
+                                    <th>Version</th>
+                                    <th style="width: 160px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($modulesSansGit as $mod): ?>
+                                <tr>
+                                    <td>
+                                        <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
+                                        <strong><?= htmlspecialchars($mod['name']) ?></strong>
+                                        <small class="text-muted d-block"><?= htmlspecialchars($mod['slug']) ?></small>
+                                    </td>
+                                    <td>
+                                        <?php if ($mod['chemin_source']): ?>
+                                            <span class="badge badge-source-external">Externe</span>
+                                            <span class="chemin-source-text d-block mt-1" style="font-size: 0.8rem;"><?= htmlspecialchars($mod['chemin_source']) ?></span>
+                                        <?php else: ?>
+                                            <span class="badge badge-source-embedded">Embarqu&eacute;</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?= htmlspecialchars($mod['version'] ?? '-') ?></td>
+                                    <td>
+                                        <a href="/admin/plugins/<?= $mod['id'] ?>/editer" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-link-45deg me-1"></i> Associer un d&eacute;p&ocirc;t
+                                        </a>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
 </div>
 
 <!-- Modales de d&eacute;sinstallation -->
@@ -555,5 +693,59 @@ $ongletActif = $onglet ?? 'plugins';
             }
         });
     });
+
+    // --- Bouton MAJ tous Git ---
+    const btnMajTous = document.getElementById('btnMajTousGit');
+    if (btnMajTous) {
+        btnMajTous.addEventListener('click', () => {
+            btnMajTous.disabled = true;
+            btnMajTous.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Mise à jour en cours…';
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="_csrf_token"]')?.value || '';
+
+            const formData = new FormData();
+            formData.append('_csrf_token', csrfToken);
+
+            fetch('/admin/plugins/maj-git-tous', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                const zone = document.getElementById('majGitResultats');
+                if (!data.ok || !data.resultats) {
+                    zone.innerHTML = '<div class="alert alert-danger">Erreur lors de la mise à jour.</div>';
+                    zone.style.display = '';
+                    btnMajTous.disabled = false;
+                    btnMajTous.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Tout mettre à jour';
+                    return;
+                }
+
+                let html = '';
+                data.resultats.forEach(r => {
+                    if (r.succes) {
+                        html += `<div class="alert alert-success py-2 mb-1"><i class="bi bi-check-circle me-1"></i> <strong>${r.name}</strong> — commit <code>${r.commit}</code>${r.version ? ' — v' + r.version : ''}</div>`;
+                    } else {
+                        html += `<div class="alert alert-danger py-2 mb-1"><i class="bi bi-x-circle me-1"></i> <strong>${r.name}</strong> — ${r.erreur}</div>`;
+                    }
+                });
+
+                zone.innerHTML = html;
+                zone.style.display = '';
+
+                // Recharger après un délai pour mettre à jour le tableau
+                setTimeout(() => window.location.href = '/admin/plugins?onglet=maj-git', 2000);
+            })
+            .catch(() => {
+                const zone = document.getElementById('majGitResultats');
+                zone.innerHTML = '<div class="alert alert-danger">Erreur réseau.</div>';
+                zone.style.display = '';
+                btnMajTous.disabled = false;
+                btnMajTous.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Tout mettre à jour';
+            });
+        });
+    }
 })();
 </script>

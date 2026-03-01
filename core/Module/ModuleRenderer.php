@@ -2,6 +2,7 @@
 
 namespace Platform\Module;
 
+use Platform\Auth\Auth;
 use Platform\Log\Logger;
 
 class ModuleRenderer
@@ -34,6 +35,8 @@ class ModuleRenderer
         if (!defined('PLATFORM_EMBEDDED')) {
             define('PLATFORM_EMBEDDED', true);
         }
+
+        self::definirConstanteDomaine();
 
         // Set module context
         $oldCwd = getcwd();
@@ -120,6 +123,8 @@ class ModuleRenderer
             define('PLATFORM_IFRAME', true);
         }
 
+        self::definirConstanteDomaine();
+
         $oldCwd = getcwd();
         chdir($module->path);
 
@@ -189,6 +194,8 @@ class ModuleRenderer
         if (file_exists($bootFile)) {
             require_once $bootFile;
         }
+
+        self::definirConstanteDomaine();
 
         $oldCwd = getcwd();
         chdir($module->path);
@@ -294,5 +301,20 @@ class ModuleRenderer
         );
 
         return $html;
+    }
+
+    /**
+     * Définit la constante PLATFORM_USER_DOMAIN avec le domaine de l'utilisateur connecté.
+     * Utilisable par les plugins en PHP : defined('PLATFORM_USER_DOMAIN') ? PLATFORM_USER_DOMAIN : ''
+     */
+    private static function definirConstanteDomaine(): void
+    {
+        if (defined('PLATFORM_USER_DOMAIN')) {
+            return;
+        }
+
+        $user = Auth::user();
+        $domaine = $user['domaine'] ?? '';
+        define('PLATFORM_USER_DOMAIN', $domaine);
     }
 }

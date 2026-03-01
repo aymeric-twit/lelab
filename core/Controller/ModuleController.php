@@ -87,6 +87,8 @@ class ModuleController
         }
         $scriptLang .= '</script>';
 
+        $scriptLang .= self::genererScriptDomaine($user, $module);
+
         Layout::render('layout', [
             'content'           => $result['content'],
             'headExtra'         => $result['headExtra'] . "\n" . $scriptLang,
@@ -182,6 +184,8 @@ class ModuleController
         }
         $scriptLang .= '</script>';
 
+        $scriptLang .= self::genererScriptDomaine($user, $module);
+
         Layout::render('layout', [
             'content'           => $result['content'],
             'headExtra'         => $result['headExtra'] . "\n" . $scriptLang,
@@ -215,6 +219,28 @@ class ModuleController
         }
 
         return 'inconnu';
+    }
+
+    /**
+     * Génère le script JS d'injection du domaine utilisateur et d'auto-remplissage
+     * du champ déclaré dans module.json (domain_field).
+     */
+    private static function genererScriptDomaine(array $user, \Platform\Module\ModuleDescriptor $module): string
+    {
+        $userDomain = $user['domaine'] ?? '';
+        if ($userDomain === '') {
+            return '';
+        }
+
+        $domainJs = htmlspecialchars($userDomain, ENT_QUOTES, 'UTF-8');
+        $script = "<script>window.USER_DOMAIN='{$domainJs}';</script>";
+
+        if ($module->domainField !== null) {
+            $fieldId = htmlspecialchars($module->domainField, ENT_QUOTES, 'UTF-8');
+            $script .= "<script>document.addEventListener('DOMContentLoaded',function(){var f=document.getElementById('{$fieldId}');if(f&&!f.value)f.value=window.USER_DOMAIN;});</script>";
+        }
+
+        return $script;
     }
 
     public function assets(Request $req, array $params): void

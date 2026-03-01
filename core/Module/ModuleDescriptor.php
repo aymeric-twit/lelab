@@ -24,6 +24,8 @@ class ModuleDescriptor
     public readonly ?int $categorieId;
     /** @var string[] Langues supportées (ex: ['fr', 'en']), vide si non traduit */
     public readonly array $langues;
+    /** Identifiant HTML du champ à pré-remplir avec le domaine utilisateur */
+    public readonly ?string $domainField;
     public readonly string $path;
 
     public function __construct(string $basePath, array $data)
@@ -53,6 +55,7 @@ class ModuleDescriptor
         $this->quotaMode = QuotaMode::tryFrom($data['quota_mode'] ?? 'none') ?? QuotaMode::None;
         $this->defaultQuota = (int) ($data['default_quota'] ?? 0);
         $this->langues = $data['languages'] ?? [];
+        $this->domainField = $data['domain_field'] ?? null;
     }
 
     public function getEntryFile(): string

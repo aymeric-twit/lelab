@@ -75,6 +75,10 @@ class AdminPluginController
         // Modules avec clés d'environnement (pour l'onglet Clés d'API)
         $modulesAvecCles = array_filter($modules, fn(array $m) => !empty($m['_cles_env_liste']));
 
+        // Modules Git / sans Git (pour l'onglet MAJ Github)
+        $modulesGit = array_filter($modules, fn(array $m) => !empty($m['git_url']));
+        $modulesSansGit = array_filter($modules, fn(array $m) => empty($m['git_url']) && $m['enabled']);
+
         Layout::render('layout', [
             'template'          => 'admin/plugins',
             'pageTitle'         => 'Plugins',
@@ -85,6 +89,8 @@ class AdminPluginController
             'modules'           => $modules,
             'categories'        => $categories,
             'modulesAvecCles'   => $modulesAvecCles,
+            'modulesGit'        => $modulesGit,
+            'modulesSansGit'    => $modulesSansGit,
         ]);
     }
 
@@ -246,8 +252,10 @@ class AdminPluginController
             'categorie_id'    => $categorieId !== '' ? (int) $categorieId : null,
         ];
 
-        // Récupérer routes_config et langues depuis module.json si détecté
+        // Récupérer routes_config, langues et git_url depuis module.json si détecté
         $moduleJson = $installer->detecterModuleJson($chemin);
+        $gitUrlDepuisJson = null;
+        $gitBrancheDepuisJson = null;
         if ($moduleJson !== null) {
             if (!empty($moduleJson['routes'])) {
                 $donnees['routes_config'] = $moduleJson['routes'];
@@ -255,10 +263,24 @@ class AdminPluginController
             if (!empty($moduleJson['languages'])) {
                 $donnees['langues'] = $moduleJson['languages'];
             }
+            if (!empty($moduleJson['domain_field'])) {
+                $donnees['domain_field'] = $moduleJson['domain_field'];
+            }
+            if (!empty($moduleJson['git_url']) && GitClient::validerUrl($moduleJson['git_url'])) {
+                $gitUrlDepuisJson = $moduleJson['git_url'];
+                $gitBrancheDepuisJson = $moduleJson['git_branche'] ?? 'main';
+            }
         }
 
         try {
             $moduleId = $installer->installer($donnees, Auth::id());
+
+            // Sauvegarder git_url depuis module.json si présent
+            if ($gitUrlDepuisJson !== null) {
+                $db = Connection::get();
+                $db->prepare('UPDATE modules SET git_url = ?, git_branche = ? WHERE id = ?')
+                    ->execute([$gitUrlDepuisJson, $gitBrancheDepuisJson, $moduleId]);
+            }
 
             AuditLogger::instance()->log(
                 AuditAction::PluginInstall, $req->ip(), Auth::id(), 'module', $moduleId,
@@ -351,7 +373,52 @@ class AdminPluginController
             Flash::error('Échec de la mise à jour Git : ' . $e->getMessage());
         }
 
-        Response::redirect('/admin/plugins');
+        $retour = $req->post('retour', '');
+        $redirectUrl = $retour === 'maj-git' ? '/admin/plugins?onglet=maj-git' : '/admin/plugins';
+        Response::redirect($redirectUrl);
+    }
+
+    /**
+     * POST /admin/plugins/maj-git-tous — Met à jour tous les plugins Git (AJAX).
+     */
+    public function mettreAJourTousGit(Request $req): void
+    {
+        $db = Connection::get();
+
+        $modules = $db->query(
+            'SELECT id, name, git_url FROM modules WHERE git_url IS NOT NULL AND desinstalle_le IS NULL'
+        )->fetchAll();
+
+        $installer = new PluginInstaller($db);
+        $resultats = [];
+
+        foreach ($modules as $mod) {
+            try {
+                $resultat = $installer->mettreAJourDepuisGit((int) $mod['id']);
+
+                AuditLogger::instance()->log(
+                    AuditAction::PluginUpdate, $req->ip(), Auth::id(), 'module', (int) $mod['id'],
+                    ['action' => 'git-pull-batch', 'commit' => $resultat['commit']]
+                );
+
+                $resultats[] = [
+                    'id'      => $mod['id'],
+                    'name'    => $mod['name'],
+                    'succes'  => true,
+                    'commit'  => substr($resultat['commit'] ?? '', 0, 7),
+                    'version' => $resultat['version'],
+                ];
+            } catch (\Throwable $e) {
+                $resultats[] = [
+                    'id'      => $mod['id'],
+                    'name'    => $mod['name'],
+                    'succes'  => false,
+                    'erreur'  => $e->getMessage(),
+                ];
+            }
+        }
+
+        Response::json(['ok' => true, 'resultats' => $resultats]);
     }
 
     private function installerDepuisGit(Request $req, PluginInstaller $installer): void
@@ -539,6 +606,18 @@ class AdminPluginController
             'langues'         => $languesExistantes,
             'categorie_id'    => $categorieId !== '' ? (int) $categorieId : null,
         ]);
+
+        // Sauvegarder git_url et git_branche
+        $gitUrl = trim($req->post('git_url', ''));
+        $gitBranche = trim($req->post('git_branche', 'main')) ?: 'main';
+
+        if ($gitUrl !== '' && !GitClient::validerUrl($gitUrl)) {
+            Flash::error('URL de dépôt Git invalide (GitHub/GitLab HTTPS uniquement).');
+            Response::redirect('/admin/plugins/' . $moduleId . '/editer');
+        }
+
+        $db->prepare('UPDATE modules SET git_url = ?, git_branche = ? WHERE id = ?')
+            ->execute([$gitUrl !== '' ? $gitUrl : null, $gitUrl !== '' ? $gitBranche : null, $moduleId]);
 
         AuditLogger::instance()->log(
             AuditAction::PluginUpdate, $req->ip(), Auth::id(), 'module', $moduleId

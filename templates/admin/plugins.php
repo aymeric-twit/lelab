@@ -43,157 +43,152 @@ $ongletActif = $onglet ?? 'plugins';
     <!-- Onglet Plugins -->
     <div class="tab-pane fade <?= $ongletActif === 'plugins' ? 'show active' : '' ?>"
          id="tab-plugins" role="tabpanel">
-        <div class="card">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-sm mb-0" id="tablePlugins">
-                        <thead>
-                            <tr>
-                                <th class="sortable-th" data-sort-key="module" data-sort-type="string">
-                                    Module <i class="bi bi-chevron-expand sort-icon"></i>
-                                </th>
-                                <th class="sortable-th" data-sort-key="categorie" data-sort-type="string">
-                                    Cat&eacute;gorie <i class="bi bi-chevron-expand sort-icon"></i>
-                                </th>
-                                <th>Source</th>
-                                <th class="sortable-th" data-sort-key="version" data-sort-type="string">
-                                    Version <i class="bi bi-chevron-expand sort-icon"></i>
-                                </th>
-                                <th>API</th>
-                                <th class="sortable-th" data-sort-key="quota-mode" data-sort-type="string">
-                                    Mode quota <i class="bi bi-chevron-expand sort-icon"></i>
-                                </th>
-                                <th class="sortable-th" data-sort-key="quota-defaut" data-sort-type="number">
-                                    Quota d&eacute;faut <i class="bi bi-chevron-expand sort-icon"></i>
-                                </th>
-                                <th class="sortable-th" data-sort-key="statut" data-sort-type="string">
-                                    Statut <i class="bi bi-chevron-expand sort-icon"></i>
-                                </th>
-                                <th style="width: 180px;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($modules as $mod):
-                                $qm = \Platform\Enum\QuotaMode::tryFrom($mod['quota_mode'] ?? 'none') ?? \Platform\Enum\QuotaMode::None;
-                            ?>
-                            <tr data-sort-module="<?= htmlspecialchars(strtolower($mod['name'])) ?>"
-                                data-sort-categorie="<?= htmlspecialchars(strtolower($mod['categorie_nom'] ?? '')) ?>"
-                                data-sort-version="<?= htmlspecialchars($mod['version'] ?? '') ?>"
-                                data-sort-quota-mode="<?= htmlspecialchars($qm->label()) ?>"
-                                data-sort-quota-defaut="<?= (int) $mod['default_quota'] ?>"
-                                data-sort-statut="<?= $mod['enabled'] ? 'actif' : 'inactif' ?>">
-                                <td>
-                                    <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
-                                    <strong><?= htmlspecialchars($mod['name']) ?></strong>
-                                    <small class="text-muted d-block"><?= htmlspecialchars($mod['slug']) ?></small>
-                                </td>
-                                <td>
-                                    <?php if (!empty($mod['categorie_nom'])): ?>
-                                        <span><?= htmlspecialchars($mod['categorie_nom']) ?></span>
-                                    <?php else: ?>
-                                        <span class="text-muted">&mdash;</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?php if (!empty($mod['git_url'])): ?>
-                                        <span class="badge bg-dark"><i class="bi bi-github me-1"></i>Git</span>
-                                        <small class="text-muted d-block mt-1" title="<?= htmlspecialchars($mod['git_url']) ?>">
-                                            <?= htmlspecialchars($mod['git_branche'] ?? 'main') ?>
-                                            <?php if (!empty($mod['git_dernier_commit'])): ?>
-                                                &middot; <code><?= htmlspecialchars(substr($mod['git_dernier_commit'], 0, 7)) ?></code>
-                                            <?php endif; ?>
-                                        </small>
-                                        <?php if (!empty($mod['git_dernier_pull'])): ?>
-                                            <small class="text-muted d-block"><?= htmlspecialchars($mod['git_dernier_pull']) ?></small>
-                                        <?php endif; ?>
-                                    <?php elseif ($mod['chemin_source']): ?>
-                                        <span class="badge badge-source-external">Externe</span>
-                                        <span class="chemin-source-text d-block mt-1"><?= htmlspecialchars($mod['chemin_source']) ?></span>
-                                    <?php else: ?>
-                                        <span class="badge badge-source-embedded">Embarqu&eacute;</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?= htmlspecialchars($mod['version'] ?? '-') ?></td>
-                                <td>
-                                    <?php if (empty($mod['_cles_env_liste'])): ?>
-                                        <span class="text-muted">&mdash;</span>
-                                    <?php else: ?>
-                                        <?php
-                                            $toutesPresentes = !empty($mod['_cles_env_statut']) && !in_array(false, $mod['_cles_env_statut'], true);
-                                            $aucunePresente = !empty($mod['_cles_env_statut']) && !in_array(true, $mod['_cles_env_statut'], true);
-                                        ?>
-                                        <?php if ($toutesPresentes): ?>
-                                            <span class="badge badge-active" title="<?= htmlspecialchars(implode(', ', $mod['_cles_env_liste'])) ?>">
-                                                <i class="bi bi-check-circle me-1"></i>OK
-                                            </span>
-                                        <?php elseif ($aucunePresente): ?>
-                                            <span class="badge badge-inactive" title="<?= htmlspecialchars(implode(', ', $mod['_cles_env_liste'])) ?>">
-                                                <i class="bi bi-exclamation-triangle me-1"></i>Manquante<?= count($mod['_cles_env_liste']) > 1 ? 's' : '' ?>
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="badge" style="background: rgba(249, 115, 22, 0.12); color: #f97316; font-weight: 600;" title="<?= htmlspecialchars(implode(', ', array_keys(array_filter($mod['_cles_env_statut'], fn($v) => !$v)))) ?>">
-                                                <i class="bi bi-exclamation-circle me-1"></i>Partiel
-                                            </span>
-                                        <?php endif; ?>
-                                        <?php if (!empty($mod['_api_doc_url'])): ?>
-                                            <a href="<?= htmlspecialchars($mod['_api_doc_url']) ?>" target="_blank" class="ms-1" title="Documentation API" style="font-size: 0.75rem;">
-                                                <i class="bi bi-box-arrow-up-right"></i>
-                                            </a>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?= htmlspecialchars($qm->label()) ?></td>
-                                <td>
-                                    <?php if ($qm->estSuivi()): ?>
-                                        <?= (int) $mod['default_quota'] ?>
-                                    <?php else: ?>
-                                        <span class="text-muted">&mdash;</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?php if ($mod['enabled']): ?>
-                                        <span class="badge badge-active">Actif</span>
-                                    <?php else: ?>
-                                        <span class="badge badge-inactive">Inactif</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <div class="d-flex gap-1">
-                                        <a href="/admin/plugins/<?= $mod['id'] ?>/editer" class="btn btn-sm btn-outline-secondary" title="&Eacute;diter">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                        <?php if (!empty($mod['git_url'])): ?>
-                                        <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/maj-git" class="d-inline">
-                                            <?= \Platform\Http\Csrf::field() ?>
-                                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Mettre &agrave; jour depuis Git">
-                                                <i class="bi bi-arrow-repeat"></i>
-                                            </button>
-                                        </form>
-                                        <?php endif; ?>
-                                        <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/basculer" class="d-inline">
-                                            <?= \Platform\Http\Csrf::field() ?>
-                                            <button type="submit" class="btn btn-sm btn-outline-secondary" title="<?= $mod['enabled'] ? 'D&eacute;sactiver' : 'Activer' ?>">
-                                                <i class="bi <?= $mod['enabled'] ? 'bi-toggle-on' : 'bi-toggle-off' ?>"></i>
-                                            </button>
-                                        </form>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" title="D&eacute;sinstaller"
-                                                data-bs-toggle="modal" data-bs-target="#modalDesinstaller<?= $mod['id'] ?>">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
 
-                            <?php if (empty($modules)): ?>
-                            <tr>
-                                <td colspan="9" class="text-center text-muted py-4">Aucun module install&eacute;.</td>
-                            </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+        <p class="text-muted mb-3" style="font-size:0.9rem;">
+            <i class="bi bi-grip-vertical me-1"></i> Glissez les plugins pour r&eacute;ordonner ou d&eacute;placer entre cat&eacute;gories.
+        </p>
+
+        <div id="pluginsContainer">
+            <?php foreach ($modulesParCategorie as $catId => $catData):
+                $catNom = $catId === 0 ? 'Non class&eacute;' : htmlspecialchars($catData['nom'] ?? 'Sans nom');
+                $catIcone = $catId === 0 ? 'bi-folder' : htmlspecialchars($catData['icone'] ?? 'bi-folder');
+                $nbPlugins = count($catData['modules']);
+            ?>
+            <div class="card mb-3 categorie-bloc" data-categorie-id="<?= $catId ?>">
+                <div class="card-header d-flex align-items-center py-2">
+                    <i class="bi <?= $catIcone ?> me-2" style="color: var(--brand-teal);"></i>
+                    <strong><?= $catNom ?></strong>
+                    <span class="badge bg-secondary ms-2"><?= $nbPlugins ?></span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px;"></th>
+                                    <th>Module</th>
+                                    <th>Source</th>
+                                    <th>Version</th>
+                                    <th>API</th>
+                                    <th>Quota</th>
+                                    <th>Statut</th>
+                                    <th style="width: 180px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="plugins-sortable" data-categorie-id="<?= $catId ?>">
+                                <?php foreach ($catData['modules'] as $mod):
+                                    $qm = \Platform\Enum\QuotaMode::tryFrom($mod['quota_mode'] ?? 'none') ?? \Platform\Enum\QuotaMode::None;
+                                ?>
+                                <tr data-id="<?= $mod['id'] ?>">
+                                    <td class="drag-handle" style="cursor: grab; color: var(--brand-teal);">
+                                        <i class="bi bi-grip-vertical"></i>
+                                    </td>
+                                    <td>
+                                        <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
+                                        <strong><?= htmlspecialchars($mod['name']) ?></strong>
+                                        <small class="text-muted d-block"><?= htmlspecialchars($mod['slug']) ?></small>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($mod['git_url'])): ?>
+                                            <span class="badge bg-dark"><i class="bi bi-github me-1"></i>Git</span>
+                                            <small class="text-muted d-block mt-1" title="<?= htmlspecialchars($mod['git_url']) ?>">
+                                                <?= htmlspecialchars($mod['git_branche'] ?? 'main') ?>
+                                                <?php if (!empty($mod['git_dernier_commit'])): ?>
+                                                    &middot; <code><?= htmlspecialchars(substr($mod['git_dernier_commit'], 0, 7)) ?></code>
+                                                <?php endif; ?>
+                                            </small>
+                                        <?php elseif ($mod['chemin_source']): ?>
+                                            <span class="badge badge-source-external">Externe</span>
+                                        <?php else: ?>
+                                            <span class="badge badge-source-embedded">Embarqu&eacute;</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?= htmlspecialchars($mod['version'] ?? '-') ?></td>
+                                    <td>
+                                        <?php if (empty($mod['_cles_env_liste'])): ?>
+                                            <span class="text-muted">&mdash;</span>
+                                        <?php else: ?>
+                                            <?php
+                                                $toutesPresentes = !empty($mod['_cles_env_statut']) && !in_array(false, $mod['_cles_env_statut'], true);
+                                                $aucunePresente = !empty($mod['_cles_env_statut']) && !in_array(true, $mod['_cles_env_statut'], true);
+                                            ?>
+                                            <?php if ($toutesPresentes): ?>
+                                                <span class="badge badge-active" title="<?= htmlspecialchars(implode(', ', $mod['_cles_env_liste'])) ?>">
+                                                    <i class="bi bi-check-circle me-1"></i>OK
+                                                </span>
+                                            <?php elseif ($aucunePresente): ?>
+                                                <span class="badge badge-inactive" title="<?= htmlspecialchars(implode(', ', $mod['_cles_env_liste'])) ?>">
+                                                    <i class="bi bi-exclamation-triangle me-1"></i>Manquante<?= count($mod['_cles_env_liste']) > 1 ? 's' : '' ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="badge" style="background: rgba(249, 115, 22, 0.12); color: #f97316; font-weight: 600;">
+                                                    <i class="bi bi-exclamation-circle me-1"></i>Partiel
+                                                </span>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($qm->estSuivi()): ?>
+                                            <span class="text-muted" style="font-size:0.85rem;"><?= htmlspecialchars($qm->label()) ?></span>
+                                            <strong><?= (int) $mod['default_quota'] ?></strong>
+                                        <?php else: ?>
+                                            <span class="text-muted">&mdash;</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($mod['enabled']): ?>
+                                            <span class="badge badge-active">Actif</span>
+                                        <?php else: ?>
+                                            <span class="badge badge-inactive">Inactif</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-1">
+                                            <a href="/admin/plugins/<?= $mod['id'] ?>/editer" class="btn btn-sm btn-outline-secondary" title="&Eacute;diter">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <?php if (!empty($mod['git_url'])): ?>
+                                            <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/maj-git" class="d-inline">
+                                                <?= \Platform\Http\Csrf::field() ?>
+                                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Mettre &agrave; jour depuis Git">
+                                                    <i class="bi bi-arrow-repeat"></i>
+                                                </button>
+                                            </form>
+                                            <?php endif; ?>
+                                            <form method="POST" action="/admin/plugins/<?= $mod['id'] ?>/basculer" class="d-inline">
+                                                <?= \Platform\Http\Csrf::field() ?>
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="<?= $mod['enabled'] ? 'D&eacute;sactiver' : 'Activer' ?>">
+                                                    <i class="bi <?= $mod['enabled'] ? 'bi-toggle-on' : 'bi-toggle-off' ?>"></i>
+                                                </button>
+                                            </form>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" title="D&eacute;sinstaller"
+                                                    data-bs-toggle="modal" data-bs-target="#modalDesinstaller<?= $mod['id'] ?>">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+
+                                <?php if ($nbPlugins === 0): ?>
+                                <tr class="plugin-placeholder">
+                                    <td colspan="8" class="text-center text-muted py-3" style="font-size:0.85rem;">
+                                        D&eacute;posez un plugin ici
+                                    </td>
+                                </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+            <?php endforeach; ?>
+
+            <?php if (empty($modulesParCategorie)): ?>
+                <div class="card">
+                    <div class="card-body text-center text-muted py-4">Aucun module install&eacute;.</div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -538,48 +533,59 @@ $ongletActif = $onglet ?? 'plugins';
 
 <script>
 (function() {
-    // --- Tri par colonnes ---
-    const table = document.getElementById('tablePlugins');
-    if (table) {
-        const thead = table.querySelector('thead');
-        const tbody = table.querySelector('tbody');
-        let triActuel = { cle: null, direction: 'asc' };
+    // --- Drag-and-drop plugins entre catégories (SortableJS) ---
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
-        thead.querySelectorAll('.sortable-th').forEach(th => {
-            th.addEventListener('click', () => {
-                const cle = th.dataset.sortKey;
-                const type = th.dataset.sortType;
-
-                if (triActuel.cle === cle) {
-                    triActuel.direction = triActuel.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    triActuel.cle = cle;
-                    triActuel.direction = 'asc';
-                }
-
-                // Mise à jour des icônes
-                thead.querySelectorAll('.sort-icon').forEach(icon => {
-                    icon.className = 'bi bi-chevron-expand sort-icon';
+    function sauvegarderOrdrePlugins() {
+        const donnees = [];
+        document.querySelectorAll('.plugins-sortable').forEach(tb => {
+            const catId = tb.dataset.categorieId;
+            tb.querySelectorAll('tr[data-id]').forEach((tr, i) => {
+                donnees.push({
+                    id: tr.dataset.id,
+                    sort_order: (i + 1) * 10,
+                    categorie_id: catId === '0' ? '' : catId
                 });
-                const icon = th.querySelector('.sort-icon');
-                icon.className = 'bi sort-icon ' + (triActuel.direction === 'asc' ? 'bi-chevron-up' : 'bi-chevron-down');
+            });
+        });
 
-                // Tri des lignes
-                const lignes = Array.from(tbody.querySelectorAll('tr'));
-                lignes.sort((a, b) => {
-                    let va = a.dataset['sort' + cle.charAt(0).toUpperCase() + cle.slice(1).replace(/-(\w)/g, (_, c) => c.toUpperCase())] || '';
-                    let vb = b.dataset['sort' + cle.charAt(0).toUpperCase() + cle.slice(1).replace(/-(\w)/g, (_, c) => c.toUpperCase())] || '';
+        const formData = new FormData();
+        donnees.forEach((p, i) => {
+            formData.append('plugins[' + i + '][id]', p.id);
+            formData.append('plugins[' + i + '][sort_order]', p.sort_order);
+            formData.append('plugins[' + i + '][categorie_id]', p.categorie_id);
+        });
+        formData.append('_csrf_token', csrfToken);
 
-                    if (type === 'number') {
-                        va = parseFloat(va) || 0;
-                        vb = parseFloat(vb) || 0;
-                    }
-
-                    let resultat = va < vb ? -1 : va > vb ? 1 : 0;
-                    return triActuel.direction === 'desc' ? -resultat : resultat;
+        fetch('/admin/plugins/reordonner', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                // Mettre à jour les compteurs dans les en-têtes
+                document.querySelectorAll('.categorie-bloc').forEach(bloc => {
+                    const count = bloc.querySelectorAll('tr[data-id]').length;
+                    const badge = bloc.querySelector('.card-header .badge');
+                    if (badge) badge.textContent = count;
                 });
+            } else {
+                console.error('Erreur réordonnement plugins:', data.erreur);
+            }
+        })
+        .catch(err => console.error('Erreur réseau:', err));
+    }
 
-                lignes.forEach(ligne => tbody.appendChild(ligne));
+    if (typeof Sortable !== 'undefined') {
+        document.querySelectorAll('.plugins-sortable').forEach(tbody => {
+            Sortable.create(tbody, {
+                group: 'plugins',
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: sauvegarderOrdrePlugins
             });
         });
     }

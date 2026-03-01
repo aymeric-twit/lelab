@@ -79,19 +79,86 @@ class AdminPluginController
         $modulesGit = array_filter($modules, fn(array $m) => !empty($m['git_url']));
         $modulesSansGit = array_filter($modules, fn(array $m) => empty($m['git_url']) && $m['enabled']);
 
+        // Grouper les plugins par catégorie (pour l'onglet Plugins)
+        $modulesParCategorie = [];
+        foreach ($modules as $mod) {
+            $catId = (int) ($mod['categorie_id'] ?? 0);
+            if (!isset($modulesParCategorie[$catId])) {
+                $modulesParCategorie[$catId] = [
+                    'nom'    => $mod['categorie_nom'] ?? null,
+                    'icone'  => null,
+                    'modules' => [],
+                ];
+            }
+            $modulesParCategorie[$catId]['modules'][] = $mod;
+        }
+        // Enrichir avec icône depuis $categories
+        foreach ($categories as $cat) {
+            $catId = (int) $cat['id'];
+            if (isset($modulesParCategorie[$catId])) {
+                $modulesParCategorie[$catId]['icone'] = $cat['icone'] ?? 'bi-folder';
+            }
+        }
+        // Trier : catégories par sort_order, "Non classé" (0) en dernier
+        uksort($modulesParCategorie, function (int $a, int $b) use ($categories) {
+            if ($a === 0) {
+                return 1;
+            }
+            if ($b === 0) {
+                return -1;
+            }
+            $orderA = 9999;
+            $orderB = 9999;
+            foreach ($categories as $cat) {
+                if ((int) $cat['id'] === $a) {
+                    $orderA = (int) $cat['sort_order'];
+                }
+                if ((int) $cat['id'] === $b) {
+                    $orderB = (int) $cat['sort_order'];
+                }
+            }
+            return $orderA <=> $orderB;
+        });
+
         Layout::render('layout', [
-            'template'          => 'admin/plugins',
-            'pageTitle'         => 'Plugins',
-            'currentUser'       => $user,
-            'accessibleModules' => $ac->getAccessibleModules($user['id']),
-            'adminPage'         => 'plugins',
-            'onglet'            => $onglet,
-            'modules'           => $modules,
-            'categories'        => $categories,
-            'modulesAvecCles'   => $modulesAvecCles,
-            'modulesGit'        => $modulesGit,
-            'modulesSansGit'    => $modulesSansGit,
+            'template'            => 'admin/plugins',
+            'pageTitle'           => 'Plugins',
+            'currentUser'         => $user,
+            'accessibleModules'   => $ac->getAccessibleModules($user['id']),
+            'adminPage'           => 'plugins',
+            'onglet'              => $onglet,
+            'modules'             => $modules,
+            'categories'          => $categories,
+            'modulesAvecCles'     => $modulesAvecCles,
+            'modulesGit'          => $modulesGit,
+            'modulesSansGit'      => $modulesSansGit,
+            'modulesParCategorie' => $modulesParCategorie,
         ]);
+    }
+
+    /**
+     * POST /admin/plugins/reordonner — AJAX : réordonne les plugins et change de catégorie.
+     */
+    public function reordonnerPlugins(Request $req): void
+    {
+        $plugins = $req->post('plugins') ?? [];
+
+        if (!is_array($plugins) || $plugins === []) {
+            Response::json(['ok' => false, 'erreur' => 'Données manquantes.']);
+        }
+
+        $db = Connection::get();
+        $stmt = $db->prepare('UPDATE modules SET sort_order = ?, categorie_id = ? WHERE id = ?');
+
+        foreach ($plugins as $p) {
+            if (!isset($p['id'], $p['sort_order'])) {
+                continue;
+            }
+            $categorieId = isset($p['categorie_id']) && $p['categorie_id'] !== '' ? (int) $p['categorie_id'] : null;
+            $stmt->execute([(int) $p['sort_order'], $categorieId, (int) $p['id']]);
+        }
+
+        Response::json(['ok' => true]);
     }
 
     public function formulaireInstallation(): void

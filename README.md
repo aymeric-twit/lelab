@@ -118,7 +118,7 @@ L'interface d'administration (`/admin`) est reservee aux utilisateurs avec le ro
 | KWCible | `kwcible` | embedded | Analyse semantique d'une page vs mot-cle cible |
 | Keyword Forge | `keywords-forge` | embedded | Generation et validation de mots-cles via templates |
 | HTAccess Cleaner | `htaccess-cleaner` | embedded | Analyse des regles .htaccess vs trafic reel |
-| Cache Warmer | `cache-maker` | iframe | Pre-chauffage du cache HTTP avec apprentissage TTL |
+| Cache Warmer | `cache-warmer` | iframe | Pre-chauffage du cache HTTP avec apprentissage TTL |
 | Analyseur Facettes | `facettes` | iframe | Qualification des facettes e-commerce pour l'indexation |
 | Robots.txt Checker | `robotstxt-checker` | embedded | Test allow/block de robots.txt multi-User-Agent |
 | Search Console | `search-console` | passthrough | Dashboard Google Search Console avec sync OAuth2 |

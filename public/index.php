@@ -100,6 +100,7 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->post('/admin/plugins/installer', [$adminPlugin, 'installer']);
     $r->get('/admin/plugins/{id}/editer', [$adminPlugin, 'formulaireEdition']);
     $r->post('/admin/plugins/{id}/editer', [$adminPlugin, 'mettreAJour']);
+    $r->post('/admin/plugins/reordonner', [$adminPlugin, 'reordonnerPlugins']);
     $r->post('/admin/plugins/maj-git-tous', [$adminPlugin, 'mettreAJourTousGit']);
     $r->post('/admin/plugins/{id}/maj-git', [$adminPlugin, 'mettreAJourGit']);
     $r->post('/admin/plugins/{id}/basculer', [$adminPlugin, 'basculer']);

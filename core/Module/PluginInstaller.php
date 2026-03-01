@@ -647,7 +647,16 @@ class PluginInstaller
             'id'                 => $moduleId,
         ]);
 
-        return ['module_id' => $moduleId, 'slug' => $slug, 'commit' => $commit];
+        // Installer les dépendances Composer/npm
+        $depInstaller = new DependencyInstaller();
+        $depResultat = $depInstaller->installerDependances($cheminDestination);
+
+        return [
+            'module_id'    => $moduleId,
+            'slug'         => $slug,
+            'commit'       => $commit,
+            'dependances'  => $depResultat,
+        ];
     }
 
     /**
@@ -718,7 +727,16 @@ class PluginInstaller
         ');
         $stmtGit->execute(['commit' => $commit, 'id' => $moduleId]);
 
-        return ['succes' => true, 'commit' => $commit, 'version' => $version];
+        // Réinstaller les dépendances Composer/npm après le pull
+        $depInstaller = new DependencyInstaller();
+        $depResultat = $depInstaller->installerDependances($cheminSource);
+
+        return [
+            'succes'      => true,
+            'commit'      => $commit,
+            'version'     => $version,
+            'dependances' => $depResultat,
+        ];
     }
 
     /**
@@ -848,6 +866,10 @@ class PluginInstaller
             $this->db->prepare('UPDATE modules SET git_url = ?, git_branche = ? WHERE id = ?')
                 ->execute([$donnees['git_url'], $gitBranche, $moduleId]);
         }
+
+        // Installer les dépendances Composer/npm
+        $depInstaller = new DependencyInstaller();
+        $depInstaller->installerDependances($cheminDestination);
 
         return $moduleId;
     }

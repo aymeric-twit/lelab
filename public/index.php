@@ -22,6 +22,7 @@ use Platform\Controller\AdminAccessController;
 use Platform\Controller\AdminQuotaController;
 use Platform\Controller\AdminCategorieController;
 use Platform\Controller\AdminPluginController;
+use Platform\Controller\AdminMaintenanceController;
 use Platform\Controller\WebhookGithubController;
 use Platform\Database\Connection;
 
@@ -43,6 +44,7 @@ $adminAccess = new AdminAccessController();
 $adminQuota = new AdminQuotaController();
 $adminCategorie = new AdminCategorieController();
 $adminPlugin = new AdminPluginController();
+$adminMaintenance = new AdminMaintenanceController();
 
 // -----------------------------------------------
 // Public routes
@@ -71,7 +73,7 @@ $router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard,
 // Admin routes
 // -----------------------------------------------
 
-$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin) {
+$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin, $adminMaintenance) {
     $r->get('/admin/users', [$adminUser, 'index']);
     $r->get('/admin/users/create', [$adminUser, 'formulaireCreation']);
     $r->post('/admin/users/create', [$adminUser, 'creer']);
@@ -106,6 +108,9 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->post('/admin/plugins/{id}/basculer', [$adminPlugin, 'basculer']);
     $r->post('/admin/plugins/{id}/desinstaller', [$adminPlugin, 'desinstaller']);
     $r->post('/admin/plugins/cles-env', [$adminPlugin, 'mettreAJourCleEnv']);
+
+    $r->get('/admin/maintenance', [$adminMaintenance, 'index']);
+    $r->post('/admin/maintenance/dependances', [$adminMaintenance, 'installerDependances']);
 });
 
 // -----------------------------------------------

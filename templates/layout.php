@@ -146,6 +146,11 @@
                                 <i class="bi bi-puzzle me-2"></i> Plugins
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?= ($adminPage ?? '') === 'maintenance' ? 'active' : '' ?>" href="/admin/maintenance">
+                                <i class="bi bi-tools me-2"></i> Maintenance
+                            </a>
+                        </li>
                     </ul>
                 <?php endif; ?>
             </div>

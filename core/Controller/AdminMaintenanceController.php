@@ -7,7 +7,7 @@ use Platform\Database\Connection;
 use Platform\Http\Request;
 use Platform\Http\Response;
 use Platform\Module\DependencyInstaller;
-use Platform\Service\AccessControl;
+use Platform\User\AccessControl;
 use Platform\View\Flash;
 use Platform\View\Layout;
 

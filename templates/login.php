@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - <?= htmlspecialchars($_ENV['APP_NAME'] ?? 'SEO Platform') ?></title>
+    <title>Connexion - Le lab</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
         <div class="card login-card shadow-sm" style="width: 100%; max-width: 420px;">
             <div class="card-body p-4">
                 <div class="text-center mb-4">
-                    <h4 class="login-title"><?= htmlspecialchars($_ENV['APP_NAME'] ?? 'SEO Platform') ?></h4>
+                    <img src="/assets/img/logo-login.png" alt="Le lab" class="login-logo mb-2">
                     <p class="text-muted small">Connectez-vous pour continuer</p>
                 </div>
 

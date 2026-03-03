@@ -10,8 +10,6 @@
    CSS Variables — Brand + Bootstrap overrides
    ------------------------------------------------ */
 :root {
-    --sidebar-width: 240px;
-
     /* Charte graphique "Y'a pas de quoi" */
     --brand-teal:        #66b2b2;  /* bleu givre */
     --brand-teal-light:  #e8f4f4;
@@ -34,6 +32,9 @@
     --text-primary:  #0f172a;
     --text-secondary:#475569;
     --text-muted:    #94a3b8;
+
+    /* Layout */
+    --navbar-height: 84px;
 
     /* ── Bootstrap internal overrides ────────────────────────── */
     /* These are the CSS custom properties Bootstrap 5.3 uses
@@ -112,6 +113,12 @@ a:hover { color: var(--brand-dark); }
     font-weight: 700;
 }
 
+.navbar-logo {
+    height: 60px;
+    width: auto;
+    border-radius: 4px;
+}
+
 .navbar-brand span {
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.6);
@@ -143,109 +150,106 @@ a:hover { color: var(--brand-dark); }
     border-color: rgba(255, 255, 255, 0.4) !important;
 }
 
-.navbar .btn-sidebar-toggle {
+/* ------------------------------------------------
+   Navbar — navigation links & dropdowns
+   ------------------------------------------------ */
+.navbar .navbar-toggler {
     color: rgba(255, 255, 255, 0.7) !important;
     border-color: rgba(255, 255, 255, 0.25) !important;
-    background: transparent !important;
+    padding: 0.25rem 0.5rem;
+    font-size: 1.1rem;
 }
 
-.navbar .btn-sidebar-toggle:hover {
+.navbar .navbar-toggler:hover {
     color: #fff !important;
     background: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* ------------------------------------------------
-   Sidebar
-   ------------------------------------------------ */
-.sidebar {
-    width: var(--sidebar-width);
-    min-height: calc(100vh - 56px);
-    position: fixed;
-    top: 56px;
-    left: 0;
-    overflow-y: auto;
-    transition: transform 0.3s ease;
-    z-index: 1000;
-    background: var(--bg-card) !important;
-    border-right: 1px solid var(--border-color) !important;
-}
-
-.sidebar .sidebar-heading {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    margin-bottom: 0.5rem;
-}
-
-.sidebar .nav-link {
-    color: var(--text-secondary) !important;
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 2px;
+.navbar .navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.8) !important;
     font-size: 0.88rem;
     font-weight: 500;
+    padding: 0.5rem 0.75rem;
+    transition: color 0.15s;
+}
+
+.navbar .navbar-nav .nav-link:hover {
+    color: #fff !important;
+}
+
+.navbar .navbar-nav .nav-link.active {
+    color: #fff !important;
+    font-weight: 700;
+}
+
+/* Dropdown menus in navbar */
+.navbar .dropdown-menu {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 16px rgba(0, 76, 76, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+    padding: 0.5rem 0;
+    min-width: 220px;
+}
+
+.navbar .dropdown-item {
+    font-size: 0.88rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    color: var(--text-secondary);
     transition: all 0.15s;
 }
 
-.sidebar .nav-link:hover {
-    background: var(--bg-card-alt) !important;
-    color: var(--text-primary) !important;
+.navbar .dropdown-item:hover {
+    background: var(--bg-card-alt);
+    color: var(--text-primary);
 }
 
-.sidebar .nav-link.active {
+.navbar .dropdown-item.active,
+.navbar .dropdown-item:active {
     background: var(--brand-teal-light) !important;
     color: var(--brand-dark) !important;
     font-weight: 600;
 }
 
-.sidebar .nav-link .badge {
+.navbar .dropdown-item i.bi {
+    color: var(--brand-teal);
+}
+
+/* Hover-triggered dropdowns on desktop */
+@media (min-width: 992px) {
+    .navbar .nav-item.dropdown:hover > .dropdown-menu {
+        display: block;
+        margin-top: 0;
+    }
+}
+
+/* Quota badges in dropdown */
+.badge-quota-ok {
+    background: rgba(102, 178, 178, 0.15) !important;
+    color: var(--brand-dark) !important;
     font-size: 0.7rem;
     font-weight: 600;
 }
 
-.sidebar .badge-quota-ok {
-    background: rgba(102, 178, 178, 0.15) !important;
-    color: var(--brand-dark) !important;
-}
-
-.sidebar .badge-quota-warn {
+.badge-quota-warn {
     background: rgba(249, 115, 22, 0.15) !important;
     color: #c2410c !important;
+    font-size: 0.7rem;
+    font-weight: 600;
 }
 
-.sidebar .badge-quota-danger {
+.badge-quota-danger {
     background: rgba(239, 68, 68, 0.12) !important;
     color: var(--color-bad) !important;
-}
-
-/* Sidebar category headings */
-.sidebar .sidebar-category {
-    display: flex;
-    align-items: center;
-    padding: 0.35rem 0.75rem;
-    user-select: none;
-}
-
-.sidebar .sidebar-category:hover {
-    color: var(--text-secondary);
-}
-
-.sidebar .sidebar-category .sidebar-chevron {
-    transition: transform 0.2s ease;
-}
-
-.sidebar .sidebar-category[aria-expanded="false"] .sidebar-chevron {
-    transform: rotate(-90deg);
+    font-size: 0.7rem;
+    font-weight: 600;
 }
 
 /* ------------------------------------------------
    Main Content
    ------------------------------------------------ */
 .main-content {
-    margin-left: var(--sidebar-width);
-    min-height: calc(100vh - 56px);
+    min-height: calc(100vh - var(--navbar-height));
 }
 
 /* ------------------------------------------------
@@ -281,6 +285,103 @@ a:hover { color: var(--brand-dark); }
 
 .card-accent-gold {
     border-left: 3px solid var(--brand-gold) !important;
+}
+
+/* ------------------------------------------------
+   Dashboard — panneau Mon compte & cards
+   ------------------------------------------------ */
+.dashboard-card .card-header {
+    background: linear-gradient(135deg, rgba(102, 178, 178, 0.06) 0%, transparent 60%);
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--brand-dark);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-info-list {
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.dashboard-info-list dt {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-top: 0.5rem;
+}
+
+.dashboard-info-list dt:first-child {
+    margin-top: 0;
+}
+
+.dashboard-info-list dd {
+    margin-bottom: 0;
+    color: var(--text-primary);
+}
+
+.badge-role-admin {
+    background: var(--brand-gold) !important;
+    color: var(--brand-dark) !important;
+    font-weight: 600;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+.badge-role-user {
+    background: var(--brand-teal) !important;
+    color: #fff !important;
+    font-weight: 600;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+.dashboard-quota-item .progress {
+    border-radius: 2px;
+}
+
+.dashboard-activity-item {
+    border-color: var(--border-color) !important;
+}
+
+.dashboard-activity-item:last-child {
+    border-bottom: none !important;
+}
+
+/* ------------------------------------------------
+   Quota sidebar (pages plugin)
+   ------------------------------------------------ */
+.quota-sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--bg-card-alt);
+    border-right: 1px solid var(--border-color);
+}
+
+.quota-sidebar-inner {
+    position: sticky;
+    top: var(--navbar-height);
+    padding: 1rem;
+    max-height: calc(100vh - var(--navbar-height));
+    overflow-y: auto;
+}
+
+.quota-sidebar .card-header {
+    font-size: 0.82rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.quota-sidebar .card-body {
+    padding: 0.5rem 0.75rem;
+}
+
+.quota-item-active {
+    background: var(--brand-teal-light);
+    border-radius: 4px;
+    padding: 4px 6px;
+    margin-left: -6px;
+    margin-right: -6px;
 }
 
 /* ------------------------------------------------
@@ -534,6 +635,11 @@ h2 {
     font-weight: 700;
 }
 
+.login-logo {
+    height: 150px;
+    width: auto;
+}
+
 /* ------------------------------------------------
    Quota exceeded page
    ------------------------------------------------ */
@@ -547,15 +653,14 @@ h2 {
    ------------------------------------------------ */
 .module-iframe {
     width: 100%;
-    height: calc(100vh - 56px);
+    height: calc(100vh - var(--navbar-height));
     border: none;
     display: block;
 }
 
 /* En mode iframe, le main n'a pas de padding */
 .main-content-iframe {
-    margin-left: var(--sidebar-width);
-    min-height: calc(100vh - 56px);
+    min-height: calc(100vh - var(--navbar-height));
     padding: 0 !important;
 }
 
@@ -703,16 +808,37 @@ h2 {
    Responsive
    ------------------------------------------------ */
 @media (max-width: 991.98px) {
-    .sidebar {
-        transform: translateX(-100%);
+    .navbar .navbar-collapse {
+        background: var(--brand-dark);
+        padding: 0.5rem 0;
+        margin: 0.5rem -1rem -0.75rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .sidebar.show {
-        transform: translateX(0);
+    .navbar .dropdown-menu {
+        background: rgba(255, 255, 255, 0.05);
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+        padding-left: 1rem;
     }
 
-    .main-content,
-    .main-content-iframe {
-        margin-left: 0;
+    .navbar .dropdown-item {
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .navbar .dropdown-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+    }
+
+    .navbar .dropdown-item.active {
+        background: rgba(102, 178, 178, 0.2) !important;
+        color: #fff !important;
+    }
+
+    .navbar .nav-user {
+        padding: 0.5rem 0.75rem;
+        display: block;
     }
 }

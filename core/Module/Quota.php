@@ -4,7 +4,9 @@ namespace Platform\Module;
 
 use Platform\Auth\Auth;
 use Platform\Database\Connection;
+use Platform\Enum\AuditAction;
 use Platform\Enum\QuotaMode;
+use Platform\Service\AuditLogger;
 use PDO;
 
 class Quota
@@ -122,6 +124,26 @@ class Quota
                 last_tracked_at = NOW()
         ');
         $stmt->execute([$userId, $moduleId, $yearMonth, $amount]);
+
+        // Logger dans audit_log avec filtre anti-spam (5 min)
+        $check = $db->prepare(
+            'SELECT 1 FROM audit_log
+             WHERE user_id = ? AND action = ? AND target_id = ?
+               AND created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+             LIMIT 1'
+        );
+        $check->execute([$userId, AuditAction::ModuleUse->value, $moduleId]);
+
+        if (!$check->fetch()) {
+            AuditLogger::instance()->log(
+                AuditAction::ModuleUse,
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $userId,
+                'module',
+                $moduleId,
+                ['slug' => $slug],
+            );
+        }
     }
 
     /**

@@ -551,6 +551,27 @@ class AdminPluginController
         rmdir($chemin);
     }
 
+    /**
+     * POST /admin/plugins/branches-git — AJAX : liste les branches distantes d'un dépôt.
+     */
+    public function listerBranchesGit(Request $req): void
+    {
+        $url = trim($req->post('git_url', ''));
+
+        if (!GitClient::validerUrl($url)) {
+            Response::json(['succes' => false, 'erreur' => 'URL de dépôt Git invalide.']);
+        }
+
+        $gitClient = new GitClient();
+        $branches = $gitClient->listerBranchesDistantes($url);
+
+        if ($branches === []) {
+            Response::json(['succes' => false, 'erreur' => 'Impossible de lister les branches. Vérifiez l\'URL et le token GitHub.']);
+        }
+
+        Response::json(['succes' => true, 'branches' => $branches]);
+    }
+
     public function formulaireEdition(Request $req, array $params): void
     {
         $user = Auth::user();
@@ -683,14 +704,44 @@ class AdminPluginController
             Response::redirect('/admin/plugins/' . $moduleId . '/editer');
         }
 
+        // Détecter un changement de branche sur un plugin Git déjà déployé
+        $ancienneBranche = $module['git_branche'] ?? '';
+        $brancheChangee = $gitUrl !== '' && $ancienneBranche !== '' && $ancienneBranche !== $gitBranche;
+
+        if ($brancheChangee && !empty($module['chemin_source']) && is_dir($module['chemin_source'])) {
+            $gitClient = new GitClient();
+
+            if (!$gitClient->changerBranche($module['chemin_source'], $gitBranche)) {
+                Flash::error("Impossible de basculer vers la branche « {$gitBranche} ». Vérifiez qu'elle existe sur le dépôt distant.");
+                Response::redirect('/admin/plugins/' . $moduleId . '/editer');
+            }
+
+            // Mettre à jour le commit après le changement de branche
+            $nouveauCommit = $gitClient->getDernierCommit($module['chemin_source']);
+
+            $db->prepare('UPDATE modules SET git_dernier_commit = ?, git_dernier_pull = NOW() WHERE id = ?')
+                ->execute([$nouveauCommit, $moduleId]);
+
+            // Réinstaller les dépendances après le switch
+            $depInstaller = new \Platform\Module\DependencyInstaller();
+            $depInstaller->installerDependances($module['chemin_source']);
+
+            // Resynchroniser module.json
+            $installer->resynchroniser($moduleId);
+        }
+
         $db->prepare('UPDATE modules SET git_url = ?, git_branche = ? WHERE id = ?')
             ->execute([$gitUrl !== '' ? $gitUrl : null, $gitUrl !== '' ? $gitBranche : null, $moduleId]);
 
         AuditLogger::instance()->log(
-            AuditAction::PluginUpdate, $req->ip(), Auth::id(), 'module', $moduleId
+            AuditAction::PluginUpdate, $req->ip(), Auth::id(), 'module', $moduleId,
+            $brancheChangee ? ['action' => 'branch-switch', 'branche' => $gitBranche] : []
         );
 
-        Flash::success('Plugin mis à jour.');
+        $message = $brancheChangee
+            ? "Plugin mis à jour et basculé sur la branche « {$gitBranche} »."
+            : 'Plugin mis à jour.';
+        Flash::success($message);
         Response::redirect('/admin/plugins');
     }
 

@@ -1,23 +1,6 @@
 // SEO Platform - Main JS
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Sidebar toggle (mobile)
-    const toggle = document.getElementById('sidebar-toggle');
-    const sidebar = document.getElementById('sidebar');
-
-    if (toggle && sidebar) {
-        toggle.addEventListener('click', function () {
-            sidebar.classList.toggle('show');
-        });
-
-        // Close sidebar on outside click (mobile)
-        document.addEventListener('click', function (e) {
-            if (sidebar.classList.contains('show') && !sidebar.contains(e.target) && !toggle.contains(e.target)) {
-                sidebar.classList.remove('show');
-            }
-        });
-    }
-
     // CSRF token for AJAX requests
     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
     if (csrfMeta) {

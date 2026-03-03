@@ -54,8 +54,11 @@
                     </div>
                     <div class="col-lg-2 mt-2 mt-lg-0">
                         <label for="git_branche_detect" class="form-label">Branche</label>
-                        <input type="text" class="form-control" id="git_branche_detect" value="main"
-                               placeholder="main">
+                        <select class="form-select" id="git_branche_detect">
+                            <option value="dev" selected>dev</option>
+                            <option value="main">main</option>
+                        </select>
+                        <small class="text-muted" id="git-branches-status"></small>
                     </div>
                     <div class="col-lg-3 mt-2 mt-lg-0">
                         <button type="button" class="btn btn-primary w-100" id="btn-detecter-git">
@@ -328,12 +331,58 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========================================
     const btnDetecterGit = document.getElementById('btn-detecter-git');
     const gitUrlInput = document.getElementById('git_url_detect');
-    const gitBrancheInput = document.getElementById('git_branche_detect');
+    const gitBrancheSelect = document.getElementById('git_branche_detect');
     const gitResultat = document.getElementById('git-resultat');
+    const gitBranchesStatus = document.getElementById('git-branches-status');
+
+    function chargerBranchesInstall() {
+        const url = gitUrlInput.value.trim();
+        if (!url) return;
+
+        gitBranchesStatus.textContent = 'Chargement…';
+
+        fetch('/admin/plugins/branches-git', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: 'git_url=' + encodeURIComponent(url) + '&_csrf_token=' + encodeURIComponent(csrfToken)
+        })
+        .then(gererReponse)
+        .then(data => {
+            if (!data.succes) {
+                gitBranchesStatus.textContent = data.erreur || 'Erreur.';
+                return;
+            }
+
+            const valeurPrecedente = gitBrancheSelect.value;
+            gitBrancheSelect.innerHTML = '';
+
+            data.branches.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b;
+                opt.textContent = b;
+                // Sélectionner 'dev' par défaut, sinon la valeur précédente
+                if (b === valeurPrecedente || (b === 'dev' && !data.branches.includes(valeurPrecedente))) {
+                    opt.selected = true;
+                }
+                gitBrancheSelect.appendChild(opt);
+            });
+
+            gitBranchesStatus.textContent = data.branches.length + ' branche(s)';
+        })
+        .catch(() => {
+            gitBranchesStatus.textContent = 'Erreur réseau.';
+        });
+    }
+
+    gitUrlInput.addEventListener('change', chargerBranchesInstall);
 
     btnDetecterGit.addEventListener('click', function() {
         const url = gitUrlInput.value.trim();
-        const branche = gitBrancheInput.value.trim() || 'main';
+        const branche = gitBrancheSelect.value || 'dev';
         if (!url) return;
 
         btnDetecterGit.disabled = true;

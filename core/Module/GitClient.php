@@ -77,6 +77,76 @@ class GitClient
     }
 
     /**
+     * Liste les branches distantes d'un dépôt Git sans cloner.
+     *
+     * @return list<string> Noms des branches (ex: ['dev', 'main'])
+     */
+    public function listerBranchesDistantes(string $url): array
+    {
+        if (!self::validerUrl($url)) {
+            return [];
+        }
+
+        $urlAuth = $this->construireUrlAuthentifiee($url);
+
+        $resultat = $this->executerGit(['git', 'ls-remote', '--heads', $urlAuth]);
+
+        if ($resultat['code'] !== 0 || $resultat['stdout'] === '') {
+            return [];
+        }
+
+        $branches = [];
+        foreach (explode("\n", trim($resultat['stdout'])) as $ligne) {
+            // Format : "{hash}\trefs/heads/{branche}"
+            if (preg_match('#refs/heads/(.+)$#', $ligne, $m)) {
+                $branches[] = $m[1];
+            }
+        }
+
+        sort($branches);
+
+        return $branches;
+    }
+
+    /**
+     * Change la branche d'un clone --single-branch existant.
+     *
+     * Étapes : élargir le tracking → fetch la branche → checkout.
+     */
+    public function changerBranche(string $repertoire, string $branche): bool
+    {
+        if (!is_dir($repertoire . '/.git')) {
+            return false;
+        }
+
+        // Élargir le tracking pour autoriser d'autres branches
+        $r1 = $this->executerGit(
+            ['git', 'remote', 'set-branches', 'origin', '*'],
+            $repertoire
+        );
+        if ($r1['code'] !== 0) {
+            return false;
+        }
+
+        // Fetch la branche cible
+        $r2 = $this->executerGit(
+            ['git', 'fetch', 'origin', $branche, '--depth', '1'],
+            $repertoire
+        );
+        if ($r2['code'] !== 0) {
+            return false;
+        }
+
+        // Checkout sur la branche
+        $r3 = $this->executerGit(
+            ['git', 'checkout', $branche],
+            $repertoire
+        );
+
+        return $r3['code'] === 0;
+    }
+
+    /**
      * Vérifie que l'URL est un repo GitHub/GitLab valide.
      */
     public static function validerUrl(string $url): bool

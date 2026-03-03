@@ -14,4 +14,39 @@ enum AuditAction: string
     case PluginInstall = 'plugin.install';
     case PluginUpdate = 'plugin.update';
     case PluginUninstall = 'plugin.uninstall';
+    case ModuleUse = 'module.use';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::LoginSuccess    => 'Connexion',
+            self::LoginFailed     => 'Tentative de connexion échouée',
+            self::UserCreate      => 'Utilisateur créé',
+            self::UserUpdate      => 'Utilisateur modifié',
+            self::UserDelete      => 'Utilisateur supprimé',
+            self::AccessUpdate    => 'Accès mis à jour',
+            self::QuotasUpdate    => 'Quotas mis à jour',
+            self::PluginInstall   => 'Plugin installé',
+            self::PluginUpdate    => 'Plugin mis à jour',
+            self::PluginUninstall => 'Plugin désinstallé',
+            self::ModuleUse       => 'Utilisation plugin',
+        };
+    }
+
+    public function icone(): string
+    {
+        return match ($this) {
+            self::LoginSuccess    => 'bi-box-arrow-in-right text-success',
+            self::LoginFailed     => 'bi-x-circle text-danger',
+            self::UserCreate      => 'bi-person-plus text-primary',
+            self::UserUpdate      => 'bi-pencil text-info',
+            self::UserDelete      => 'bi-person-dash text-danger',
+            self::AccessUpdate    => 'bi-shield-check text-warning',
+            self::QuotasUpdate    => 'bi-speedometer2 text-warning',
+            self::PluginInstall   => 'bi-download text-success',
+            self::PluginUpdate    => 'bi-arrow-repeat text-info',
+            self::PluginUninstall => 'bi-trash text-danger',
+            self::ModuleUse       => 'bi-play-circle text-primary',
+        };
+    }
 }

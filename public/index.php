@@ -99,6 +99,7 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->post('/admin/plugins/detecter', [$adminPlugin, 'detecter']);
     $r->post('/admin/plugins/analyser-zip', [$adminPlugin, 'analyserZip']);
     $r->post('/admin/plugins/detecter-git', [$adminPlugin, 'detecterGit']);
+    $r->post('/admin/plugins/branches-git', [$adminPlugin, 'listerBranchesGit']);
     $r->post('/admin/plugins/installer', [$adminPlugin, 'installer']);
     $r->get('/admin/plugins/{id}/editer', [$adminPlugin, 'formulaireEdition']);
     $r->post('/admin/plugins/{id}/editer', [$adminPlugin, 'mettreAJour']);

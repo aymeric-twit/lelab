@@ -55,7 +55,7 @@ class WebhookGithubController
 
         // Chercher le module par git_url (avec ou sans .git)
         $stmt = $db->prepare('
-            SELECT id, slug, git_url FROM modules
+            SELECT id, slug, git_url, git_branche FROM modules
             WHERE (git_url = :url1 OR git_url = :url2)
               AND desinstalle_le IS NULL
             LIMIT 1
@@ -68,6 +68,16 @@ class WebhookGithubController
 
         if (!$module) {
             Response::json(['message' => 'Aucun plugin correspondant trouvé.'], 404);
+        }
+
+        // Filtrer par branche : ignorer les push sur d'autres branches
+        $refPoussee = $donnees['ref'] ?? '';
+        $brancheModule = $module['git_branche'] ?? 'main';
+        $refAttendue = 'refs/heads/' . $brancheModule;
+
+        if ($refPoussee !== '' && $refPoussee !== $refAttendue) {
+            Logger::info("Webhook GitHub : push sur {$refPoussee} ignoré pour « {$module['slug']} » (branche suivie : {$brancheModule})");
+            Response::json(['message' => 'Push ignoré (branche non suivie).', 'ref' => $refPoussee, 'branche_suivie' => $brancheModule]);
         }
 
         $installer = new PluginInstaller($db);

@@ -235,9 +235,17 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
 
                     <div class="mb-3">
                         <label for="git_branche" class="form-label">Branche</label>
-                        <input type="text" class="form-control" id="git_branche" name="git_branche"
-                               placeholder="main"
-                               value="<?= htmlspecialchars($module['git_branche'] ?? 'main') ?>">
+                        <div class="input-group">
+                            <select class="form-select" id="git_branche" name="git_branche">
+                                <option value="<?= htmlspecialchars($module['git_branche'] ?? 'main') ?>" selected>
+                                    <?= htmlspecialchars($module['git_branche'] ?? 'main') ?>
+                                </option>
+                            </select>
+                            <button type="button" class="btn btn-outline-secondary" id="btn-charger-branches" title="Charger les branches distantes">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted" id="branches-status"></small>
                     </div>
                 </div>
             </div>
@@ -298,3 +306,78 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const gitUrlInput = document.getElementById('git_url');
+    const gitBrancheSelect = document.getElementById('git_branche');
+    const btnCharger = document.getElementById('btn-charger-branches');
+    const statusEl = document.getElementById('branches-status');
+    const csrfToken = document.querySelector('[name="_csrf_token"]').value;
+    const brancheActuelle = <?= json_encode($module['git_branche'] ?? 'main') ?>;
+
+    function chargerBranches() {
+        const url = gitUrlInput.value.trim();
+        if (!url) {
+            statusEl.textContent = 'Saisissez une URL de dépôt Git.';
+            return;
+        }
+
+        btnCharger.disabled = true;
+        btnCharger.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        statusEl.textContent = 'Chargement des branches…';
+
+        fetch('/admin/plugins/branches-git', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: 'git_url=' + encodeURIComponent(url) + '&_csrf_token=' + encodeURIComponent(csrfToken)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.succes) {
+                statusEl.textContent = data.erreur || 'Erreur lors du chargement.';
+                return;
+            }
+
+            const valeurActuelle = gitBrancheSelect.value;
+            gitBrancheSelect.innerHTML = '';
+
+            data.branches.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b;
+                opt.textContent = b;
+                if (b === valeurActuelle) opt.selected = true;
+                gitBrancheSelect.appendChild(opt);
+            });
+
+            // Si la branche actuelle n'est pas dans la liste, la sélectionner quand même
+            if (!data.branches.includes(valeurActuelle) && valeurActuelle) {
+                gitBrancheSelect.value = valeurActuelle;
+            }
+
+            statusEl.textContent = data.branches.length + ' branche(s) trouvée(s).';
+        })
+        .catch(() => {
+            statusEl.textContent = 'Erreur de communication avec le serveur.';
+        })
+        .finally(() => {
+            btnCharger.disabled = false;
+            btnCharger.innerHTML = '<i class="bi bi-arrow-repeat"></i>';
+        });
+    }
+
+    btnCharger.addEventListener('click', chargerBranches);
+
+    // Charger automatiquement si l'URL est déjà renseignée
+    if (gitUrlInput.value.trim()) {
+        chargerBranches();
+    }
+
+    // Recharger quand l'URL change
+    gitUrlInput.addEventListener('change', chargerBranches);
+});
+</script>

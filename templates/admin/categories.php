@@ -54,7 +54,7 @@
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 <form method="POST" action="/admin/categories/<?= $cat['id'] ?>/supprimer" class="d-inline"
-                                      onsubmit="return confirm('Supprimer la catégorie « <?= addslashes($cat['nom']) ?> » ? Les plugins associés deviendront non classés.')">
+                                      onsubmit="return confirm('Supprimer la catégorie « <?= htmlspecialchars($cat['nom'], ENT_QUOTES, 'UTF-8') ?> » ? Les plugins associés deviendront non classés.')">
                                     <?= \Platform\Http\Csrf::field() ?>
                                     <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
                                         <i class="bi bi-trash"></i>

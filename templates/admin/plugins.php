@@ -246,7 +246,7 @@ $ongletActif = $onglet ?? 'plugins';
                                             <i class="bi bi-pencil"></i>
                                         </a>
                                         <form method="POST" action="/admin/categories/<?= $cat['id'] ?>/supprimer" class="d-inline"
-                                              onsubmit="return confirm('Supprimer la cat&eacute;gorie &laquo; <?= addslashes($cat['nom']) ?> &raquo; ? Les plugins associ&eacute;s deviendront non class&eacute;s.')">
+                                              onsubmit="return confirm('Supprimer la catégorie « <?= htmlspecialchars($cat['nom'], ENT_QUOTES, 'UTF-8') ?> » ? Les plugins associés deviendront non classés.')">
                                             <?= \Platform\Http\Csrf::field() ?>
                                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
                                                 <i class="bi bi-trash"></i>
@@ -735,9 +735,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 let html = '';
                 data.resultats.forEach(r => {
                     if (r.succes) {
-                        html += `<div class="alert alert-success py-2 mb-1"><i class="bi bi-check-circle me-1"></i> <strong>${r.name}</strong> — commit <code>${r.commit}</code>${r.version ? ' — v' + r.version : ''}</div>`;
+                        html += `<div class="alert alert-success py-2 mb-1"><i class="bi bi-check-circle me-1"></i> <strong>${escapeHtml(r.name)}</strong> — commit <code>${escapeHtml(r.commit || '')}</code>${r.version ? ' — v' + escapeHtml(r.version) : ''}</div>`;
                     } else {
-                        html += `<div class="alert alert-danger py-2 mb-1"><i class="bi bi-x-circle me-1"></i> <strong>${r.name}</strong> — ${r.erreur}</div>`;
+                        html += `<div class="alert alert-danger py-2 mb-1"><i class="bi bi-x-circle me-1"></i> <strong>${escapeHtml(r.name)}</strong> — ${escapeHtml(r.erreur || '')}</div>`;
                     }
                 });
 
@@ -755,6 +755,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 btnMajTous.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Tout mettre à jour';
             });
         });
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 });
 </script>

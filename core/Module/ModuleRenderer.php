@@ -17,6 +17,15 @@ class ModuleRenderer
             ? $module->path . '/' . $subRoute
             : $module->getEntryFile();
 
+        // Protection path traversal : vérifier que le fichier reste dans le répertoire du module
+        if ($subRoute && !self::verifierCheminDansModule($file, $module->path)) {
+            return [
+                'content' => '<div class="alert alert-danger">Fichier non autorisé.</div>',
+                'headExtra' => '',
+                'footExtra' => '',
+            ];
+        }
+
         if (!file_exists($file)) {
             return [
                 'content' => '<div class="alert alert-danger">Module file not found.</div>',
@@ -93,6 +102,13 @@ class ModuleRenderer
      */
     public static function servirApp(ModuleDescriptor $module, ?string $subRoute = null): void
     {
+        // Protection path traversal
+        if ($subRoute && !self::verifierCheminDansModule($module->path . '/' . $subRoute, $module->path)) {
+            http_response_code(403);
+            echo 'Forbidden';
+            return;
+        }
+
         $file = $subRoute
             ? $module->path . '/' . $subRoute
             : $module->getEntryFile();
@@ -183,6 +199,13 @@ class ModuleRenderer
     public static function passthrough(ModuleDescriptor $module, string $subRoute): void
     {
         $file = $module->path . '/' . $subRoute;
+
+        // Protection path traversal
+        if (!self::verifierCheminDansModule($file, $module->path)) {
+            http_response_code(403);
+            echo 'Forbidden';
+            return;
+        }
 
         if (!file_exists($file)) {
             http_response_code(404);
@@ -301,6 +324,29 @@ class ModuleRenderer
         );
 
         return $html;
+    }
+
+    /**
+     * Vérifie qu'un chemin de fichier reste bien à l'intérieur du répertoire du module.
+     * Bloque les tentatives de path traversal (../../).
+     */
+    private static function verifierCheminDansModule(string $cheminFichier, string $cheminModule): bool
+    {
+        $moduleReel = realpath($cheminModule);
+        if (!$moduleReel) {
+            return false;
+        }
+
+        // realpath() échoue si le fichier n'existe pas — résoudre manuellement les ../
+        $cheminResolu = realpath($cheminFichier);
+        if ($cheminResolu) {
+            return str_starts_with($cheminResolu, $moduleReel . '/');
+        }
+
+        // Le fichier n'existe pas encore (sera routé vers l'entry point dans servirApp)
+        // Vérifier que le chemin canonisé ne sort pas du module
+        $cheminNormalise = realpath(dirname($cheminFichier));
+        return $cheminNormalise !== false && str_starts_with($cheminNormalise, $moduleReel);
     }
 
     /**

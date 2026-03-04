@@ -79,7 +79,8 @@ class ModuleController
             $langueActive = $module->langues[0] ?? 'fr';
         }
 
-        $scriptLang = "<script>window.MODULE_BASE_URL='/m/{$slug}';";
+        $baseUrlJs = json_encode('/m/' . $slug, JSON_UNESCAPED_SLASHES);
+        $scriptLang = "<script>window.MODULE_BASE_URL={$baseUrlJs};";
         if (!empty($module->langues)) {
             $languesJson = json_encode($module->langues);
             $langueActiveJs = htmlspecialchars($langueActive, ENT_QUOTES, 'UTF-8');
@@ -176,7 +177,8 @@ class ModuleController
             $langueActive = $module->langues[0] ?? 'fr';
         }
 
-        $scriptLang = "<script>window.MODULE_BASE_URL='/m/{$slug}';";
+        $baseUrlJs = json_encode('/m/' . $slug, JSON_UNESCAPED_SLASHES);
+        $scriptLang = "<script>window.MODULE_BASE_URL={$baseUrlJs};";
         if (!empty($module->langues)) {
             $languesJson = json_encode($module->langues);
             $langueActiveJs = htmlspecialchars($langueActive, ENT_QUOTES, 'UTF-8');

@@ -849,7 +849,7 @@ class AdminPluginController
         $contenu = file_exists($cheminEnv) ? file_get_contents($cheminEnv) : '';
         $lignes = explode("\n", $contenu);
         $trouve = false;
-        $valeurEchappee = str_contains($valeur, ' ') || str_contains($valeur, '#') ? '"' . $valeur . '"' : $valeur;
+        $valeurEchappee = '"' . str_replace(['\\', '"', "\n", "\r", "\0"], ['\\\\', '\\"', '\\n', '\\r', ''], $valeur) . '"';
 
         foreach ($lignes as &$ligne) {
             if (preg_match('/^' . preg_quote($cle, '/') . '\s*=/', $ligne)) {

@@ -62,8 +62,8 @@ $router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard,
     $r->get('/logout', [$auth, 'logout']);
     $r->get('/', [$dashboard, 'index']);
 
-    // Module routes (with quota check)
-    $r->group([new CheckModuleQuota()], function (Router $r) use ($module) {
+    // Module routes (with CSRF + quota check)
+    $r->group([new VerifyCsrf(), new CheckModuleQuota()], function (Router $r) use ($module) {
         $r->any('/m/{slug}', [$module, 'afficher']);
         $r->any('/m/{slug}/{sub*}', [$module, 'sousRoute']);
     });

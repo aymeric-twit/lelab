@@ -89,15 +89,27 @@ class Auth
     public static function requireAuth(): void
     {
         if (!self::check()) {
-            if (self::estRequeteAjax()) {
-                http_response_code(401);
-                header('Content-Type: application/json');
-                echo json_encode(['erreur' => 'Session expirée', 'redirect' => '/login']);
-                exit;
-            }
-            header('Location: /login');
+            self::redirigerVersLogin();
+        }
+
+        // Vérifier que l'utilisateur existe toujours et est actif
+        $user = self::user();
+        if (!$user || !($user['active'] ?? false)) {
+            self::logout();
+            self::redirigerVersLogin();
+        }
+    }
+
+    private static function redirigerVersLogin(): never
+    {
+        if (self::estRequeteAjax()) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode(['erreur' => 'Session expirée', 'redirect' => '/login']);
             exit;
         }
+        header('Location: /login');
+        exit;
     }
 
     public static function requireAdmin(): void

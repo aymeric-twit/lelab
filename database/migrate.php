@@ -7,7 +7,7 @@ use Platform\Database\Connection;
 use Platform\Database\Migrator;
 use Platform\Module\ModuleRegistry;
 
-$dotenv = Dotenv::createImmutable(__DIR__ . '/..');
+$dotenv = Dotenv::createMutable(__DIR__ . '/..');
 $dotenv->load();
 
 $db = Connection::get();

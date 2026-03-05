@@ -12,7 +12,9 @@ class App
     public static function boot(): void
     {
         // Load .env
-        $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
+        // createMutable pour que le .env prévale sur les variables d'environnement
+        // pré-définies par l'hébergeur (ex: Gandi Simple Hosting définit DB_USER=hosting-db)
+        $dotenv = Dotenv::createMutable(__DIR__ . '/..');
         $dotenv->load();
 
         // Load app config
@@ -72,8 +74,7 @@ class App
                 echo '<pre>' . htmlspecialchars($e->getMessage()) . '</pre>';
                 echo '<pre>' . htmlspecialchars($e->getTraceAsString()) . '</pre>';
             } else {
-                http_response_code(500);
-                echo 'Une erreur interne est survenue. Veuillez réessayer plus tard.';
+                Http\Response::abortAvecPage(500);
             }
         });
 

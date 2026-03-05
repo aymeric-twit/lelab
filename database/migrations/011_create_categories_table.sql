@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS categories (
     icone       VARCHAR(50) DEFAULT 'bi-folder',
     sort_order  INT UNSIGNED DEFAULT 100,
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Ajout de la colonne categorie_id sur modules
 ALTER TABLE modules ADD COLUMN categorie_id INT UNSIGNED DEFAULT NULL;

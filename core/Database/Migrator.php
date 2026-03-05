@@ -29,7 +29,7 @@ class Migrator
             }
 
             $sql = file_get_contents($file);
-            $this->db->exec($sql);
+            $this->execMultiStatement($sql);
 
             $stmt = $this->db->prepare('INSERT INTO migrations (migration) VALUES (?)');
             $stmt->execute([$name]);
@@ -44,6 +44,20 @@ class Migrator
     {
         $sql = file_get_contents($seedFile);
         $this->db->exec($sql);
+    }
+
+    /**
+     * Exécute un fichier SQL pouvant contenir plusieurs statements séparés par ;
+     */
+    private function execMultiStatement(string $sql): void
+    {
+        $statements = array_filter(array_map('trim', explode(';', $sql)));
+        foreach ($statements as $stmt) {
+            if ($stmt === '' || str_starts_with($stmt, '--')) {
+                continue;
+            }
+            $this->db->exec($stmt);
+        }
     }
 
     private function ensureMigrationsTable(): void

@@ -9,4 +9,4 @@ CREATE TABLE IF NOT EXISTS user_module_quotas (
     FOREIGN KEY (user_id)    REFERENCES users(id)   ON DELETE CASCADE,
     FOREIGN KEY (module_id)  REFERENCES modules(id)  ON DELETE CASCADE,
     FOREIGN KEY (updated_by) REFERENCES users(id)    ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

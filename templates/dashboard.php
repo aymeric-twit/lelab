@@ -117,6 +117,12 @@ $journal = $journalActivite ?? [];
                 <?php if (!$aDesQuotas): ?>
                     <p class="text-muted small mb-0">Aucun quota actif.</p>
                 <?php endif; ?>
+
+                <?php if ($aDesQuotas && !$estAdmin): ?>
+                    <div class="mt-2 pt-2 border-top" style="font-size: 0.72rem; color: var(--text-muted);">
+                        <i class="bi bi-arrow-repeat me-1"></i>R&eacute;initialisation le <?= htmlspecialchars(DashboardController::dateFrancaise($dateResetQuota ?? date('Y-m-01', strtotime('+1 month')))) ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 

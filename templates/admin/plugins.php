@@ -62,17 +62,27 @@ $ongletActif = $onglet ?? 'plugins';
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-sm mb-0">
+                        <table class="table table-sm mb-0 plugins-table">
+                            <colgroup>
+                                <col style="width: 40px;">
+                                <col style="width: 20%;">
+                                <col style="width: 13%;">
+                                <col style="width: 10%;">
+                                <col style="width: 12%;">
+                                <col style="width: 13%;">
+                                <col style="width: 10%;">
+                                <col style="width: 180px;">
+                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th style="width:40px;"></th>
+                                    <th></th>
                                     <th>Module</th>
                                     <th>Source</th>
                                     <th>Version</th>
                                     <th>API</th>
                                     <th>Quota</th>
                                     <th>Statut</th>
-                                    <th style="width: 180px;">Actions</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="plugins-sortable" data-categorie-id="<?= $catId ?>">

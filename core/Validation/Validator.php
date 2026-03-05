@@ -7,6 +7,9 @@ class Validator
     /** @var array<string, string[]> */
     private array $erreurs = [];
 
+    /** @var array<string, mixed> Données complètes pour les règles cross-champ (confirme) */
+    private array $donnees = [];
+
     /**
      * @param array<string, mixed> $donnees
      * @param array<string, string> $regles  Ex: ['username' => 'requis|min:3|max:50', 'email' => 'email']
@@ -14,6 +17,7 @@ class Validator
     public function valider(array $donnees, array $regles): bool
     {
         $this->erreurs = [];
+        $this->donnees = $donnees;
 
         foreach ($regles as $champ => $regleStr) {
             $valeur = $donnees[$champ] ?? null;
@@ -62,6 +66,8 @@ class Validator
             'in' => $this->validerIn($champ, $valeur, $params),
             'chemin' => $this->validerChemin($champ, $valeur),
             'slug' => $this->validerSlug($champ, $valeur),
+            'confirme' => $this->validerConfirme($champ, $valeur),
+            'unique' => $this->validerUnique($champ, $valeur, $params[0] ?? '', $params[1] ?? ''),
             default => null,
         };
     }
@@ -140,6 +146,46 @@ class Validator
     {
         if ($valeur !== null && $valeur !== '' && !preg_match('/^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$/', $valeur)) {
             $this->ajouterErreur($champ, "Le slug doit contenir uniquement des lettres minuscules, chiffres et tirets (2-50 caractères).");
+        }
+    }
+
+    /**
+     * Vérifie que {champ}_confirmation correspond à {champ}.
+     */
+    private function validerConfirme(string $champ, mixed $valeur): void
+    {
+        $confirmation = $this->donnees[$champ . '_confirmation'] ?? null;
+        if ($valeur !== null && $valeur !== '' && $valeur !== $confirmation) {
+            $this->ajouterErreur($champ, "La confirmation du champ {$champ} ne correspond pas.");
+        }
+    }
+
+    /**
+     * Vérifie l'unicité dans la base de données.
+     * Usage : 'unique:table,colonne'
+     */
+    private function validerUnique(string $champ, mixed $valeur, string $table, string $colonne): void
+    {
+        if ($valeur === null || $valeur === '' || $table === '' || $colonne === '') {
+            return;
+        }
+
+        $tableAutorisees = ['users'];
+        if (!in_array($table, $tableAutorisees, true)) {
+            return;
+        }
+
+        $colonneAutorisees = ['username', 'email'];
+        if (!in_array($colonne, $colonneAutorisees, true)) {
+            return;
+        }
+
+        $db = \Platform\Database\Connection::get();
+        $stmt = $db->prepare("SELECT COUNT(*) FROM {$table} WHERE {$colonne} = ? AND deleted_at IS NULL");
+        $stmt->execute([$valeur]);
+
+        if ((int) $stmt->fetchColumn() > 0) {
+            $this->ajouterErreur($champ, "Cette valeur est déjà utilisée.");
         }
     }
 }

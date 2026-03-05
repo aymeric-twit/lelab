@@ -24,12 +24,12 @@ class ModuleController
 
         $ac = new AccessControl();
         if ($role !== Role::Admin && !$ac->hasAccess($user['id'], $slug)) {
-            Response::abort(403);
+            Response::abortAvecPage(403);
         }
 
         $module = ModuleRegistry::get($slug);
         if (!$module) {
-            Response::abort(404);
+            Response::abortAvecPage(404);
         }
 
         // Mode passthrough : le module gère tout, pas de layout
@@ -112,12 +112,12 @@ class ModuleController
 
         $ac = new AccessControl();
         if ($role !== Role::Admin && !$ac->hasAccess($user['id'], $slug)) {
-            Response::abort(403);
+            Response::abortAvecPage(403);
         }
 
         $module = ModuleRegistry::get($slug);
         if (!$module) {
-            Response::abort(404);
+            Response::abortAvecPage(404);
         }
 
         // Mode passthrough : tout passe directement

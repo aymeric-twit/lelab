@@ -68,6 +68,19 @@ beforeEach(function () {
         UNIQUE(user_id, module_id, year_month)
     )');
 
+    $pdo->exec('CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        role TEXT DEFAULT "user",
+        active INTEGER DEFAULT 1,
+        deleted_at TEXT DEFAULT NULL
+    )');
+
+    // Utilisateurs de test
+    $pdo->exec("INSERT INTO users (id, username, role, active) VALUES (1, 'admin', 'admin', 1)");
+    $pdo->exec("INSERT INTO users (id, username, role, active) VALUES (2, 'user2', 'user', 1)");
+    $pdo->exec("INSERT INTO users (id, username, role, active) VALUES (3, 'user3', 'user', 1)");
+
     $this->pdo = $pdo;
 });
 
@@ -168,17 +181,18 @@ test('devrait conserver les accès utilisateurs après réinstallation', functio
     $installer = new PluginInstaller($this->pdo);
     $moduleId = $installer->installer(donneesPlugin(), 1);
 
-    // Accorder l'accès à un 2e utilisateur
-    $this->pdo->prepare('INSERT INTO user_module_access (user_id, module_id, granted, granted_by) VALUES (?, ?, 1, ?)')
-        ->execute([2, $moduleId, 1]);
+    // L'installation accorde l'accès à tous les utilisateurs actifs (3 users)
+    $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM user_module_access WHERE module_id = ?');
+    $stmt->execute([$moduleId]);
+    expect((int) $stmt->fetchColumn())->toBe(3); // admin + user2 + user3
 
     // Soft delete
     $installer->desinstaller($moduleId, conserverReglages: true, desinstalleParId: 1);
 
-    // Vérifier que l'accès est toujours en base
+    // Vérifier que les accès sont toujours en base
     $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM user_module_access WHERE module_id = ?');
     $stmt->execute([$moduleId]);
-    expect((int) $stmt->fetchColumn())->toBe(2); // admin + user 2
+    expect((int) $stmt->fetchColumn())->toBe(3);
 
     // Réinstaller
     $installer->installer(donneesPlugin(), 3);

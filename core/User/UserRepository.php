@@ -28,20 +28,70 @@ class UserRepository
         return $stmt->fetch() ?: null;
     }
 
+    public function findByEmail(string $email): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL');
+        $stmt->execute([$email]);
+        return $stmt->fetch() ?: null;
+    }
+
+    public function usernameExiste(string $username): bool
+    {
+        $stmt = $this->db->prepare('SELECT COUNT(*) FROM users WHERE username = ? AND deleted_at IS NULL');
+        $stmt->execute([$username]);
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
+    public function emailExiste(string $email): bool
+    {
+        $stmt = $this->db->prepare('SELECT COUNT(*) FROM users WHERE email = ? AND deleted_at IS NULL');
+        $stmt->execute([$email]);
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
     /**
+     * @param array{q?: string, role?: string, actif?: string} $filtres
      * @return array{donnees: array, total: int, page: int, parPage: int, totalPages: int}
      */
-    public function findAllPagine(int $page = 1, int $parPage = 20): array
+    public function findAllPagine(int $page = 1, int $parPage = 20, array $filtres = []): array
     {
         $page = max(1, $page);
         $offset = ($page - 1) * $parPage;
 
-        $stmtCount = $this->db->query('SELECT COUNT(*) FROM users WHERE deleted_at IS NULL');
+        $conditions = ['deleted_at IS NULL'];
+        $params = [];
+
+        if (!empty($filtres['q'])) {
+            $conditions[] = '(username LIKE ? OR email LIKE ?)';
+            $terme = '%' . $filtres['q'] . '%';
+            $params[] = $terme;
+            $params[] = $terme;
+        }
+
+        if (!empty($filtres['role']) && in_array($filtres['role'], ['admin', 'user'], true)) {
+            $conditions[] = 'role = ?';
+            $params[] = $filtres['role'];
+        }
+
+        if (isset($filtres['actif']) && $filtres['actif'] !== '') {
+            $conditions[] = 'active = ?';
+            $params[] = (int) $filtres['actif'];
+        }
+
+        $where = 'WHERE ' . implode(' AND ', $conditions);
+
+        $stmtCount = $this->db->prepare("SELECT COUNT(*) FROM users {$where}");
+        $stmtCount->execute($params);
         $total = (int) $stmtCount->fetchColumn();
 
-        $stmt = $this->db->prepare('SELECT * FROM users WHERE deleted_at IS NULL ORDER BY id LIMIT ? OFFSET ?');
-        $stmt->bindValue(1, $parPage, PDO::PARAM_INT);
-        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+        $sql = "SELECT * FROM users {$where} ORDER BY id LIMIT ? OFFSET ?";
+        $stmt = $this->db->prepare($sql);
+        $i = 1;
+        foreach ($params as $param) {
+            $stmt->bindValue($i++, $param);
+        }
+        $stmt->bindValue($i++, $parPage, PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, PDO::PARAM_INT);
         $stmt->execute();
 
         return [
@@ -109,6 +159,31 @@ class UserRepository
     {
         $stmt = $this->db->prepare('UPDATE users SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL');
         $stmt->execute([$id]);
+    }
+
+    /**
+     * Supprime un compte utilisateur : soft-delete + purge des données associées.
+     */
+    public function supprimerCompte(int $userId): void
+    {
+        $this->db->beginTransaction();
+
+        try {
+            // Soft-delete de l'utilisateur
+            $stmt = $this->db->prepare('UPDATE users SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL');
+            $stmt->execute([$userId]);
+
+            // Purge des tokens et données associées
+            foreach (['remember_tokens', 'password_resets', 'email_verifications', 'user_module_access', 'user_module_quotas'] as $table) {
+                $stmt = $this->db->prepare("DELETE FROM {$table} WHERE user_id = ?");
+                $stmt->execute([$userId]);
+            }
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
     }
 
     public function getDb(): PDO

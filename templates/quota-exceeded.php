@@ -26,8 +26,16 @@
                     </div>
 
                     <p class="small mb-4" style="color:var(--text-muted);">
-                        Les quotas sont réinitialisés chaque mois. Contactez votre administrateur
-                        si vous avez besoin d'une limite plus élevée.
+                        <?php
+                        $dateReset = $dateResetQuota ?? null;
+                        if ($dateReset):
+                            $dateResetFr = \Platform\Controller\DashboardController::dateFrancaise($dateReset);
+                        ?>
+                            Votre quota sera r&eacute;initialis&eacute; le <strong><?= htmlspecialchars($dateResetFr) ?></strong>.
+                        <?php else: ?>
+                            Les quotas sont r&eacute;initialis&eacute;s chaque mois.
+                        <?php endif; ?>
+                        <br>Contactez votre administrateur si vous avez besoin d'une limite plus &eacute;lev&eacute;e.
                     </p>
 
                     <a href="/" class="btn btn-outline-primary">

@@ -72,8 +72,36 @@ class Auth
         return $user && Role::tryFrom($user['role']) === Role::Admin;
     }
 
+    /**
+     * Login par ID (utilisé après auto-login remember-me).
+     */
+    public static function loginParId(int $userId): bool
+    {
+        $repo = new UserRepository();
+        $user = $repo->findById($userId);
+
+        if (!$user || !$user['active']) {
+            return false;
+        }
+
+        session_regenerate_id(true);
+        $_SESSION['_created'] = time();
+        $_SESSION['user_id'] = $user['id'];
+        $repo->updateLastLogin($user['id']);
+
+        self::$currentUser = $user;
+        return true;
+    }
+
     public static function logout(): void
     {
+        // Supprimer les tokens remember-me
+        $userId = self::id();
+        if ($userId !== null) {
+            RememberMe::supprimerTousTokens($userId);
+        }
+        RememberMe::supprimerCookie();
+
         self::$currentUser = null;
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
@@ -89,6 +117,11 @@ class Auth
     public static function requireAuth(): void
     {
         if (!self::check()) {
+            // Tenter auto-login via remember-me
+            $userId = RememberMe::tenterAutoLogin();
+            if ($userId !== null && self::loginParId($userId)) {
+                return;
+            }
             self::redirigerVersLogin();
         }
 
@@ -116,15 +149,7 @@ class Auth
     {
         self::requireAuth();
         if (!self::isAdmin()) {
-            if (self::estRequeteAjax()) {
-                http_response_code(403);
-                header('Content-Type: application/json');
-                echo json_encode(['erreur' => 'Accès interdit']);
-                exit;
-            }
-            http_response_code(403);
-            echo 'Forbidden';
-            exit;
+            \Platform\Http\Response::abortAvecPage(403);
         }
     }
 

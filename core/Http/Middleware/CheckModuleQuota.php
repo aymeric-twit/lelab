@@ -63,7 +63,13 @@ class CheckModuleQuota implements Middleware
         // 2. Bloquer si quota dépassé — s'applique à TOUS les modes suivis (y compris api_call)
         if (Quota::isOverQuota($user['id'], $slug)) {
             if ($request->isAjax()) {
-                Response::json(['error' => 'Quota dépassé', 'quota_exceeded' => true], 429);
+                Response::json([
+                    'error'          => 'Quota dépassé',
+                    'quota_exceeded' => true,
+                    'usage'          => Quota::getUsage($user['id'], $slug),
+                    'limit'          => Quota::getLimit($user['id'], $slug),
+                    'reset_date'     => Quota::dateProchainReset(),
+                ], 429);
             }
 
             $ac = new AccessControl();
@@ -80,6 +86,7 @@ class CheckModuleQuota implements Middleware
                 'moduleName'        => $module->name,
                 'quotaUsage'        => Quota::getUsage($user['id'], $slug),
                 'quotaLimit'        => Quota::getLimit($user['id'], $slug),
+                'dateResetQuota'    => Quota::dateProchainReset(),
             ]);
             exit;
         }

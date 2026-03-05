@@ -29,12 +29,18 @@ class AdminUserController
         $onglet = $req->get('onglet', 'utilisateurs');
 
         $page = max(1, (int) $req->get('page', 1));
-        $pagination = $repo->findAllPagine($page, 20);
+        $filtres = [
+            'q'     => trim((string) $req->get('q', '')),
+            'role'  => (string) $req->get('role', ''),
+            'actif' => (string) $req->get('actif', ''),
+        ];
+        $pagination = $repo->findAllPagine($page, 20, $filtres);
 
         $tousLesUtilisateurs = $repo->findAll();
         $modulesActifs = $db->query('SELECT * FROM modules WHERE enabled = 1 ORDER BY sort_order')->fetchAll();
         $matriceAcces = $ac->getAccessMatrix();
         $matriceQuotas = Quota::getQuotaMatrix();
+        $matriceUsage = Quota::getUsageMatrix();
 
         Layout::render('layout', [
             'template'              => 'admin/users',
@@ -45,10 +51,12 @@ class AdminUserController
             'onglet'                => $onglet,
             'users'                 => $pagination['donnees'],
             'pagination'            => $pagination,
+            'filtres'               => $filtres,
             'tousLesUtilisateurs'   => $tousLesUtilisateurs,
             'modulesActifs'         => $modulesActifs,
             'matriceAcces'          => $matriceAcces,
             'matriceQuotas'         => $matriceQuotas,
+            'matriceUsage'          => $matriceUsage,
         ]);
     }
 

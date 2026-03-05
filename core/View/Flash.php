@@ -19,6 +19,16 @@ class Flash
         self::set('danger', $message);
     }
 
+    public static function warning(string $message): void
+    {
+        self::set('warning', $message);
+    }
+
+    public static function info(string $message): void
+    {
+        self::set('info', $message);
+    }
+
     public static function get(): array
     {
         $messages = $_SESSION['_flash'] ?? [];

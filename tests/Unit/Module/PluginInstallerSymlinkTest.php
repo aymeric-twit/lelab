@@ -67,6 +67,15 @@ beforeEach(function () {
         UNIQUE(user_id, module_id, year_month)
     )');
 
+    $pdo->exec('CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        role TEXT DEFAULT "user",
+        active INTEGER DEFAULT 1,
+        deleted_at TEXT DEFAULT NULL
+    )');
+    $pdo->exec("INSERT INTO users (id, username, role, active) VALUES (1, 'admin', 'admin', 1)");
+
     $this->pdo = $pdo;
 
     // Préparer un répertoire temporaire pour les symlinks

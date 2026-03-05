@@ -71,4 +71,16 @@ class AccessControl
         );
         $stmt->execute([$userId, $moduleId]);
     }
+
+    /**
+     * Accorde l'accès à un module pour tous les utilisateurs actifs (non supprimés).
+     * Utilisé lors de l'installation d'un nouveau plugin.
+     */
+    public function accorderAccesTousUtilisateurs(int $moduleId, ?int $grantedBy = null): void
+    {
+        $this->db->prepare(
+            'INSERT IGNORE INTO user_module_access (user_id, module_id, granted, granted_by)
+             SELECT id, ?, 1, ? FROM users WHERE deleted_at IS NULL AND active = 1'
+        )->execute([$moduleId, $grantedBy]);
+    }
 }

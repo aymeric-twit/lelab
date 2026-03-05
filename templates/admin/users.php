@@ -1,5 +1,8 @@
 <?php
 $ongletActif = $onglet ?? 'utilisateurs';
+$filtres = $filtres ?? ['q' => '', 'role' => '', 'actif' => ''];
+$filtreParams = array_filter($filtres, fn($v) => $v !== '');
+$filtreQueryString = $filtreParams ? '&' . http_build_query($filtreParams) : '';
 ?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">Utilisateurs</h2>
@@ -36,6 +39,55 @@ $ongletActif = $onglet ?? 'utilisateurs';
     <!-- Onglet Utilisateurs -->
     <div class="tab-pane fade <?= $ongletActif === 'utilisateurs' ? 'show active' : '' ?>"
          id="tab-utilisateurs" role="tabpanel">
+
+        <form method="GET" action="/admin/users" class="mb-3">
+            <input type="hidden" name="onglet" value="utilisateurs">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label for="filtre-q" class="form-label small mb-1">Rechercher</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="filtre-q" name="q"
+                               value="<?= htmlspecialchars($filtres['q']) ?>"
+                               placeholder="Nom ou email...">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label for="filtre-role" class="form-label small mb-1">Rôle</label>
+                    <select class="form-select form-select-sm" id="filtre-role" name="role">
+                        <option value="">Tous</option>
+                        <option value="admin" <?= $filtres['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
+                        <option value="user" <?= $filtres['role'] === 'user' ? 'selected' : '' ?>>Utilisateur</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="filtre-actif" class="form-label small mb-1">Statut</label>
+                    <select class="form-select form-select-sm" id="filtre-actif" name="actif">
+                        <option value="">Tous</option>
+                        <option value="1" <?= $filtres['actif'] === '1' ? 'selected' : '' ?>>Actif</option>
+                        <option value="0" <?= $filtres['actif'] === '0' ? 'selected' : '' ?>>Inactif</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-funnel me-1"></i>Filtrer
+                    </button>
+                    <?php if ($filtreParams): ?>
+                    <a href="/admin/users" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-x-lg me-1"></i>Réinitialiser
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </form>
+
+        <p class="text-muted small mb-2">
+            <strong><?= $pagination['total'] ?></strong> utilisateur(s) trouvé(s)
+            <?php if ($filtreParams): ?>
+                — <a href="/admin/users" class="text-decoration-none">Voir tous</a>
+            <?php endif; ?>
+        </p>
+
         <div class="card">
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -52,6 +104,14 @@ $ongletActif = $onglet ?? 'utilisateurs';
                             </tr>
                         </thead>
                         <tbody>
+                            <?php if (empty($users)): ?>
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
+                                    Aucun utilisateur ne correspond aux critères.
+                                </td>
+                            </tr>
+                            <?php endif; ?>
                             <?php foreach ($users as $u): ?>
                             <tr>
                                 <td class="text-muted"><?= $u['id'] ?></td>
@@ -92,19 +152,19 @@ $ongletActif = $onglet ?? 'utilisateurs';
             <ul class="pagination pagination-sm justify-content-center">
                 <?php if ($pagination['page'] > 1): ?>
                     <li class="page-item">
-                        <a class="page-link" href="/admin/users?page=<?= $pagination['page'] - 1 ?>">Pr&eacute;c&eacute;dent</a>
+                        <a class="page-link" href="/admin/users?page=<?= $pagination['page'] - 1 ?><?= $filtreQueryString ?>">Pr&eacute;c&eacute;dent</a>
                     </li>
                 <?php endif; ?>
 
                 <?php for ($p = 1; $p <= $pagination['totalPages']; $p++): ?>
                     <li class="page-item <?= $p === $pagination['page'] ? 'active' : '' ?>">
-                        <a class="page-link" href="/admin/users?page=<?= $p ?>"><?= $p ?></a>
+                        <a class="page-link" href="/admin/users?page=<?= $p ?><?= $filtreQueryString ?>"><?= $p ?></a>
                     </li>
                 <?php endfor; ?>
 
                 <?php if ($pagination['page'] < $pagination['totalPages']): ?>
                     <li class="page-item">
-                        <a class="page-link" href="/admin/users?page=<?= $pagination['page'] + 1 ?>">Suivant</a>
+                        <a class="page-link" href="/admin/users?page=<?= $pagination['page'] + 1 ?><?= $filtreQueryString ?>">Suivant</a>
                     </li>
                 <?php endif; ?>
             </ul>
@@ -138,12 +198,16 @@ $ongletActif = $onglet ?? 'utilisateurs';
                             </thead>
                             <tbody>
                                 <?php foreach ($tousLesUtilisateurs as $u): ?>
-                                <tr>
+                                <tr data-user-row="<?= $u['id'] ?>">
                                     <td>
                                         <strong><?= htmlspecialchars($u['username']) ?></strong>
                                         <?php if ($u['role'] === 'admin'): ?>
                                             <span class="badge badge-role-admin ms-1">admin</span>
                                         <?php endif; ?>
+                                        <div class="mt-1">
+                                            <button type="button" class="btn btn-outline-secondary btn-xs" onclick="toggleTousAcces(<?= $u['id'] ?>, true)">Tout</button>
+                                            <button type="button" class="btn btn-outline-secondary btn-xs" onclick="toggleTousAcces(<?= $u['id'] ?>, false)">Aucun</button>
+                                        </div>
                                     </td>
                                     <?php foreach ($modulesActifs as $mod): ?>
                                         <td class="text-center">
@@ -213,7 +277,12 @@ $ongletActif = $onglet ?? 'utilisateurs';
                                         <td class="text-center">
                                             <?php if ($mod['quota_mode'] === 'none'): ?>
                                                 <span style="color:var(--text-muted);" class="small">&mdash;</span>
-                                            <?php else: ?>
+                                            <?php else:
+                                                $usageCourant = $matriceUsage[$u['id']][$mod['id']] ?? 0;
+                                                $limiteEffective = isset($matriceQuotas[$u['id']][$mod['id']])
+                                                    ? (int) $matriceQuotas[$u['id']][$mod['id']]
+                                                    : (int) $mod['default_quota'];
+                                            ?>
                                                 <input type="number"
                                                        class="form-control form-control-sm text-center"
                                                        name="quotas[<?= $u['id'] ?>][<?= $mod['id'] ?>]"
@@ -221,6 +290,11 @@ $ongletActif = $onglet ?? 'utilisateurs';
                                                        min="0"
                                                        placeholder="<?= (int) $mod['default_quota'] ?>"
                                                        style="width: 90px; margin: 0 auto;">
+                                                <?php if ($usageCourant > 0 && $u['role'] !== 'admin'): ?>
+                                                    <div class="small mt-1" style="font-size: 0.7rem; color: <?= ($limiteEffective > 0 && $usageCourant >= $limiteEffective) ? 'var(--bs-danger)' : (($limiteEffective > 0 && $usageCourant >= $limiteEffective * 0.8) ? 'var(--color-warn)' : 'var(--text-muted)') ?>;">
+                                                        <?= $usageCourant ?><?php if ($limiteEffective > 0): ?> / <?= $limiteEffective ?><?php endif; ?> utilis&eacute;s
+                                                    </div>
+                                                <?php endif; ?>
                                             <?php endif; ?>
                                         </td>
                                     <?php endforeach; ?>
@@ -238,3 +312,12 @@ $ongletActif = $onglet ?? 'utilisateurs';
         </form>
     </div>
 </div>
+
+<style>.btn-xs { font-size: 0.65rem; padding: 0.1rem 0.35rem; }</style>
+<script>
+function toggleTousAcces(userId, cocher) {
+    var ligne = document.querySelector('tr[data-user-row="' + userId + '"]');
+    if (!ligne) return;
+    ligne.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = cocher; });
+}
+</script>

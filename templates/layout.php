@@ -117,6 +117,12 @@
                                 <i class="bi bi-tools me-2"></i> Maintenance
                             </a>
                         </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item <?= ($adminPage ?? '') === 'audit' ? 'active' : '' ?>" href="/admin/audit">
+                                <i class="bi bi-journal-text me-2"></i> Journal d'audit
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 <?php endif; ?>
@@ -132,13 +138,13 @@
                 <?php endif; ?>
 
                 <li class="nav-item ms-lg-2">
-                    <span class="nav-user">
+                    <a href="/mon-compte" class="nav-user text-decoration-none">
                         <i class="bi bi-person-circle me-1"></i>
                         <?= htmlspecialchars($currentUser['username'] ?? '') ?>
                         <?php if (($currentUser['role'] ?? '') === 'admin'): ?>
                             <span class="badge badge-admin ms-1">admin</span>
                         <?php endif; ?>
-                    </span>
+                    </a>
                 </li>
                 <li class="nav-item ms-lg-1">
                     <a href="/logout" class="btn btn-sm btn-logout">
@@ -209,14 +215,43 @@
         <?php endif; ?>
 
         <main class="<?= !empty($modeIframe) ? 'main-content-iframe' : 'main-content p-4' ?> <?= $afficherSidebarQuota ? 'flex-grow-1' : '' ?>">
-            <?php if (empty($modeIframe)): ?>
-                <?php foreach ($flash ?? [] as $msg): ?>
-                    <div class="alert alert-<?= htmlspecialchars($msg['type']) ?> alert-dismissible fade show" role="alert">
-                        <?= htmlspecialchars($msg['message']) ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <?php
+            // Bandeau d'alerte quotas (> 80%)
+            if (!$estAdmin):
+                $alertesQuota = [];
+                foreach ($qs as $slugQ => $qData) {
+                    if ($qData['quota_mode'] === \Platform\Enum\QuotaMode::None) continue;
+                    $lQ = (int) $qData['limit'];
+                    $uQ = (int) $qData['usage'];
+                    if ($lQ <= 0) continue;
+                    $pctQ = round(($uQ / $lQ) * 100);
+                    if ($pctQ >= 80) {
+                        $nomQ = $slugQ;
+                        foreach ($accessibleModules ?? [] as $mQ) {
+                            if ($mQ['slug'] === $slugQ) { $nomQ = $mQ['name']; break; }
+                        }
+                        $alertesQuota[] = ['nom' => $nomQ, 'usage' => $uQ, 'limit' => $lQ, 'pct' => $pctQ];
+                    }
+                }
+                foreach ($alertesQuota as $alerte):
+                    $typeAlerte = $alerte['pct'] >= 100 ? 'danger' : 'warning';
+                    $iconeAlerte = $alerte['pct'] >= 100 ? 'bi-x-octagon-fill' : 'bi-exclamation-triangle-fill';
+            ?>
+                <div class="alert alert-<?= $typeAlerte ?> alert-dismissible fade show d-flex align-items-center py-2 px-3 mb-3" role="alert" style="font-size: 0.85rem;">
+                    <i class="bi <?= $iconeAlerte ?> me-2"></i>
+                    <div>
+                        <?php if ($alerte['pct'] >= 100): ?>
+                            <strong><?= htmlspecialchars($alerte['nom']) ?></strong> : quota &eacute;puis&eacute; (<?= $alerte['usage'] ?>/<?= $alerte['limit'] ?>).
+                        <?php else: ?>
+                            <strong><?= htmlspecialchars($alerte['nom']) ?></strong> : <?= $alerte['pct'] ?>% du quota utilis&eacute; (<?= $alerte['usage'] ?>/<?= $alerte['limit'] ?>).
+                        <?php endif; ?>
                     </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" style="font-size: 0.65rem;"></button>
+                </div>
+            <?php
+                endforeach;
+            endif;
+            ?>
 
             <?php
             if (isset($template)) {
@@ -227,6 +262,31 @@
             ?>
         </main>
     </div>
+
+    <?php if (!empty($flash)): ?>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer" style="z-index: 1090;">
+        <?php foreach ($flash as $msg):
+            $toastCfg = match($msg['type']) {
+                'success' => ['icone' => 'bi-check-circle-fill', 'classe' => 'toast-success', 'titre' => 'Succès'],
+                'danger'  => ['icone' => 'bi-x-circle-fill',     'classe' => 'toast-danger',  'titre' => 'Erreur'],
+                'warning' => ['icone' => 'bi-exclamation-triangle-fill', 'classe' => 'toast-warning', 'titre' => 'Attention'],
+                'info'    => ['icone' => 'bi-info-circle-fill',   'classe' => 'toast-info',    'titre' => 'Information'],
+                default   => ['icone' => 'bi-info-circle-fill',   'classe' => 'toast-info',    'titre' => 'Notification'],
+            };
+        ?>
+        <div class="toast <?= $toastCfg['classe'] ?>" role="alert" aria-live="assertive" aria-atomic="true"
+             data-bs-autohide="true" data-bs-delay="5000">
+            <div class="toast-header">
+                <i class="bi <?= $toastCfg['icone'] ?> me-2 toast-icon"></i>
+                <strong class="me-auto toast-title"><?= $toastCfg['titre'] ?></strong>
+                <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="toast" aria-label="Fermer"></button>
+            </div>
+            <div class="toast-body"><?= htmlspecialchars($msg['message']) ?></div>
+            <div class="toast-progress"><div class="toast-progress-bar"></div></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <?php if (($currentUser['role'] ?? '') === 'admin'): ?>

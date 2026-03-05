@@ -7,6 +7,7 @@ use Platform\Database\Connection;
 use Platform\Http\Request;
 use Platform\Http\Response;
 use Platform\Module\DependencyInstaller;
+use Platform\Module\Quota;
 use Platform\User\AccessControl;
 use Platform\View\Flash;
 use Platform\View\Layout;
@@ -97,6 +98,19 @@ class AdminMaintenanceController
                 $message .= ' ' . implode(' | ', array_slice($erreurs, 0, 3));
             }
             Flash::error($message);
+        }
+
+        Response::redirect('/admin/maintenance');
+    }
+
+    public function purgerUsage(Request $req): void
+    {
+        $supprimees = Quota::purgerAncienUsage(12);
+
+        if ($supprimees > 0) {
+            Flash::success("{$supprimees} ligne(s) d'usage supprimée(s).");
+        } else {
+            Flash::set('info', 'Aucune donnée à purger.');
         }
 
         Response::redirect('/admin/maintenance');

@@ -59,3 +59,22 @@
         <?php endif; ?>
     </div>
 </div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-trash3 me-2"></i> Purge des donn&eacute;es d'usage</h5>
+        <form method="POST" action="/admin/maintenance/purge-usage" class="d-inline">
+            <?= \Platform\Http\Csrf::field() ?>
+            <button type="submit" class="btn btn-outline-danger btn-sm"
+                    onclick="return confirm('Supprimer les données d\'usage de plus de 12 mois ?')">
+                <i class="bi bi-trash me-1"></i> Purger (&gt; 12 mois)
+            </button>
+        </form>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-0" style="font-size:0.9rem;">
+            Supprime les lignes de <code>module_usage</code> ant&eacute;rieures &agrave; 12 mois.
+            Les donn&eacute;es du mois en cours et des 11 mois pr&eacute;c&eacute;dents sont conserv&eacute;es.
+        </p>
+    </div>
+</div>

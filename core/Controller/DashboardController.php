@@ -28,6 +28,7 @@ class DashboardController
             'activeModule'      => '',
             'quotaSummary'      => $quotaSummary,
             'journalActivite'   => $journalActivite,
+            'dateResetQuota'    => Quota::dateProchainReset(),
         ]);
     }
 

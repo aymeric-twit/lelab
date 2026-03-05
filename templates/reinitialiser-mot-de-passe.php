@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - Le lab</title>
+    <title>Nouveau mot de passe - Le lab</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="/assets/css/platform.css?v=<?= filemtime(__DIR__ . '/../public/assets/css/platform.css') ?>" rel="stylesheet">
-    <script>if (window.self !== window.top) { window.top.location.href = '/login'; }</script>
 </head>
 <body>
     <div class="login-wrapper d-flex align-items-center justify-content-center">
@@ -18,35 +17,23 @@
             <div class="card-body p-4">
                 <div class="text-center mb-4">
                     <img src="/assets/img/logo-login.png" alt="Le lab" class="login-logo mb-2">
-                    <p class="text-muted small">Connectez-vous pour continuer</p>
+                    <p class="text-muted small">Choisissez votre nouveau mot de passe</p>
                 </div>
 
-                <form method="POST" action="/login">
+                <form method="POST" action="/reinitialiser-mot-de-passe">
                     <?= \Platform\Http\Csrf::field() ?>
+                    <input type="hidden" name="token" value="<?= htmlspecialchars($token ?? '') ?>">
                     <div class="mb-3">
-                        <label for="username" class="form-label">Nom d'utilisateur</label>
-                        <input type="text" class="form-control" id="username" name="username" required autofocus>
+                        <label for="password" class="form-label">Nouveau mot de passe</label>
+                        <input type="password" class="form-control" id="password" name="password" required minlength="8" autofocus>
+                        <div class="form-text">8 caractères min., une majuscule, une minuscule, un chiffre.</div>
                     </div>
                     <div class="mb-3">
-                        <label for="password" class="form-label">Mot de passe</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                        <label for="password_confirmation" class="form-label">Confirmer le mot de passe</label>
+                        <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" required>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="se_souvenir" value="1" id="se_souvenir">
-                            <label class="form-check-label small" for="se_souvenir">Se souvenir de moi</label>
-                        </div>
-                        <a href="/mot-de-passe-oublie" class="small text-decoration-none" style="color: var(--brand-teal);">Mot de passe oublié ?</a>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Se connecter</button>
+                    <button type="submit" class="btn btn-primary w-100">Réinitialiser mon mot de passe</button>
                 </form>
-
-                <?php if (!empty($inscriptionActive)): ?>
-                <div class="text-center mt-3">
-                    <span class="small text-muted">Pas encore de compte ?</span>
-                    <a href="/inscription" class="small text-decoration-none fw-semibold" style="color: var(--brand-dark);">Créer un compte</a>
-                </div>
-                <?php endif; ?>
             </div>
         </div>
     </div>

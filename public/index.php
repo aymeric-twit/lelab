@@ -23,6 +23,7 @@ use Platform\Controller\AdminQuotaController;
 use Platform\Controller\AdminCategorieController;
 use Platform\Controller\AdminPluginController;
 use Platform\Controller\AdminMaintenanceController;
+use Platform\Controller\AdminAuditController;
 use Platform\Controller\WebhookGithubController;
 use Platform\Database\Connection;
 
@@ -45,6 +46,8 @@ $adminQuota = new AdminQuotaController();
 $adminCategorie = new AdminCategorieController();
 $adminPlugin = new AdminPluginController();
 $adminMaintenance = new AdminMaintenanceController();
+$adminAudit = new AdminAuditController();
+$compte = new \Platform\Controller\CompteController();
 
 // -----------------------------------------------
 // Public routes
@@ -54,13 +57,39 @@ $router->get('/login', [$auth, 'formulaireLogin']);
 $router->post('/login', [$auth, 'login']);
 $router->get('/module-assets/{slug}/{file*}', [$module, 'assets']);
 
+// Inscription
+$router->get('/inscription', [$auth, 'formulaireInscription']);
+$router->post('/inscription', [$auth, 'inscrire']);
+
+// Mot de passe oublié
+$router->get('/mot-de-passe-oublie', [$auth, 'formulaireMotDePasseOublie']);
+$router->post('/mot-de-passe-oublie', [$auth, 'demanderReinitialisation']);
+$router->get('/reinitialiser-mot-de-passe', [$auth, 'formulaireReinitialisation']);
+$router->post('/reinitialiser-mot-de-passe', [$auth, 'reinitialiserMotDePasse']);
+
+// Vérification email
+$router->get('/verifier-email', [$auth, 'verifierEmail']);
+
 // -----------------------------------------------
 // Authenticated routes
 // -----------------------------------------------
 
-$router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard, $module) {
+$quotaApi = new \Platform\Controller\QuotaApiController();
+
+$router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard, $module, $compte, $quotaApi) {
     $r->get('/logout', [$auth, 'logout']);
     $r->get('/', [$dashboard, 'index']);
+
+    // API quota pour plugins JS
+    $r->get('/api/quota/{slug}', [$quotaApi, 'afficher']);
+
+    // Mon compte (avec CSRF pour les POST)
+    $r->get('/mon-compte', [$compte, 'afficher']);
+    $r->group([new VerifyCsrf()], function (Router $r) use ($compte) {
+        $r->post('/mon-compte', [$compte, 'mettreAJour']);
+        $r->post('/mon-compte/mot-de-passe', [$compte, 'changerMotDePasse']);
+        $r->post('/mon-compte/supprimer', [$compte, 'supprimerCompte']);
+    });
 
     // Module routes (with CSRF + quota check)
     $r->group([new VerifyCsrf(), new CheckModuleQuota()], function (Router $r) use ($module) {
@@ -73,7 +102,7 @@ $router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard,
 // Admin routes
 // -----------------------------------------------
 
-$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin, $adminMaintenance) {
+$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin, $adminMaintenance, $adminAudit) {
     $r->get('/admin/users', [$adminUser, 'index']);
     $r->get('/admin/users/create', [$adminUser, 'formulaireCreation']);
     $r->post('/admin/users/create', [$adminUser, 'creer']);
@@ -112,6 +141,10 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
 
     $r->get('/admin/maintenance', [$adminMaintenance, 'index']);
     $r->post('/admin/maintenance/dependances', [$adminMaintenance, 'installerDependances']);
+    $r->post('/admin/maintenance/purge-usage', [$adminMaintenance, 'purgerUsage']);
+
+    $r->get('/admin/audit', [$adminAudit, 'index']);
+    $r->get('/admin/audit/export-csv', [$adminAudit, 'exporterCsv']);
 });
 
 // -----------------------------------------------

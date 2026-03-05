@@ -164,12 +164,8 @@ class PluginInstaller
 
         $moduleId = (int) $this->db->lastInsertId();
 
-        // Auto-attribution de l'accès à l'admin qui installe
-        $stmtAccess = $this->db->prepare(
-            'INSERT INTO user_module_access (user_id, module_id, granted, granted_by)
-             VALUES (?, ?, 1, ?)'
-        );
-        $stmtAccess->execute([$installeParId, $moduleId, $installeParId]);
+        // Auto-attribution de l'accès à tous les utilisateurs actifs
+        $this->accorderAccesTousUtilisateurs($moduleId, $installeParId);
 
         // Créer le symlink pour les assets statiques
         if (!empty($donnees['chemin_source'])) {
@@ -234,19 +230,8 @@ class PluginInstaller
             'installe_par'    => $installeParId,
         ]);
 
-        // S'assurer que l'admin installateur a accès (ne pas écraser un accès existant)
-        $stmtCheck = $this->db->prepare(
-            'SELECT id FROM user_module_access WHERE user_id = ? AND module_id = ?'
-        );
-        $stmtCheck->execute([$installeParId, $moduleId]);
-
-        if (!$stmtCheck->fetch()) {
-            $stmtAccess = $this->db->prepare(
-                'INSERT INTO user_module_access (user_id, module_id, granted, granted_by)
-                 VALUES (?, ?, 1, ?)'
-            );
-            $stmtAccess->execute([$installeParId, $moduleId, $installeParId]);
-        }
+        // Accorder l'accès à tous les utilisateurs actifs (réactivation = nouveau plugin pour eux)
+        $this->accorderAccesTousUtilisateurs($moduleId, $installeParId);
 
         // Recréer le symlink pour les assets statiques
         if (!empty($donnees['chemin_source'])) {
@@ -301,6 +286,21 @@ class PluginInstaller
             'domain_field'    => $donnees['domain_field'] ?? null,
             'categorie_id'    => $donnees['categorie_id'] ?? null,
         ]);
+    }
+
+    /**
+     * Accorde l'accès au module pour tous les utilisateurs actifs.
+     * Compatible MySQL (INSERT IGNORE) et SQLite (INSERT OR IGNORE).
+     */
+    private function accorderAccesTousUtilisateurs(int $moduleId, int $grantedBy): void
+    {
+        $driver = $this->db->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        $ignore = $driver === 'sqlite' ? 'OR IGNORE' : 'IGNORE';
+
+        $this->db->prepare(
+            "INSERT {$ignore} INTO user_module_access (user_id, module_id, granted, granted_by)
+             SELECT id, ?, 1, ? FROM users WHERE deleted_at IS NULL AND active = 1"
+        )->execute([$moduleId, $grantedBy]);
     }
 
     /**

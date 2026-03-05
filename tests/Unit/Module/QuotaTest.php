@@ -2,6 +2,7 @@
 
 use Platform\Database\Connection;
 use Platform\Module\Quota;
+use Platform\Service\AuditLogger;
 
 /**
  * Insère directement un enregistrement d'usage dans la BDD SQLite.
@@ -56,6 +57,16 @@ beforeEach(function () {
         updated_by INTEGER,
         UNIQUE(user_id, module_id)
     )');
+    $pdo->exec('CREATE TABLE audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        action TEXT NOT NULL,
+        target_type TEXT,
+        target_id INTEGER,
+        details TEXT,
+        ip_address TEXT,
+        created_at TEXT
+    )');
 
     // Module de test avec quota 10
     $pdo->exec("INSERT INTO modules (slug, enabled, default_quota, quota_mode) VALUES ('test-module', 1, 10, 'api_call')");
@@ -74,6 +85,12 @@ beforeEach(function () {
     $cache = $refQuota->getProperty('moduleIdCache');
     $cache->setAccessible(true);
     $cache->setValue(null, []);
+
+    // Reset le singleton AuditLogger (pour qu'il utilise le nouveau PDO)
+    $refAudit = new ReflectionClass(AuditLogger::class);
+    $inst = $refAudit->getProperty('instance');
+    $inst->setAccessible(true);
+    $inst->setValue(null, null);
 
     // Simuler un utilisateur connecté (user_id = 1)
     $_SESSION['user_id'] = 1;

@@ -41,6 +41,14 @@ class Quota
     }
 
     /**
+     * Retourne la date du prochain reset des quotas (1er du mois suivant).
+     */
+    public static function dateProchainReset(): string
+    {
+        return date('Y-m-d', strtotime('first day of next month'));
+    }
+
+    /**
      * Check if user has exceeded their quota for a module.
      * Admins are always exempt.
      */
@@ -125,12 +133,25 @@ class Quota
         ');
         $stmt->execute([$userId, $moduleId, $yearMonth, $amount]);
 
-        // Logger dans audit_log avec filtre anti-spam (5 min)
+        self::logUsageAudit($userId, $moduleId, $slug);
+    }
+
+    /**
+     * Logger l'usage dans audit_log avec filtre anti-spam (5 min).
+     */
+    private static function logUsageAudit(int $userId, int $moduleId, string $slug): void
+    {
+        $db = self::getDb();
+        $driver = $db->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        $recentCondition = $driver === 'mysql'
+            ? 'created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)'
+            : 'created_at > datetime("now", "-5 minutes")';
+
         $check = $db->prepare(
-            'SELECT 1 FROM audit_log
+            "SELECT 1 FROM audit_log
              WHERE user_id = ? AND action = ? AND target_id = ?
-               AND created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-             LIMIT 1'
+               AND {$recentCondition}
+             LIMIT 1"
         );
         $check->execute([$userId, AuditAction::ModuleUse->value, $moduleId]);
 
@@ -162,6 +183,8 @@ class Quota
      * Vérifie le quota restant, incrémente si disponible, retourne le succès.
      * Retourne false si aucun utilisateur connecté ou quota dépassé.
      * Retourne true (et incrémente) si le quota est suffisant ou illimité.
+     *
+     * Atomique : pas de race condition entre la vérification et l'incrément.
      */
     public static function trackerSiDisponible(string $slug, int $amount = 1): bool
     {
@@ -178,12 +201,57 @@ class Quota
             return true;
         }
 
-        $usage = self::getUsage($userId, $slug);
-        if ($usage + $amount > $limit) {
+        $db = self::getDb();
+        $moduleId = self::getModuleId($slug);
+        if (!$moduleId) {
             return false;
         }
 
-        self::increment($userId, $slug, $amount);
+        $yearMonth = self::currentYearMonth();
+        $driver = $db->getAttribute(\PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'mysql') {
+            // Atomic check+increment MySQL :
+            // INSERT seulement si amount <= limit (1re utilisation du mois)
+            // ON DUPLICATE : incrémente seulement si usage_count + amount <= limit
+            // rowCount : 1 (insert), 2 (update réel), 0 (quota dépassé)
+            $stmt = $db->prepare('
+                INSERT INTO module_usage (user_id, module_id, `year_month`, usage_count, last_tracked_at)
+                SELECT ?, ?, ?, ?, NOW()
+                FROM DUAL
+                WHERE ? <= ?
+                ON DUPLICATE KEY UPDATE
+                    usage_count = IF(usage_count + ? <= ?, usage_count + ?, usage_count),
+                    last_tracked_at = IF(usage_count + ? <= ?, NOW(), last_tracked_at)
+            ');
+            $stmt->execute([
+                $userId, $moduleId, $yearMonth, $amount,
+                $amount, $limit,
+                $amount, $limit, $amount,
+                $amount, $limit,
+            ]);
+
+            if ($stmt->rowCount() === 0) {
+                return false;
+            }
+        } else {
+            // Fallback SQLite : approche transactionnelle
+            // (SQLite sérialise les écritures → pas de race condition réelle)
+            $usage = self::getUsage($userId, $slug);
+            if ($usage + $amount > $limit) {
+                return false;
+            }
+
+            $stmt = $db->prepare('
+                INSERT INTO module_usage (user_id, module_id, year_month, usage_count, last_tracked_at)
+                VALUES (?, ?, ?, ?, datetime("now"))
+                ON CONFLICT(user_id, module_id, year_month)
+                DO UPDATE SET usage_count = usage_count + excluded.usage_count, last_tracked_at = datetime("now")
+            ');
+            $stmt->execute([$userId, $moduleId, $yearMonth, $amount]);
+        }
+
+        self::logUsageAudit($userId, $moduleId, $slug);
         return true;
     }
 
@@ -282,5 +350,43 @@ class Quota
         }
 
         return $matrix;
+    }
+
+    /**
+     * Get usage matrix for the current month (admin view).
+     * Returns [userId => [moduleId => usageCount]]
+     */
+    public static function getUsageMatrix(): array
+    {
+        $db = self::getDb();
+        $yearMonth = self::currentYearMonth();
+
+        $stmt = $db->prepare(
+            'SELECT user_id, module_id, usage_count FROM module_usage WHERE `year_month` = ?'
+        );
+        $stmt->execute([$yearMonth]);
+        $rows = $stmt->fetchAll();
+
+        $matrix = [];
+        foreach ($rows as $row) {
+            $matrix[(int) $row['user_id']][(int) $row['module_id']] = (int) $row['usage_count'];
+        }
+
+        return $matrix;
+    }
+
+    /**
+     * Supprime les lignes module_usage antérieures à N mois.
+     * Retourne le nombre de lignes supprimées.
+     */
+    public static function purgerAncienUsage(int $moisAConserver = 12): int
+    {
+        $db = self::getDb();
+        $seuilYearMonth = date('Ym', strtotime("-{$moisAConserver} months"));
+
+        $stmt = $db->prepare('DELETE FROM module_usage WHERE `year_month` < ?');
+        $stmt->execute([$seuilYearMonth]);
+
+        return $stmt->rowCount();
     }
 }

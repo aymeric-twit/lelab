@@ -1,8 +1,10 @@
 RewriteEngine On
 
 # Limites upload pour les plugins ZIP
-php_value upload_max_filesize 50M
-php_value post_max_size 55M
+# Désactivé : incompatible avec PHP-FPM (Gandi Simple Hosting)
+# Configurer via .user.ini ou panneau hébergeur
+# php_value upload_max_filesize 50M
+# php_value post_max_size 55M
 
 # Redirect to front controller if file/directory doesn't exist
 RewriteCond %{REQUEST_FILENAME} !-f

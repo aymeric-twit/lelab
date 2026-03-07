@@ -15,6 +15,7 @@ use Platform\Validation\Validator;
 use Platform\View\Flash;
 use Platform\View\Layout;
 use Platform\Module\Quota;
+use Platform\Service\NotificationService;
 
 class CompteController
 {
@@ -111,6 +112,8 @@ class CompteController
             'action' => 'changement_mot_de_passe',
         ]);
 
+        NotificationService::instance()->envoyerConfirmationChangementMdp($user['id']);
+
         Flash::success('Mot de passe modifié avec succès.');
         Response::redirect('/mon-compte');
     }
@@ -140,6 +143,11 @@ class CompteController
         AuditLogger::instance()->log(AuditAction::AccountDelete, $req->ip(), $user['id'], 'user', $user['id'], [
             'username' => $user['username'],
         ]);
+
+        NotificationService::instance()->envoyerConfirmationSuppression(
+            $user['email'] ?? '',
+            $user['username']
+        );
 
         Auth::logout();
 

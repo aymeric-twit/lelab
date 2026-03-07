@@ -7,6 +7,7 @@ use Platform\Enum\AuditAction;
 use Platform\Service\AuditLogger;
 use Platform\Service\EmailTemplate;
 use Platform\Service\Mailer;
+use Platform\Service\NotificationService;
 use Platform\User\UserRepository;
 use PDO;
 
@@ -120,6 +121,8 @@ class PasswordReset
             $db->commit();
 
             AuditLogger::instance()->log(AuditAction::PasswordResetComplete, $ip, $userId, 'user');
+
+            NotificationService::instance()->envoyerConfirmationChangementMdp($userId);
 
             return true;
         } catch (\Throwable $e) {

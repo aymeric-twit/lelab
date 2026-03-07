@@ -242,6 +242,7 @@ class AdminPluginController
     private function installerDepuisZip(Request $req, PluginInstaller $installer): void
     {
         $fichierUpload = $_FILES['fichier_zip'] ?? [];
+        $categorieId = $req->post('categorie_id', '');
 
         $erreur = $installer->validerFichierZip($fichierUpload);
         if ($erreur !== null) {
@@ -250,7 +251,7 @@ class AdminPluginController
         }
 
         try {
-            $moduleId = $installer->installerDepuisZip($fichierUpload, Auth::id());
+            $moduleId = $installer->installerDepuisZip($fichierUpload, Auth::id(), $categorieId !== '' ? (int) $categorieId : null);
 
             $stmt = Connection::get()->prepare('SELECT slug, chemin_source, name FROM modules WHERE id = ?');
             $stmt->execute([$moduleId]);
@@ -492,6 +493,7 @@ class AdminPluginController
     {
         $url = trim($req->post('git_url', ''));
         $branche = trim($req->post('git_branche', 'main')) ?: 'main';
+        $categorieId = $req->post('categorie_id', '');
 
         if (!GitClient::validerUrl($url)) {
             Flash::error('URL de dépôt Git invalide.');
@@ -499,7 +501,7 @@ class AdminPluginController
         }
 
         try {
-            $resultat = $installer->installerDepuisGit($url, $branche, Auth::id());
+            $resultat = $installer->installerDepuisGit($url, $branche, Auth::id(), $categorieId !== '' ? (int) $categorieId : null);
 
             $stmt = Connection::get()->prepare('SELECT slug, chemin_source, name FROM modules WHERE id = ?');
             $stmt->execute([$resultat['module_id']]);

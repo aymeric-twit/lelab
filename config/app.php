@@ -29,6 +29,12 @@ return [
         'cookie'   => 'remember_me',
     ],
 
+    // Notifications
+    'notifications' => [
+        'admin_email'       => $_ENV['ADMIN_NOTIFY_EMAIL'] ?? null,
+        'quota_seuil_alerte' => 80,
+    ],
+
     // Email (Symfony Mailer)
     'email' => [
         'host'       => $_ENV['MAIL_HOST'] ?? 'localhost',

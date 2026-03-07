@@ -5,6 +5,7 @@ namespace Platform\Auth;
 use Platform\Database\Connection;
 use Platform\Enum\AuditAction;
 use Platform\Service\AuditLogger;
+use Platform\Service\NotificationService;
 use Platform\User\AccessControl;
 use Platform\User\UserRepository;
 use PDO;
@@ -74,6 +75,8 @@ class Inscription
                 'username' => $username,
                 'email' => $email,
             ]);
+
+            NotificationService::instance()->notifierAdminNouvelInscrit($userId, $username, $email);
 
             return ['id' => $userId, 'email' => $email, 'username' => $username];
         } catch (\Throwable $e) {

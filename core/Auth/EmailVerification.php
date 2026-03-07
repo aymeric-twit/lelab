@@ -7,6 +7,7 @@ use Platform\Enum\AuditAction;
 use Platform\Service\AuditLogger;
 use Platform\Service\EmailTemplate;
 use Platform\Service\Mailer;
+use Platform\Service\NotificationService;
 use Platform\User\UserRepository;
 use PDO;
 
@@ -81,6 +82,8 @@ class EmailVerification
             $db->commit();
 
             AuditLogger::instance()->log(AuditAction::EmailVerified, $ip, $userId, 'user');
+
+            NotificationService::instance()->envoyerBienvenue($userId);
 
             return true;
         } catch (\Throwable $e) {

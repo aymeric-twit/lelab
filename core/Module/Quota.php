@@ -7,6 +7,7 @@ use Platform\Database\Connection;
 use Platform\Enum\AuditAction;
 use Platform\Enum\QuotaMode;
 use Platform\Service\AuditLogger;
+use Platform\Service\NotificationService;
 use PDO;
 
 class Quota
@@ -133,7 +134,29 @@ class Quota
         ');
         $stmt->execute([$userId, $moduleId, $yearMonth, $amount]);
 
+        self::verifierSeuilQuota($userId, $slug);
         self::logUsageAudit($userId, $moduleId, $slug);
+    }
+
+    /**
+     * Vérifie si le seuil de 80% est atteint et envoie une alerte email.
+     */
+    private static function verifierSeuilQuota(int $userId, string $slug): void
+    {
+        $limite = self::getLimit($userId, $slug);
+        if ($limite === 0) {
+            return;
+        }
+
+        $usage = self::getUsage($userId, $slug);
+        $config = require __DIR__ . '/../../config/app.php';
+        $seuil = $config['notifications']['quota_seuil_alerte'] ?? 80;
+
+        $pourcentage = ($usage / $limite) * 100;
+
+        if ($pourcentage >= $seuil && $pourcentage < 100) {
+            NotificationService::instance()->envoyerAlerteQuota80($userId, $slug, $usage, $limite);
+        }
     }
 
     /**

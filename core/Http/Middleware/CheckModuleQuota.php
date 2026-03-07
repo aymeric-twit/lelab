@@ -9,6 +9,7 @@ use Platform\Http\Request;
 use Platform\Http\Response;
 use Platform\Module\ModuleRegistry;
 use Platform\Module\Quota;
+use Platform\Service\NotificationService;
 use Platform\User\AccessControl;
 use Platform\View\Layout;
 
@@ -62,6 +63,13 @@ class CheckModuleQuota implements Middleware
 
         // 2. Bloquer si quota dépassé — s'applique à TOUS les modes suivis (y compris api_call)
         if (Quota::isOverQuota($user['id'], $slug)) {
+            NotificationService::instance()->envoyerAlerteQuota100(
+                $user['id'],
+                $slug,
+                Quota::getUsage($user['id'], $slug),
+                Quota::getLimit($user['id'], $slug)
+            );
+
             if ($request->isAjax()) {
                 Response::json([
                     'error'          => 'Quota dépassé',

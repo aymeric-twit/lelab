@@ -561,7 +561,7 @@ class PluginInstaller
      * @return array{module_id: int, slug: string, commit: string|null}
      * @throws \RuntimeException
      */
-    public function installerDepuisGit(string $url, string $branche = 'main', int $installeParId = 0): array
+    public function installerDepuisGit(string $url, string $branche = 'main', int $installeParId = 0, ?int $categorieId = null): array
     {
         if (!GitClient::validerUrl($url)) {
             throw new \RuntimeException('URL de dépôt Git invalide. Seuls GitHub et GitLab en HTTPS sont acceptés.');
@@ -624,6 +624,7 @@ class PluginInstaller
             'mode_affichage'  => $moduleJson['display_mode'] ?? 'embedded',
             'langues'         => $moduleJson['languages'] ?? [],
             'domain_field'    => $moduleJson['domain_field'] ?? null,
+            'categorie_id'    => $categorieId,
         ];
 
         try {
@@ -746,7 +747,7 @@ class PluginInstaller
      * @return int ID du module créé
      * @throws \RuntimeException Si l'extraction échoue
      */
-    public function installerDepuisZip(array $fichierUpload, int $installeParId): int
+    public function installerDepuisZip(array $fichierUpload, int $installeParId, ?int $categorieId = null): int
     {
         $erreur = $this->validerFichierZip($fichierUpload);
         if ($erreur !== null) {
@@ -850,6 +851,7 @@ class PluginInstaller
             'mode_affichage'  => $donnees['display_mode'] ?? 'embedded',
             'langues'         => $donnees['languages'] ?? [],
             'domain_field'    => $donnees['domain_field'] ?? null,
+            'categorie_id'    => $categorieId,
         ];
 
         try {

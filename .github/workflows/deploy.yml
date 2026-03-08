@@ -4,40 +4,42 @@ on:
   push:
     branches: [main]
 
-  # Permet un déclenchement manuel depuis l'onglet Actions
   workflow_dispatch:
-
-env:
-  GANDI_USER: 9ac28d20-95f8-11e7-b83e-00163e61ef31
-  GANDI_GIT_HOST: git.sd6.gpaas.net
-  GANDI_REPO: labs.yapasdequoi.com.git
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Installer PHP et dépendances
+        uses: shivammathur/setup-php@v2
         with:
-          fetch-depth: 0
+          php-version: '8.3'
 
-      - name: Configurer SSH pour Gandi
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -t rsa $GANDI_GIT_HOST >> ~/.ssh/known_hosts 2>/dev/null
+      - name: Installer Composer
+        run: composer install --no-dev --optimize-autoloader --no-interaction
 
-          # Utiliser sshpass pour passer le token comme mot de passe SSH
-          sudo apt-get install -y sshpass > /dev/null 2>&1
-
-          # Configurer GIT_SSH_COMMAND pour passer le mot de passe
-          export SSHPASS="${{ secrets.GANDI_DEPLOY_TOKEN }}"
-          git config --global core.sshCommand "sshpass -e ssh -o StrictHostKeyChecking=no"
-
-          # Ajouter le remote Gandi via SSH
-          git remote add gandi git+ssh://$GANDI_USER@$GANDI_GIT_HOST/$GANDI_REPO
-
-      - name: Push vers Gandi
-        env:
-          SSHPASS: ${{ secrets.GANDI_DEPLOY_TOKEN }}
-        run: |
-          git config --global core.sshCommand "sshpass -e ssh -o StrictHostKeyChecking=no"
-          git push gandi main:master --force
+      - name: Déployer via SFTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: sftp.sd6.gpaas.net
+          username: 9ac28d20-95f8-11e7-b83e-00163e61ef31
+          password: ${{ secrets.GANDI_DEPLOY_TOKEN }}
+          protocol: sftp
+          port: 22
+          local-dir: ./
+          server-dir: /lamp0/web/vhosts/labs.yapasdequoi.com/htdocs/lelab/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.claude/**
+            .env
+            .phpunit.cache/**
+            database/database.sqlite
+            public/module-assets/**
+            storage/logs/**
+            storage/plugins/**
+            tests/**
+            phpstan.neon
+            phpunit.xml

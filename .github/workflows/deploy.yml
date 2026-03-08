@@ -26,27 +26,32 @@ jobs:
       - name: Installer les dépendances Composer
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
-      - name: Configurer la clé SSH
+      - name: Configurer la clé SSH et installer lftp
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.GANDI_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -t rsa $DEPLOY_HOST >> ~/.ssh/known_hosts 2>/dev/null
+          sudo apt-get install -y lftp > /dev/null 2>&1
 
-      - name: Déployer via rsync
+      - name: Déployer via SFTP (lftp mirror)
         run: |
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/id_rsa" \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='.claude/' \
-            --exclude='.env' \
-            --exclude='.phpunit.cache/' \
-            --exclude='database/database.sqlite' \
-            --exclude='public/module-assets/' \
-            --exclude='storage/logs/' \
-            --exclude='storage/plugins/' \
-            --exclude='tests/' \
-            --exclude='phpstan.neon' \
-            --exclude='phpunit.xml' \
-            ./ $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/
+          lftp -e "
+            set sftp:connect-program 'ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no';
+            open sftp://$DEPLOY_USER@$DEPLOY_HOST;
+            mirror --reverse --delete --verbose \
+              --exclude ^\.git/ \
+              --exclude ^\.github/ \
+              --exclude ^\.claude/ \
+              --exclude ^\.env$ \
+              --exclude ^\.phpunit\.cache/ \
+              --exclude ^database/database\.sqlite$ \
+              --exclude ^public/module-assets/ \
+              --exclude ^storage/logs/ \
+              --exclude ^storage/plugins/ \
+              --exclude ^tests/ \
+              --exclude ^phpstan\.neon$ \
+              --exclude ^phpunit\.xml$ \
+              ./ $DEPLOY_PATH/;
+            bye
+          " 2>&1

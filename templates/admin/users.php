@@ -33,6 +33,13 @@ $filtreQueryString = $filtreParams ? '&' . http_build_query($filtreParams) : '';
             <i class="bi bi-speedometer2 me-1"></i> Quotas
         </a>
     </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link <?= $ongletActif === 'defauts' ? 'active' : '' ?>"
+           id="tab-defauts-btn" data-bs-toggle="tab" href="#tab-defauts"
+           role="tab" aria-selected="<?= $ongletActif === 'defauts' ? 'true' : 'false' ?>">
+            <i class="bi bi-sliders me-1"></i> Quotas par d&eacute;faut
+        </a>
+    </li>
 </ul>
 
 <div class="tab-content">
@@ -308,6 +315,64 @@ $filtreQueryString = $filtreParams ? '&' . http_build_query($filtreParams) : '';
 
             <button type="submit" class="btn btn-primary mt-3">
                 <i class="bi bi-check-lg me-1"></i> Enregistrer les quotas
+            </button>
+        </form>
+    </div>
+
+    <!-- Onglet Quotas par d&eacute;faut -->
+    <div class="tab-pane fade <?= $ongletActif === 'defauts' ? 'show active' : '' ?>"
+         id="tab-defauts" role="tabpanel">
+        <p class="text-muted mb-3" style="font-size:0.9rem;">D&eacute;finissez le quota mensuel par d&eacute;faut pour chaque plugin. Cette valeur s'applique &agrave; tout nouvel utilisateur. <code style="background:var(--brand-teal-light);color:var(--brand-dark);padding:0.15em 0.35em;border-radius:0.25rem;">0</code> = illimit&eacute;.</p>
+
+        <form method="POST" action="/admin/quotas/defauts">
+            <?= \Platform\Http\Csrf::field() ?>
+
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Module</th>
+                                    <th style="width: 150px;">Mode de quota</th>
+                                    <th style="width: 180px;">Quota par d&eacute;faut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($modulesActifs as $mod):
+                                    if (($mod['quota_mode'] ?? 'none') === 'none') continue;
+                                    $qm = \Platform\Enum\QuotaMode::tryFrom($mod['quota_mode']) ?? \Platform\Enum\QuotaMode::None;
+                                ?>
+                                <tr>
+                                    <td>
+                                        <?php if (!empty($mod['icon'])): ?>
+                                            <i class="bi <?= htmlspecialchars($mod['icon']) ?> me-1" style="color:var(--brand-teal);"></i>
+                                        <?php endif; ?>
+                                        <strong><?= htmlspecialchars($mod['name']) ?></strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background: var(--brand-teal-light); color: var(--brand-dark);">
+                                            <?= htmlspecialchars($qm->label()) ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <input type="number"
+                                               class="form-control form-control-sm text-center"
+                                               name="defauts[<?= (int) $mod['id'] ?>]"
+                                               value="<?= (int) ($mod['default_quota'] ?? 0) ?>"
+                                               min="0"
+                                               style="width: 120px; margin: 0 auto;">
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary mt-3">
+                <i class="bi bi-check-lg me-1"></i> Enregistrer les quotas par d&eacute;faut
             </button>
         </form>
     </div>

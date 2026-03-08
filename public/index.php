@@ -130,6 +130,7 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
 
     $r->get('/admin/quotas', [$adminQuota, 'index']);
     $r->post('/admin/quotas', [$adminQuota, 'mettreAJour']);
+    $r->post('/admin/quotas/defauts', [$adminQuota, 'mettreAJourDefauts']);
 
     $r->get('/admin/categories', [$adminCategorie, 'index']);
     $r->get('/admin/categories/creer', [$adminCategorie, 'formulaireCreation']);

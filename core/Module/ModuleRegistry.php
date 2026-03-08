@@ -53,23 +53,30 @@ class ModuleRegistry
                 continue;
             }
 
+            // Relire module.json pour les champs contrôlés par le plugin
+            $moduleJson = [];
+            $jsonPath = $row['chemin_source'] . '/module.json';
+            if (file_exists($jsonPath)) {
+                $moduleJson = json_decode(file_get_contents($jsonPath), true) ?? [];
+            }
+
             $data = [
                 'slug'            => $slug,
-                'name'            => $row['name'],
-                'description'     => $row['description'] ?? '',
-                'version'         => $row['version'] ?? '1.0.0',
-                'icon'            => $row['icon'] ?? 'bi-tools',
-                'entry_point'     => $row['point_entree'] ?? 'index.php',
-                'sort_order'      => (int) $row['sort_order'],
-                'env_keys'        => $row['cles_env'] ? json_decode($row['cles_env'], true) : [],
-                'routes'          => $row['routes_config'] ? json_decode($row['routes_config'], true) : [],
-                'passthrough_all' => (bool) $row['passthrough_all'],
-                'display_mode'    => $row['mode_affichage'] ?? 'embedded',
-                'quota_mode'      => $row['quota_mode'] ?? 'none',
-                'default_quota'   => (int) ($row['default_quota'] ?? 0),
+                'name'            => $moduleJson['name'] ?? $row['name'],
+                'description'     => $moduleJson['description'] ?? $row['description'] ?? '',
+                'version'         => $moduleJson['version'] ?? $row['version'] ?? '1.0.0',
+                'icon'            => $moduleJson['icon'] ?? $row['icon'] ?? 'bi-tools',
+                'entry_point'     => $moduleJson['entry_point'] ?? $row['point_entree'] ?? 'index.php',
+                'sort_order'      => (int) ($row['sort_order'] ?? $moduleJson['sort_order'] ?? 100),
+                'env_keys'        => $moduleJson['env_keys'] ?? ($row['cles_env'] ? json_decode($row['cles_env'], true) : []),
+                'routes'          => $moduleJson['routes'] ?? ($row['routes_config'] ? json_decode($row['routes_config'], true) : []),
+                'passthrough_all' => (bool) ($row['passthrough_all'] ?? false),
+                'display_mode'    => $moduleJson['display_mode'] ?? $row['mode_affichage'] ?? 'embedded',
+                'quota_mode'      => $moduleJson['quota_mode'] ?? $row['quota_mode'] ?? 'none',
+                'default_quota'   => (int) ($moduleJson['default_quota'] ?? $row['default_quota'] ?? 0),
                 'categorie_id'    => $row['categorie_id'] ?? null,
-                'languages'       => !empty($row['langues']) ? json_decode($row['langues'], true) : [],
-                'domain_field'    => $row['domain_field'] ?? null,
+                'languages'       => $moduleJson['languages'] ?? (!empty($row['langues']) ? json_decode($row['langues'], true) : []),
+                'domain_field'    => $moduleJson['domain_field'] ?? $row['domain_field'] ?? null,
             ];
 
             self::$modules[$slug] = new ModuleDescriptor($row['chemin_source'], $data);

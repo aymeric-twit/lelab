@@ -44,4 +44,22 @@ class AdminQuotaController
         Flash::success('Quotas mis à jour.');
         Response::redirect('/admin/users?onglet=quotas');
     }
+
+    public function mettreAJourDefauts(Request $req): void
+    {
+        $db = Connection::get();
+        $defauts = $req->post('defauts') ?? [];
+
+        $stmt = $db->prepare('UPDATE modules SET default_quota = ? WHERE id = ?');
+        foreach ($defauts as $moduleId => $valeur) {
+            $stmt->execute([(int) $valeur, (int) $moduleId]);
+        }
+
+        AuditLogger::instance()->log(
+            AuditAction::QuotasUpdate, $req->ip(), Auth::id(), 'defaults', null, ['updated' => array_keys($defauts)]
+        );
+
+        Flash::success('Quotas par défaut mis à jour.');
+        Response::redirect('/admin/users?onglet=defauts');
+    }
 }

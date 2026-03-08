@@ -11,7 +11,6 @@ env:
   GANDI_USER: 9ac28d20-95f8-11e7-b83e-00163e61ef31
   GANDI_GIT_HOST: git.sd6.gpaas.net
   GANDI_REPO: labs.yapasdequoi.com.git
-  GANDI_SSH_HOST: git.sd6.gpaas.net
 
 jobs:
   deploy:
@@ -21,14 +20,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configurer Git pour Gandi
+      - name: Configurer SSH pour Gandi
         run: |
-          # Configurer le credential helper pour utiliser le token
-          git config --global credential.helper store
-          echo "https://$GANDI_USER:${{ secrets.GANDI_DEPLOY_TOKEN }}@$GANDI_GIT_HOST" > ~/.git-credentials
+          mkdir -p ~/.ssh
+          ssh-keyscan -t rsa $GANDI_GIT_HOST >> ~/.ssh/known_hosts 2>/dev/null
 
-          # Ajouter le remote Gandi
-          git remote add gandi https://$GANDI_USER@$GANDI_GIT_HOST/$GANDI_REPO
+          # Utiliser sshpass pour passer le token comme mot de passe SSH
+          sudo apt-get install -y sshpass > /dev/null 2>&1
+
+          # Configurer GIT_SSH_COMMAND pour passer le mot de passe
+          export SSHPASS="${{ secrets.GANDI_DEPLOY_TOKEN }}"
+          git config --global core.sshCommand "sshpass -e ssh -o StrictHostKeyChecking=no"
+
+          # Ajouter le remote Gandi via SSH
+          git remote add gandi git+ssh://$GANDI_USER@$GANDI_GIT_HOST/$GANDI_REPO
 
       - name: Push vers Gandi
-        run: git push gandi main:master --force
+        env:
+          SSHPASS: ${{ secrets.GANDI_DEPLOY_TOKEN }}
+        run: |
+          git config --global core.sshCommand "sshpass -e ssh -o StrictHostKeyChecking=no"
+          git push gandi main:master --force

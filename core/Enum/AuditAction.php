@@ -20,6 +20,7 @@ enum AuditAction: string
     case PasswordResetComplete = 'password_reset.complete';
     case EmailVerified = 'email.verified';
     case AccountDelete = 'account.delete';
+    case EmailConfigUpdate = 'email.config.update';
 
     public function label(): string
     {
@@ -40,6 +41,7 @@ enum AuditAction: string
             self::PasswordResetComplete => 'Mot de passe réinitialisé',
             self::EmailVerified        => 'Email vérifié',
             self::AccountDelete        => 'Suppression de compte',
+            self::EmailConfigUpdate    => 'Configuration email modifiée',
         };
     }
 
@@ -62,6 +64,7 @@ enum AuditAction: string
             self::PasswordResetComplete => 'bi-key-fill text-success',
             self::EmailVerified        => 'bi-envelope-check text-success',
             self::AccountDelete        => 'bi-person-x text-danger',
+            self::EmailConfigUpdate    => 'bi-envelope-gear text-info',
         };
     }
 }

@@ -117,6 +117,11 @@
                                 <i class="bi bi-tools me-2"></i> Maintenance
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item <?= ($adminPage ?? '') === 'emails' ? 'active' : '' ?>" href="/admin/emails">
+                                <i class="bi bi-envelope me-2"></i> Emails
+                            </a>
+                        </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item <?= ($adminPage ?? '') === 'audit' ? 'active' : '' ?>" href="/admin/audit">

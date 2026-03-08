@@ -24,6 +24,7 @@ use Platform\Controller\AdminCategorieController;
 use Platform\Controller\AdminPluginController;
 use Platform\Controller\AdminMaintenanceController;
 use Platform\Controller\AdminAuditController;
+use Platform\Controller\AdminEmailController;
 use Platform\Controller\WebhookGithubController;
 use Platform\Database\Connection;
 
@@ -47,6 +48,7 @@ $adminCategorie = new AdminCategorieController();
 $adminPlugin = new AdminPluginController();
 $adminMaintenance = new AdminMaintenanceController();
 $adminAudit = new AdminAuditController();
+$adminEmail = new AdminEmailController();
 $compte = new \Platform\Controller\CompteController();
 
 // -----------------------------------------------
@@ -102,7 +104,7 @@ $router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard,
 // Admin routes
 // -----------------------------------------------
 
-$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin, $adminMaintenance, $adminAudit) {
+$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin, $adminMaintenance, $adminAudit, $adminEmail) {
     $r->get('/admin/users', [$adminUser, 'index']);
     $r->get('/admin/users/create', [$adminUser, 'formulaireCreation']);
     $r->post('/admin/users/create', [$adminUser, 'creer']);
@@ -145,6 +147,13 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
 
     $r->get('/admin/audit', [$adminAudit, 'index']);
     $r->get('/admin/audit/export-csv', [$adminAudit, 'exporterCsv']);
+
+    $r->get('/admin/emails', [$adminEmail, 'index']);
+    $r->post('/admin/emails/smtp', [$adminEmail, 'sauvegarderSmtp']);
+    $r->post('/admin/emails/test', [$adminEmail, 'envoyerTest']);
+    $r->post('/admin/emails/notifications', [$adminEmail, 'sauvegarderNotifications']);
+    $r->get('/admin/emails/apercu/{type}', [$adminEmail, 'apercuTemplate']);
+    $r->get('/admin/emails/historique/export', [$adminEmail, 'exporterCsv']);
 });
 
 // -----------------------------------------------

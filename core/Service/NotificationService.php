@@ -3,8 +3,10 @@
 namespace Platform\Service;
 
 use Platform\Database\Connection;
+use Platform\Enum\TypeNotification;
 use Platform\Log\Logger;
 use Platform\Module\Quota;
+use Platform\Repository\SettingsRepository;
 use Platform\User\UserRepository;
 use PDO;
 
@@ -39,6 +41,10 @@ class NotificationService
 
     public function envoyerBienvenue(int $userId): bool
     {
+        if (!$this->estActive(TypeNotification::Bienvenue)) {
+            return false;
+        }
+
         $user = (new UserRepository())->findById($userId);
         if (!$user || empty($user['email'])) {
             return false;
@@ -49,21 +55,31 @@ class NotificationService
             'lienPlateforme' => rtrim($this->config['url'], '/') . '/',
         ]);
 
-        return $this->envoyerAvecProtection($user['email'], 'Bienvenue sur Le lab !', $contenu);
+        $sujet = $this->sujetPour(TypeNotification::Bienvenue);
+        return $this->envoyerAvecProtection($user['email'], $sujet, $contenu, TypeNotification::Bienvenue->value, $userId);
     }
 
     public function envoyerConfirmationSuppression(string $email, string $username): bool
     {
+        if (!$this->estActive(TypeNotification::SuppressionCompte)) {
+            return false;
+        }
+
         $contenu = EmailTemplate::rendre('suppression-compte', [
             'username' => $username,
             'dateEffective' => date('d/m/Y à H:i'),
         ]);
 
-        return $this->envoyerAvecProtection($email, 'Votre compte a été supprimé', $contenu);
+        $sujet = $this->sujetPour(TypeNotification::SuppressionCompte);
+        return $this->envoyerAvecProtection($email, $sujet, $contenu, TypeNotification::SuppressionCompte->value);
     }
 
     public function envoyerConfirmationChangementMdp(int $userId): bool
     {
+        if (!$this->estActive(TypeNotification::ChangementMdp)) {
+            return false;
+        }
+
         $user = (new UserRepository())->findById($userId);
         if (!$user || empty($user['email'])) {
             return false;
@@ -75,7 +91,8 @@ class NotificationService
             'ip' => $_SERVER['REMOTE_ADDR'] ?? 'Inconnue',
         ]);
 
-        return $this->envoyerAvecProtection($user['email'], 'Mot de passe modifié', $contenu);
+        $sujet = $this->sujetPour(TypeNotification::ChangementMdp);
+        return $this->envoyerAvecProtection($user['email'], $sujet, $contenu, TypeNotification::ChangementMdp->value, $userId);
     }
 
     // -----------------------------------------------
@@ -84,6 +101,10 @@ class NotificationService
 
     public function envoyerAlerteQuota80(int $userId, string $slug, int $usage, int $limite): bool
     {
+        if (!$this->estActive(TypeNotification::AlerteQuota80)) {
+            return false;
+        }
+
         if ($this->dejaEnvoye($userId, 'quota_80', $slug)) {
             return false;
         }
@@ -104,7 +125,8 @@ class NotificationService
             'lienPlateforme' => rtrim($this->config['url'], '/') . '/mon-compte',
         ]);
 
-        $envoye = $this->envoyerAvecProtection($user['email'], "Alerte : quota {$nomModule} bientôt atteint", $contenu);
+        $sujet = $this->sujetPour(TypeNotification::AlerteQuota80);
+        $envoye = $this->envoyerAvecProtection($user['email'], $sujet, $contenu, TypeNotification::AlerteQuota80->value, $userId);
         if ($envoye) {
             $this->marquerEnvoye($userId, 'quota_80', $slug);
         }
@@ -113,6 +135,10 @@ class NotificationService
 
     public function envoyerAlerteQuota100(int $userId, string $slug, int $usage, int $limite): bool
     {
+        if (!$this->estActive(TypeNotification::AlerteQuota100)) {
+            return false;
+        }
+
         if ($this->dejaEnvoye($userId, 'quota_100', $slug)) {
             return false;
         }
@@ -132,7 +158,8 @@ class NotificationService
             'lienPlateforme' => rtrim($this->config['url'], '/') . '/mon-compte',
         ]);
 
-        $envoye = $this->envoyerAvecProtection($user['email'], "Quota {$nomModule} épuisé", $contenu);
+        $sujet = $this->sujetPour(TypeNotification::AlerteQuota100);
+        $envoye = $this->envoyerAvecProtection($user['email'], $sujet, $contenu, TypeNotification::AlerteQuota100->value, $userId);
         if ($envoye) {
             $this->marquerEnvoye($userId, 'quota_100', $slug);
         }
@@ -144,6 +171,10 @@ class NotificationService
      */
     public function envoyerResumeResetQuotas(int $userId, array $resumeModules): bool
     {
+        if (!$this->estActive(TypeNotification::ResetQuotas)) {
+            return false;
+        }
+
         $moisPrecedent = date('Ym', strtotime('first day of last month'));
         if ($this->dejaEnvoye($userId, 'reset_quotas', null, $moisPrecedent)) {
             return false;
@@ -161,7 +192,8 @@ class NotificationService
             'lienPlateforme' => rtrim($this->config['url'], '/') . '/',
         ]);
 
-        $envoye = $this->envoyerAvecProtection($user['email'], 'Vos quotas ont été réinitialisés', $contenu);
+        $sujet = $this->sujetPour(TypeNotification::ResetQuotas);
+        $envoye = $this->envoyerAvecProtection($user['email'], $sujet, $contenu, TypeNotification::ResetQuotas->value, $userId);
         if ($envoye) {
             $this->marquerEnvoye($userId, 'reset_quotas', null, $moisPrecedent);
         }
@@ -174,6 +206,10 @@ class NotificationService
 
     public function notifierAdminNouvelInscrit(int $userId, string $username, string $email): bool
     {
+        if (!$this->estActive(TypeNotification::AdminNouvelInscrit)) {
+            return false;
+        }
+
         $admins = $this->getAdminEmails();
         if ($admins === []) {
             return false;
@@ -186,9 +222,10 @@ class NotificationService
             'lienAdmin' => rtrim($this->config['url'], '/') . '/admin/users',
         ]);
 
+        $sujet = $this->sujetPour(TypeNotification::AdminNouvelInscrit);
         $succes = true;
         foreach ($admins as $adminEmail) {
-            if (!$this->envoyerAvecProtection($adminEmail, 'Nouvel utilisateur inscrit : ' . $username, $contenu)) {
+            if (!$this->envoyerAvecProtection($adminEmail, $sujet . ' : ' . $username, $contenu, TypeNotification::AdminNouvelInscrit->value)) {
                 $succes = false;
             }
         }
@@ -199,10 +236,10 @@ class NotificationService
     // Méthodes internes
     // -----------------------------------------------
 
-    private function envoyerAvecProtection(string $destinataire, string $sujet, string $contenuHtml): bool
+    private function envoyerAvecProtection(string $destinataire, string $sujet, string $contenuHtml, ?string $typeEmail = null, ?int $userId = null): bool
     {
         try {
-            return Mailer::instance()->envoyer($destinataire, $sujet, $contenuHtml);
+            return Mailer::instance()->envoyer($destinataire, $sujet, $contenuHtml, $typeEmail, $userId);
         } catch (\Throwable $e) {
             Logger::error('Échec envoi notification', [
                 'destinataire' => $destinataire,
@@ -211,6 +248,39 @@ class NotificationService
             ]);
             return false;
         }
+    }
+
+    /**
+     * Vérifie si un type de notification est activé (DB override).
+     * Par défaut (pas de valeur en DB), toutes les notifications sont actives.
+     */
+    private function estActive(TypeNotification $type): bool
+    {
+        try {
+            $repo = new SettingsRepository($this->db);
+            $valeur = $repo->obtenir('notifications', $type->value . '_active');
+            return $valeur !== '0';
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    /**
+     * Retourne le sujet personnalisé depuis la DB, ou le sujet par défaut.
+     */
+    private function sujetPour(TypeNotification $type): string
+    {
+        try {
+            $repo = new SettingsRepository($this->db);
+            $sujetCustom = $repo->obtenir('email_sujets', $type->value);
+            if ($sujetCustom !== null && $sujetCustom !== '') {
+                return $sujetCustom;
+            }
+        } catch (\Throwable) {
+            // Fallback silencieux
+        }
+
+        return $type->sujetParDefaut();
     }
 
     private function dejaEnvoye(int $userId, string $type, ?string $slug = null, ?string $yearMonth = null): bool
@@ -246,6 +316,17 @@ class NotificationService
      */
     private function getAdminEmails(): array
     {
+        // Priorité : DB → config → BDD users admin
+        try {
+            $repo = new SettingsRepository($this->db);
+            $dbEmail = $repo->obtenir('notifications', 'admin_email');
+            if ($dbEmail !== null && $dbEmail !== '') {
+                return array_map('trim', explode(',', $dbEmail));
+            }
+        } catch (\Throwable) {
+            // Fallback
+        }
+
         $configEmail = $this->config['notifications']['admin_email'] ?? null;
         if ($configEmail !== null && $configEmail !== '') {
             return array_map('trim', explode(',', $configEmail));

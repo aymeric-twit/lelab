@@ -80,6 +80,61 @@ class ModuleRegistry
             ];
 
             self::$modules[$slug] = new ModuleDescriptor($row['chemin_source'], $data);
+
+            // Synchroniser les champs contrôlés par le plugin vers la BDD si module.json a changé
+            if (!empty($moduleJson)) {
+                $champsASync = [];
+                $params = [];
+
+                $mapping = [
+                    'name'           => ['db' => 'name',           'val' => $data['name']],
+                    'description'    => ['db' => 'description',    'val' => $data['description']],
+                    'version'        => ['db' => 'version',        'val' => $data['version']],
+                    'icon'           => ['db' => 'icon',           'val' => $data['icon']],
+                    'quota_mode'     => ['db' => 'quota_mode',     'val' => $data['quota_mode']],
+                    'default_quota'  => ['db' => 'default_quota',  'val' => (string) $data['default_quota']],
+                    'display_mode'   => ['db' => 'mode_affichage', 'val' => $data['display_mode']],
+                    'domain_field'   => ['db' => 'domain_field',   'val' => $data['domain_field']],
+                ];
+
+                foreach ($mapping as $jsonKey => $info) {
+                    $dbVal = $row[$info['db']] ?? null;
+                    if ((string) $dbVal !== (string) $info['val']) {
+                        $champsASync[] = "{$info['db']} = ?";
+                        $params[] = $info['val'];
+                    }
+                }
+
+                // Synchroniser aussi routes, langues et cles_env
+                $routesJson = json_encode($data['routes'] ?? [], JSON_UNESCAPED_UNICODE);
+                if ($routesJson !== ($row['routes_config'] ?? '[]')) {
+                    $champsASync[] = 'routes_config = ?';
+                    $params[] = $routesJson;
+                }
+
+                $languesJson = json_encode($data['languages'] ?? [], JSON_UNESCAPED_UNICODE);
+                if ($languesJson !== ($row['langues'] ?? '[]')) {
+                    $champsASync[] = 'langues = ?';
+                    $params[] = $languesJson;
+                }
+
+                $envKeysJson = json_encode($data['env_keys'] ?? [], JSON_UNESCAPED_UNICODE);
+                if ($envKeysJson !== ($row['cles_env'] ?? '[]')) {
+                    $champsASync[] = 'cles_env = ?';
+                    $params[] = $envKeysJson;
+                }
+
+                if (!empty($champsASync)) {
+                    $params[] = (int) $row['id'];
+                    $sql = 'UPDATE modules SET ' . implode(', ', $champsASync) . ' WHERE id = ?';
+                    try {
+                        $db->prepare($sql)->execute($params);
+                    } catch (\PDOException $e) {
+                        // Valeur incompatible avec le schéma BDD (ex: ENUM pas encore migré)
+                        // On ignore silencieusement — le ModuleDescriptor en mémoire a la bonne valeur
+                    }
+                }
+            }
         }
     }
 
@@ -117,15 +172,15 @@ class ModuleRegistry
             INSERT INTO modules (slug, name, description, version, icon, sort_order, quota_mode, default_quota, mode_affichage, domain_field)
             VALUES (:slug, :name, :description, :version, :icon, :sort_order, :quota_mode, :default_quota, :mode_affichage, :domain_field)
             ON DUPLICATE KEY UPDATE
-                name = IF(chemin_source IS NULL, VALUES(name), name),
-                description = IF(chemin_source IS NULL, VALUES(description), description),
-                version = IF(chemin_source IS NULL, VALUES(version), version),
-                icon = IF(chemin_source IS NULL, VALUES(icon), icon),
+                name = VALUES(name),
+                description = VALUES(description),
+                version = VALUES(version),
+                icon = VALUES(icon),
                 sort_order = IF(chemin_source IS NULL, VALUES(sort_order), sort_order),
-                quota_mode = IF(chemin_source IS NULL, VALUES(quota_mode), quota_mode),
-                default_quota = IF(chemin_source IS NULL, VALUES(default_quota), default_quota),
-                mode_affichage = IF(chemin_source IS NULL, VALUES(mode_affichage), mode_affichage),
-                domain_field = IF(chemin_source IS NULL, VALUES(domain_field), domain_field),
+                quota_mode = VALUES(quota_mode),
+                default_quota = VALUES(default_quota),
+                mode_affichage = VALUES(mode_affichage),
+                domain_field = VALUES(domain_field),
                 desinstalle_le = IF(chemin_source IS NULL, NULL, desinstalle_le),
                 desinstalle_par = IF(chemin_source IS NULL, NULL, desinstalle_par),
                 enabled = IF(chemin_source IS NULL, 1, enabled)

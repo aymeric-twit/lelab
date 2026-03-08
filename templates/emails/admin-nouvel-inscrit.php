@@ -11,8 +11,16 @@
                 <table width="520" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,76,76,0.06);">
                     <!-- Header -->
                     <tr>
-                        <td style="background-color: #004c4c; padding: 24px 32px; border-bottom: 3px solid #fbb03b; text-align: center;">
-                            <img src="<?= htmlspecialchars($_logoUrl ?? '') ?>" alt="Le lab — Y'a pas de quoi" width="200" style="display: inline-block;">
+                        <td style="background-color: #004c4c; padding: 14px 24px; border-bottom: 3px solid #fbb03b;">
+                            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+                                <td style="width: 140px;">
+                                    <img src="<?= htmlspecialchars($_logoUrl ?? '') ?>" alt="Le lab" width="130" style="display: block;">
+                                </td>
+                                <td style="text-align: center; color: #ffffff; font-family: 'Poppins', Arial, sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 0.02em;">
+                                    Le lab
+                                </td>
+                                <td style="width: 140px;"></td>
+                            </tr></table>
                         </td>
                     </tr>
                     <!-- Content -->

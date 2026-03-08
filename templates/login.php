@@ -13,7 +13,7 @@
     <script>if (window.self !== window.top) { window.top.location.href = '/login'; }</script>
 </head>
 <body>
-    <div class="login-wrapper d-flex align-items-center justify-content-center">
+    <div class="login-wrapper d-flex flex-column align-items-center justify-content-center">
         <div class="card login-card shadow-sm" style="width: 100%; max-width: 420px;">
             <div class="card-body p-4">
                 <div class="text-center mb-4">

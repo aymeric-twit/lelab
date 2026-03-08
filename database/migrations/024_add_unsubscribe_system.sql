@@ -1,8 +1,4 @@
 -- Migration 024 : Système de désabonnement emails
--- Ajout token de désabonnement sur users + table préférences notifications
-
-ALTER TABLE users ADD COLUMN unsubscribe_token VARCHAR(64) DEFAULT NULL;
-ALTER TABLE users ADD UNIQUE KEY uk_unsubscribe_token (unsubscribe_token);
 
 CREATE TABLE IF NOT EXISTS user_notification_preferences (
     id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

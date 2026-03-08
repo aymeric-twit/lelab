@@ -7,6 +7,11 @@ test('QuotaMode a les bonnes valeurs', function () {
     expect(QuotaMode::Request->value)->toBe('request');
     expect(QuotaMode::FormSubmit->value)->toBe('form_submit');
     expect(QuotaMode::ApiCall->value)->toBe('api_call');
+    expect(QuotaMode::Url->value)->toBe('url');
+});
+
+test('QuotaMode a 5 cas', function () {
+    expect(QuotaMode::cases())->toHaveCount(5);
 });
 
 test('QuotaMode::estSuivi retourne false pour None', function () {
@@ -17,9 +22,11 @@ test('QuotaMode::estSuivi retourne true pour les modes actifs', function () {
     expect(QuotaMode::Request->estSuivi())->toBeTrue();
     expect(QuotaMode::FormSubmit->estSuivi())->toBeTrue();
     expect(QuotaMode::ApiCall->estSuivi())->toBeTrue();
+    expect(QuotaMode::Url->estSuivi())->toBeTrue();
 });
 
 test('QuotaMode::tryFrom gère les valeurs inconnues', function () {
     expect(QuotaMode::tryFrom('none'))->toBe(QuotaMode::None);
+    expect(QuotaMode::tryFrom('url'))->toBe(QuotaMode::Url);
     expect(QuotaMode::tryFrom('inexistant'))->toBeNull();
 });

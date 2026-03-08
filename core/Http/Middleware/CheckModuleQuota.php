@@ -61,12 +61,15 @@ class CheckModuleQuota implements Middleware
             return;
         }
 
+        // Jour d'inscription pour le calcul de la période de quota
+        $jourInscription = (int) date('j', strtotime($user['created_at'] ?? 'now'));
+
         // 2. Bloquer si quota dépassé — s'applique à TOUS les modes suivis (y compris api_call)
-        if (Quota::isOverQuota($user['id'], $slug)) {
+        if (Quota::isOverQuota($user['id'], $slug, $jourInscription)) {
             NotificationService::instance()->envoyerAlerteQuota100(
                 $user['id'],
                 $slug,
-                Quota::getUsage($user['id'], $slug),
+                Quota::getUsage($user['id'], $slug, $jourInscription),
                 Quota::getLimit($user['id'], $slug)
             );
 
@@ -74,14 +77,14 @@ class CheckModuleQuota implements Middleware
                 Response::json([
                     'error'          => 'Quota dépassé',
                     'quota_exceeded' => true,
-                    'usage'          => Quota::getUsage($user['id'], $slug),
+                    'usage'          => Quota::getUsage($user['id'], $slug, $jourInscription),
                     'limit'          => Quota::getLimit($user['id'], $slug),
-                    'reset_date'     => Quota::dateProchainReset(),
+                    'reset_date'     => Quota::dateProchainResetUtilisateur($jourInscription),
                 ], 429);
             }
 
             $ac = new AccessControl();
-            $quotaSummary = Quota::getUserQuotaSummary($user['id']);
+            $quotaSummary = Quota::getUserQuotaSummary($user['id'], $jourInscription);
             $modules = $ac->getAccessibleModules($user['id']);
             Layout::render('layout', [
                 'template'          => 'quota-exceeded',
@@ -92,9 +95,9 @@ class CheckModuleQuota implements Middleware
                 'quotaSummary'      => $quotaSummary,
                 'moduleSlug'        => $slug,
                 'moduleName'        => $module->name,
-                'quotaUsage'        => Quota::getUsage($user['id'], $slug),
+                'quotaUsage'        => Quota::getUsage($user['id'], $slug, $jourInscription),
                 'quotaLimit'        => Quota::getLimit($user['id'], $slug),
-                'dateResetQuota'    => Quota::dateProchainReset(),
+                'dateResetQuota'    => Quota::dateProchainResetUtilisateur($jourInscription),
             ]);
             exit;
         }
@@ -103,7 +106,7 @@ class CheckModuleQuota implements Middleware
         //    Le mode api_call est incrémenté manuellement par le plugin via Quota::track()
         if ($module->quotaMode === QuotaMode::Request
             || ($module->quotaMode === QuotaMode::FormSubmit && $request->method() === 'POST')) {
-            Quota::increment($user['id'], $slug);
+            Quota::increment($user['id'], $slug, 1, $jourInscription);
         }
 
         $next($request);

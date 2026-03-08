@@ -183,14 +183,14 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
             <div class="card h-100">
                 <div class="card-header"><h5 class="mb-0">Configuration avancée</h5></div>
                 <div class="card-body">
+                    <?php $qm = \Platform\Enum\QuotaMode::tryFrom($module['quota_mode'] ?? 'none') ?? \Platform\Enum\QuotaMode::None; ?>
                     <div class="mb-3">
                         <label for="quota_mode" class="form-label">Mode de quota</label>
                         <select class="form-select" id="quota_mode" name="quota_mode">
                             <?php foreach (\Platform\Enum\QuotaMode::cases() as $mode): ?>
-                                <option value="<?= $mode->value ?>"
-                                    <?= ($module['quota_mode'] ?? 'none') === $mode->value ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($mode->label()) ?>
-                                </option>
+                            <option value="<?= $mode->value ?>" <?= $qm === $mode ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($mode->label()) ?>
+                            </option>
                             <?php endforeach; ?>
                         </select>
                     </div>

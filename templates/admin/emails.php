@@ -136,10 +136,33 @@ $filtreQueryString = $filtreParams ? '&' . http_build_query($filtreParams) : '';
                 </ol>
             </div>
         </div>
+
+        <!-- Card Gmail -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-google me-1"></i> Configuration Gmail</h6>
+                <p class="small text-muted mb-2">Pour utiliser Gmail avec un mot de passe d'application :</p>
+                <ol class="small text-muted mb-2">
+                    <li>Activez la <strong>validation en 2 étapes</strong> sur votre compte Google</li>
+                    <li>Créez un <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">mot de passe d'application</a></li>
+                    <li>Cliquez sur le bouton ci-dessous pour pré-remplir les champs</li>
+                </ol>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-prefill-gmail">
+                    <i class="bi bi-lightning me-1"></i>Pré-remplir Gmail
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
+document.getElementById('btn-prefill-gmail')?.addEventListener('click', function() {
+    document.getElementById('smtp-host').value = 'smtp.gmail.com';
+    document.getElementById('smtp-port').value = '587';
+    document.getElementById('smtp-encryption').value = 'tls';
+    // Username et mot de passe doivent être remplis par l'utilisateur
+});
+
 document.getElementById('btn-test-email')?.addEventListener('click', function() {
     const btn = this;
     const resultDiv = document.getElementById('test-email-result');

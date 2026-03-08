@@ -36,13 +36,24 @@ class Quota
         return $id;
     }
 
-    private static function currentYearMonth(): string
+    /**
+     * Calcule la période courante (format Ym) en fonction du jour d'inscription.
+     * Si le jour actuel >= jourInscription, la période a commencé ce mois-ci.
+     * Sinon, la période a commencé le mois précédent.
+     */
+    public static function currentPeriod(int $jourInscription): string
     {
-        return date('Ym');
+        $jourActuel = (int) date('j');
+        if ($jourActuel >= $jourInscription) {
+            return date('Ym');
+        }
+
+        return date('Ym', strtotime('first day of last month'));
     }
 
     /**
      * Retourne la date du prochain reset des quotas (1er du mois suivant).
+     * @deprecated Utiliser dateProchainResetUtilisateur() à la place
      */
     public static function dateProchainReset(): string
     {
@@ -50,17 +61,51 @@ class Quota
     }
 
     /**
+     * Retourne la date du prochain reset basée sur le jour d'inscription de l'utilisateur.
+     * Gère les mois courts (inscrit le 31 → reset le 28/29 en février).
+     */
+    public static function dateProchainResetUtilisateur(int $jourInscription): string
+    {
+        $jourActuel = (int) date('j');
+        $moisActuel = new \DateTimeImmutable('first day of this month');
+
+        if ($jourActuel >= $jourInscription) {
+            $moisReset = $moisActuel->modify('+1 month');
+        } else {
+            $moisReset = $moisActuel;
+        }
+
+        $dernierJour = (int) $moisReset->format('t');
+        $jour = min($jourInscription, $dernierJour);
+
+        return $moisReset->format('Y-m-') . str_pad((string) $jour, 2, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Extrait le jour d'inscription depuis la date created_at de l'utilisateur courant.
+     */
+    public static function jourInscriptionUtilisateur(): int
+    {
+        $user = Auth::user();
+        if (!$user || empty($user['created_at'])) {
+            return 1;
+        }
+
+        return (int) date('j', strtotime($user['created_at']));
+    }
+
+    /**
      * Check if user has exceeded their quota for a module.
      * Admins are always exempt.
      */
-    public static function isOverQuota(int $userId, string $slug): bool
+    public static function isOverQuota(int $userId, string $slug, int $jourInscription = 1): bool
     {
         $limit = self::getLimit($userId, $slug);
         if ($limit === 0) {
             return false; // 0 = unlimited
         }
 
-        $usage = self::getUsage($userId, $slug);
+        $usage = self::getUsage($userId, $slug, $jourInscription);
         return $usage >= $limit;
     }
 
@@ -95,9 +140,9 @@ class Quota
     }
 
     /**
-     * Get the current month's usage count for a user/module.
+     * Get the current period's usage count for a user/module.
      */
-    public static function getUsage(int $userId, string $slug): int
+    public static function getUsage(int $userId, string $slug, int $jourInscription = 1): int
     {
         $db = self::getDb();
         $moduleId = self::getModuleId($slug);
@@ -105,7 +150,7 @@ class Quota
             return 0;
         }
 
-        $yearMonth = self::currentYearMonth();
+        $yearMonth = self::currentPeriod($jourInscription);
         $stmt = $db->prepare('SELECT usage_count FROM module_usage WHERE user_id = ? AND module_id = ? AND `year_month` = ?');
         $stmt->execute([$userId, $moduleId, $yearMonth]);
         $row = $stmt->fetch();
@@ -116,7 +161,7 @@ class Quota
     /**
      * Increment usage counter for a user/module.
      */
-    public static function increment(int $userId, string $slug, int $amount = 1): void
+    public static function increment(int $userId, string $slug, int $amount = 1, int $jourInscription = 1): void
     {
         $db = self::getDb();
         $moduleId = self::getModuleId($slug);
@@ -124,7 +169,7 @@ class Quota
             return;
         }
 
-        $yearMonth = self::currentYearMonth();
+        $yearMonth = self::currentPeriod($jourInscription);
         $stmt = $db->prepare('
             INSERT INTO module_usage (user_id, module_id, `year_month`, usage_count, last_tracked_at)
             VALUES (?, ?, ?, ?, NOW())
@@ -134,21 +179,21 @@ class Quota
         ');
         $stmt->execute([$userId, $moduleId, $yearMonth, $amount]);
 
-        self::verifierSeuilQuota($userId, $slug);
+        self::verifierSeuilQuota($userId, $slug, $jourInscription);
         self::logUsageAudit($userId, $moduleId, $slug);
     }
 
     /**
      * Vérifie si le seuil de 80% est atteint et envoie une alerte email.
      */
-    private static function verifierSeuilQuota(int $userId, string $slug): void
+    private static function verifierSeuilQuota(int $userId, string $slug, int $jourInscription = 1): void
     {
         $limite = self::getLimit($userId, $slug);
         if ($limite === 0) {
             return;
         }
 
-        $usage = self::getUsage($userId, $slug);
+        $usage = self::getUsage($userId, $slug, $jourInscription);
         $config = require __DIR__ . '/../../config/app.php';
         $seuil = $config['notifications']['quota_seuil_alerte'] ?? 80;
 
@@ -198,7 +243,8 @@ class Quota
     {
         $userId = Auth::id();
         if ($userId) {
-            self::increment($userId, $slug, $amount);
+            $jourInscription = self::jourInscriptionUtilisateur();
+            self::increment($userId, $slug, $amount, $jourInscription);
         }
     }
 
@@ -216,11 +262,12 @@ class Quota
             return false;
         }
 
+        $jourInscription = self::jourInscriptionUtilisateur();
         $limit = self::getLimit($userId, $slug);
 
         // Quota illimité
         if ($limit === 0) {
-            self::increment($userId, $slug, $amount);
+            self::increment($userId, $slug, $amount, $jourInscription);
             return true;
         }
 
@@ -230,14 +277,10 @@ class Quota
             return false;
         }
 
-        $yearMonth = self::currentYearMonth();
+        $yearMonth = self::currentPeriod($jourInscription);
         $driver = $db->getAttribute(\PDO::ATTR_DRIVER_NAME);
 
         if ($driver === 'mysql') {
-            // Atomic check+increment MySQL :
-            // INSERT seulement si amount <= limit (1re utilisation du mois)
-            // ON DUPLICATE : incrémente seulement si usage_count + amount <= limit
-            // rowCount : 1 (insert), 2 (update réel), 0 (quota dépassé)
             $stmt = $db->prepare('
                 INSERT INTO module_usage (user_id, module_id, `year_month`, usage_count, last_tracked_at)
                 SELECT ?, ?, ?, ?, NOW()
@@ -259,8 +302,7 @@ class Quota
             }
         } else {
             // Fallback SQLite : approche transactionnelle
-            // (SQLite sérialise les écritures → pas de race condition réelle)
-            $usage = self::getUsage($userId, $slug);
+            $usage = self::getUsage($userId, $slug, $jourInscription);
             if ($usage + $amount > $limit) {
                 return false;
             }
@@ -295,7 +337,8 @@ class Quota
             return null;
         }
 
-        $usage = self::getUsage($userId, $slug);
+        $jourInscription = self::jourInscriptionUtilisateur();
+        $usage = self::getUsage($userId, $slug, $jourInscription);
         return max(0, $limit - $usage);
     }
 
@@ -303,10 +346,10 @@ class Quota
      * Get quota summary for all modules accessible by a user.
      * Returns [slug => ['usage' => int, 'limit' => int, 'quota_mode' => QuotaMode]]
      */
-    public static function getUserQuotaSummary(int $userId): array
+    public static function getUserQuotaSummary(int $userId, int $jourInscription = 1): array
     {
         $db = self::getDb();
-        $yearMonth = self::currentYearMonth();
+        $yearMonth = self::currentPeriod($jourInscription);
 
         $stmt = $db->prepare('
             SELECT
@@ -377,22 +420,37 @@ class Quota
 
     /**
      * Get usage matrix for the current month (admin view).
+     * Utilise le 1er du mois comme convention pour la vue admin (tous les utilisateurs).
      * Returns [userId => [moduleId => usageCount]]
      */
     public static function getUsageMatrix(): array
     {
         $db = self::getDb();
-        $yearMonth = self::currentYearMonth();
+        // Pour l'admin, on récupère l'usage de la période courante de chaque utilisateur.
+        // Comme les périodes varient par utilisateur, on récupère toutes les entrées
+        // du mois courant ET du mois précédent pour couvrir tous les cas.
+        $moisCourant = date('Ym');
+        $moisPrecedent = date('Ym', strtotime('first day of last month'));
 
         $stmt = $db->prepare(
-            'SELECT user_id, module_id, usage_count FROM module_usage WHERE `year_month` = ?'
+            'SELECT mu.user_id, mu.module_id, mu.usage_count, mu.year_month,
+                    u.created_at
+             FROM module_usage mu
+             JOIN users u ON u.id = mu.user_id
+             WHERE mu.year_month IN (?, ?)'
         );
-        $stmt->execute([$yearMonth]);
+        $stmt->execute([$moisCourant, $moisPrecedent]);
         $rows = $stmt->fetchAll();
 
         $matrix = [];
         foreach ($rows as $row) {
-            $matrix[(int) $row['user_id']][(int) $row['module_id']] = (int) $row['usage_count'];
+            $jourInscription = (int) date('j', strtotime($row['created_at']));
+            $periodeCourante = self::currentPeriod($jourInscription);
+
+            // Ne garder que les entrées correspondant à la période courante de cet utilisateur
+            if ($row['year_month'] === $periodeCourante) {
+                $matrix[(int) $row['user_id']][(int) $row['module_id']] = (int) $row['usage_count'];
+            }
         }
 
         return $matrix;

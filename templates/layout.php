@@ -268,6 +268,12 @@
         </main>
     </div>
 
+    <footer class="text-center py-3" style="font-size: 0.75rem; color: #999;">
+        <a href="/politique-de-confidentialite" style="color: #66b2b2; text-decoration: none;">Politique de confidentialité</a>
+        <span class="mx-1">&bull;</span>
+        <a href="/mentions-legales" style="color: #66b2b2; text-decoration: none;">Mentions légales</a>
+    </footer>
+
     <?php if (!empty($flash)): ?>
     <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer" style="z-index: 1090;">
         <?php foreach ($flash as $msg):

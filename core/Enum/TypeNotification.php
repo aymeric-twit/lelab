@@ -75,6 +75,21 @@ enum TypeNotification: string
     }
 
     /**
+     * Indique si l'utilisateur peut se désabonner de ce type de notification.
+     * Les emails transactionnels (sécurité, vérification) ne sont pas désabonnables.
+     */
+    public function estDesabonnable(): bool
+    {
+        return match ($this) {
+            self::VerificationEmail,
+            self::PasswordReset,
+            self::ChangementMdp,
+            self::SuppressionCompte => false,
+            default => true,
+        };
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function donneesExemple(): array
@@ -82,7 +97,14 @@ enum TypeNotification: string
         $config = require __DIR__ . '/../../config/app.php';
         $url = rtrim($config['url'] ?? 'https://example.com', '/');
 
-        return match ($this) {
+        $footerCommun = [
+            '_lienConfidentialite' => $url . '/politique-de-confidentialite',
+            '_lienMentions' => $url . '/mentions-legales',
+            '_lienDesabonnement' => $url . '/desabonnement?token=exemple-token',
+            '_estDesabonnable' => $this->estDesabonnable(),
+        ];
+
+        return array_merge($footerCommun, match ($this) {
             self::Bienvenue => [
                 'username' => 'Jean Dupont',
                 'lienPlateforme' => $url . '/',
@@ -139,6 +161,6 @@ enum TypeNotification: string
                 'lien' => $url . '/reinitialiser-mot-de-passe?token=exemple',
                 'expiration' => 1,
             ],
-        };
+        });
     }
 }

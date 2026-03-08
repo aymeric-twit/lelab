@@ -18,6 +18,19 @@ class EmailTemplate
             throw new \RuntimeException("Template email introuvable : {$template}");
         }
 
+        // Injection automatique des variables globales de footer
+        $config = require __DIR__ . '/../../config/app.php';
+        $baseUrl = rtrim($config['url'] ?? 'https://labs.yapasdequoi.com', '/');
+
+        $donnees += [
+            '_baseUrl' => $baseUrl,
+            '_logoUrl' => $baseUrl . '/assets/img/logo-login.png',
+            '_lienConfidentialite' => $baseUrl . '/politique-de-confidentialite',
+            '_lienMentions' => $baseUrl . '/mentions-legales',
+            '_lienDesabonnement' => null,
+            '_estDesabonnable' => false,
+        ];
+
         extract($donnees);
         ob_start();
         require $chemin;

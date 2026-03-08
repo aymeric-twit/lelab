@@ -38,6 +38,30 @@ test('chaque cas a des données d\'exemple', function () {
     }
 });
 
+test('estDesabonnable est false pour les emails transactionnels', function () {
+    expect(TypeNotification::VerificationEmail->estDesabonnable())->toBeFalse();
+    expect(TypeNotification::PasswordReset->estDesabonnable())->toBeFalse();
+    expect(TypeNotification::ChangementMdp->estDesabonnable())->toBeFalse();
+    expect(TypeNotification::SuppressionCompte->estDesabonnable())->toBeFalse();
+});
+
+test('estDesabonnable est true pour les notifications optionnelles', function () {
+    expect(TypeNotification::Bienvenue->estDesabonnable())->toBeTrue();
+    expect(TypeNotification::AlerteQuota80->estDesabonnable())->toBeTrue();
+    expect(TypeNotification::AlerteQuota100->estDesabonnable())->toBeTrue();
+    expect(TypeNotification::ResetQuotas->estDesabonnable())->toBeTrue();
+    expect(TypeNotification::AdminNouvelInscrit->estDesabonnable())->toBeTrue();
+});
+
+test('donneesExemple contient les variables de footer', function () {
+    foreach (TypeNotification::cases() as $type) {
+        $donnees = $type->donneesExemple();
+        expect($donnees)->toHaveKey('_lienConfidentialite');
+        expect($donnees)->toHaveKey('_lienMentions');
+        expect($donnees)->toHaveKey('_estDesabonnable');
+    }
+});
+
 test('tryFrom retourne null pour une valeur invalide', function () {
     expect(TypeNotification::tryFrom('inexistant'))->toBeNull();
 });

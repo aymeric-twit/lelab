@@ -35,6 +35,13 @@ class UserRepository
         return $stmt->fetch() ?: null;
     }
 
+    public function findByUnsubscribeToken(string $token): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM users WHERE unsubscribe_token = ? AND deleted_at IS NULL');
+        $stmt->execute([$token]);
+        return $stmt->fetch() ?: null;
+    }
+
     public function usernameExiste(string $username): bool
     {
         $stmt = $this->db->prepare('SELECT COUNT(*) FROM users WHERE username = ? AND deleted_at IS NULL');
@@ -110,8 +117,9 @@ class UserRepository
 
     public function create(array $data): int
     {
+        $token = bin2hex(random_bytes(32));
         $stmt = $this->db->prepare(
-            'INSERT INTO users (username, email, domaine, password_hash, role, active) VALUES (?, ?, ?, ?, ?, ?)'
+            'INSERT INTO users (username, email, domaine, password_hash, role, active, unsubscribe_token) VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $data['username'],
@@ -120,6 +128,7 @@ class UserRepository
             $data['password_hash'],
             $data['role'] ?? 'user',
             $data['active'] ?? 1,
+            $token,
         ]);
         return (int) $this->db->lastInsertId();
     }
@@ -174,7 +183,7 @@ class UserRepository
             $stmt->execute([$userId]);
 
             // Purge des tokens et données associées
-            foreach (['remember_tokens', 'password_resets', 'email_verifications', 'user_module_access', 'user_module_quotas'] as $table) {
+            foreach (['remember_tokens', 'password_resets', 'email_verifications', 'user_module_access', 'user_module_quotas', 'user_notification_preferences'] as $table) {
                 $stmt = $this->db->prepare("DELETE FROM {$table} WHERE user_id = ?");
                 $stmt->execute([$userId]);
             }

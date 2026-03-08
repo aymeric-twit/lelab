@@ -47,55 +47,6 @@ foreach ($qs as $slug => $q) {
 $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('Y-m-01', strtotime('+1 month')));
 ?>
 
-<!-- Bandeau KPI -->
-<div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="card dashboard-kpi">
-            <div class="card-body d-flex align-items-center gap-3 py-2 px-3">
-                <i class="bi bi-tools" style="font-size: 1.5rem; color: var(--brand-teal);"></i>
-                <div>
-                    <div class="dashboard-kpi-value"><?= $nbOutils ?></div>
-                    <div class="dashboard-kpi-label">Outils disponibles</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card dashboard-kpi<?= count($quotasAlerte) > 0 ? ' dashboard-kpi-warning' : '' ?>">
-            <div class="card-body d-flex align-items-center gap-3 py-2 px-3">
-                <i class="bi bi-<?= count($quotasAlerte) > 0 ? 'exclamation-triangle' : 'check-circle' ?>" style="font-size: 1.5rem; color: <?= count($quotasAlerte) > 0 ? 'var(--brand-gold)' : 'var(--bs-success, #198754)' ?>;"></i>
-                <div>
-                    <div class="dashboard-kpi-value"><?= count($quotasAlerte) ?></div>
-                    <div class="dashboard-kpi-label"><?= count($quotasAlerte) > 0 ? 'Quotas &agrave; surveiller' : 'Quotas OK' ?></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card dashboard-kpi">
-            <div class="card-body d-flex align-items-center gap-3 py-2 px-3">
-                <i class="bi bi-arrow-repeat" style="font-size: 1.5rem; color: var(--brand-teal);"></i>
-                <div>
-                    <div class="dashboard-kpi-value" style="font-size: 1.1rem;"><?= ucfirst(htmlspecialchars($resetRelatif)) ?></div>
-                    <div class="dashboard-kpi-label">Prochain reset quotas</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<?php if (!empty($quotasAlerte)): ?>
-<div class="alert alert-warning d-flex align-items-start gap-2 mb-4 py-2 px-3" style="font-size: 0.85rem; border-radius: 8px;">
-    <i class="bi bi-exclamation-triangle-fill mt-1"></i>
-    <div>
-        <strong>Quotas &agrave; surveiller :</strong>
-        <?php foreach ($quotasAlerte as $i => $qa): ?>
-            <?= htmlspecialchars($qa['nom']) ?> (<?= $qa['pct'] ?>%)<?= $i < count($quotasAlerte) - 1 ? ', ' : '' ?>
-        <?php endforeach; ?>
-    </div>
-</div>
-<?php endif; ?>
-
 <div class="row g-4">
     <!-- Colonne gauche : Mon compte + Quotas -->
     <div class="col-lg-3">
@@ -138,17 +89,45 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
 
                         <dt>Membre depuis</dt>
                         <dd><?= htmlspecialchars(DashboardController::dateFrancaise($currentUser['created_at'] ?? 'now')) ?></dd>
+
+                        <dt>Alertes email</dt>
+                        <dd>
+                            <div class="form-check form-switch mb-1">
+                                <input class="form-check-input" type="checkbox" role="switch" id="alertesEmailToggle"
+                                       <?= ($alertesActives ?? true) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="alertesEmailToggle" style="font-size: 0.8rem;">
+                                    Recevoir les notifications
+                                </label>
+                            </div>
+                            <?php if (!empty($unsubscribeToken)): ?>
+                            <a href="/desabonnement?token=<?= htmlspecialchars($unsubscribeToken) ?>"
+                               class="text-muted" style="font-size: 0.7rem; text-decoration: underline;">
+                                G&eacute;rer mes pr&eacute;f&eacute;rences &rarr;
+                            </a>
+                            <?php endif; ?>
+                        </dd>
                     </dl>
                 </div>
             </div>
         </div>
 
-        <!-- Card Quotas (groupés par catégorie) -->
+        <!-- Card Modules (groupés par catégorie) -->
         <div class="card dashboard-card mb-3">
             <div class="card-header">
-                <i class="bi bi-speedometer2 me-1"></i> Mes quotas
+                <i class="bi bi-box-seam me-1"></i> Mes modules
             </div>
             <div class="card-body">
+                <?php if (!$estAdmin): ?>
+                <div class="dashboard-quota-header mb-2 pb-2 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.78rem; font-weight: 600; color: var(--brand-dark);">
+                        <span>Quotas restants</span>
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">
+                        <i class="bi bi-arrow-repeat me-1"></i>Renouvellement <?= htmlspecialchars($resetRelatif) ?>
+                        <span class="text-muted">(<?= htmlspecialchars(DashboardController::dateFrancaise($dateResetQuota ?? date('Y-m-d'))) ?>)</span>
+                    </div>
+                </div>
+                <?php endif; ?>
                 <?php
                 $aDesQuotas = false;
                 $premiereCat = true;
@@ -203,10 +182,8 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
                     <p class="text-muted small mb-0">Aucun quota actif.</p>
                 <?php endif; ?>
 
-                <?php if ($aDesQuotas && !$estAdmin): ?>
-                    <div class="mt-2 pt-2 border-top" style="font-size: 0.72rem; color: var(--text-muted);">
-                        <i class="bi bi-arrow-repeat me-1"></i>R&eacute;initialisation <?= htmlspecialchars($resetRelatif) ?>
-                    </div>
+                <?php if (!$aDesQuotas && $estAdmin): ?>
+                    <p class="text-muted small mb-0">Quotas illimit&eacute;s (admin).</p>
                 <?php endif; ?>
             </div>
         </div>
@@ -218,6 +195,55 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
 
         <!-- Grille plugins (en premier) -->
         <h5 class="mb-3" style="color: var(--brand-dark); font-weight: 600;">Mes outils</h5>
+
+        <!-- Bandeau KPI -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card dashboard-kpi">
+                    <div class="card-body d-flex align-items-center gap-3 py-2 px-3">
+                        <i class="bi bi-tools" style="font-size: 1.5rem; color: var(--brand-teal);"></i>
+                        <div>
+                            <div class="dashboard-kpi-value"><?= $nbOutils ?></div>
+                            <div class="dashboard-kpi-label">Outils disponibles</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card dashboard-kpi<?= count($quotasAlerte) > 0 ? ' dashboard-kpi-warning' : '' ?>">
+                    <div class="card-body d-flex align-items-center gap-3 py-2 px-3">
+                        <i class="bi bi-<?= count($quotasAlerte) > 0 ? 'exclamation-triangle' : 'check-circle' ?>" style="font-size: 1.5rem; color: <?= count($quotasAlerte) > 0 ? 'var(--brand-gold)' : 'var(--bs-success, #198754)' ?>;"></i>
+                        <div>
+                            <div class="dashboard-kpi-value"><?= count($quotasAlerte) ?></div>
+                            <div class="dashboard-kpi-label"><?= count($quotasAlerte) > 0 ? 'Quotas &agrave; surveiller' : 'Quotas OK' ?></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card dashboard-kpi">
+                    <div class="card-body d-flex align-items-center gap-3 py-2 px-3">
+                        <i class="bi bi-arrow-repeat" style="font-size: 1.5rem; color: var(--brand-teal);"></i>
+                        <div>
+                            <div class="dashboard-kpi-value" style="font-size: 1.1rem;"><?= ucfirst(htmlspecialchars($resetRelatif)) ?></div>
+                            <div class="dashboard-kpi-label">Prochain reset quotas</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <?php if (!empty($quotasAlerte)): ?>
+        <div class="alert alert-warning d-flex align-items-start gap-2 mb-4 py-2 px-3" style="font-size: 0.85rem; border-radius: 8px;">
+            <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+            <div>
+                <strong>Quotas &agrave; surveiller :</strong>
+                <?php foreach ($quotasAlerte as $i => $qa): ?>
+                    <?= htmlspecialchars($qa['nom']) ?> (<?= $qa['pct'] ?>%)<?= $i < count($quotasAlerte) - 1 ? ', ' : '' ?>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <?php foreach ($modulesParCategorie as $catId => $catData):
             $catNom = $catId === 0 ? 'Autres' : htmlspecialchars($catData['nom']);
@@ -235,18 +261,6 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
                     $quotaLimit = $aQuota ? (int) $qs[$modSlug]['limit'] : 0;
                     $quotaUsage = $aQuota ? (int) $qs[$modSlug]['usage'] : 0;
 
-                    // Pastille couleur
-                    $dotClass = '';
-                    if ($aQuota && !$estAdmin && $quotaLimit > 0) {
-                        $qPct = min(100, round(($quotaUsage / $quotaLimit) * 100));
-                        if ($qPct >= 100) {
-                            $dotClass = 'quota-dot-danger';
-                        } elseif ($qPct >= 80) {
-                            $dotClass = 'quota-dot-warn';
-                        } else {
-                            $dotClass = 'quota-dot-ok';
-                        }
-                    }
                 ?>
                     <div class="col-sm-6 col-xl-4">
                         <a href="/m/<?= htmlspecialchars($mod['slug']) ?>" class="text-decoration-none">
@@ -254,17 +268,35 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
                                 <div class="card-body d-flex align-items-start gap-3 py-3 px-3">
                                     <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> module-icon" style="font-size: 1.75rem; line-height: 1;"></i>
                                     <div class="flex-grow-1 min-width-0">
-                                        <h6 class="card-title mb-1 d-flex align-items-center gap-2" style="color: var(--text-primary); font-size: 0.95rem;">
+                                        <h6 class="card-title mb-1" style="color: var(--text-primary); font-size: 0.95rem;">
                                             <?= htmlspecialchars($mod['name']) ?>
-                                            <?php if ($dotClass): ?>
-                                                <span class="quota-dot <?= $dotClass ?>"></span>
-                                            <?php endif; ?>
                                         </h6>
                                         <?php
                                             $desc = $mod['description'] ?? '';
                                             $descTronquee = mb_strlen($desc) > 80 ? mb_substr($desc, 0, 80) . '...' : $desc;
                                         ?>
-                                        <p class="card-text mb-0" style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.3;"><?= htmlspecialchars($descTronquee) ?></p>
+                                        <p class="card-text mb-1" style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.3;"><?= htmlspecialchars($descTronquee) ?></p>
+                                        <?php if ($aQuota): ?>
+                                            <?php if ($estAdmin || $quotaLimit === 0): ?>
+                                                <div style="font-size: 0.7rem; color: var(--text-muted);">
+                                                    <?= htmlspecialchars($qs[$modSlug]['quota_mode']->label()) ?> &middot; Illimit&eacute;
+                                                </div>
+                                            <?php else:
+                                                $qPct = min(100, round(($quotaUsage / $quotaLimit) * 100));
+                                                $qBarClass = $qPct >= 100 ? 'progress-bar-danger' : ($qPct >= 80 ? 'progress-bar-warn' : 'progress-bar-teal');
+                                                $restant = max(0, $quotaLimit - $quotaUsage);
+                                            ?>
+                                                <div style="font-size: 0.7rem; color: var(--text-muted);">
+                                                    <div class="d-flex justify-content-between mb-1">
+                                                        <span><?= htmlspecialchars($qs[$modSlug]['quota_mode']->label()) ?></span>
+                                                        <span><?= $quotaUsage ?> / <?= $quotaLimit ?></span>
+                                                    </div>
+                                                    <div class="progress" style="height: 4px;">
+                                                        <div class="progress-bar <?= $qBarClass ?>" style="width: <?= $qPct ?>%"></div>
+                                                    </div>
+                                                </div>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -369,6 +401,22 @@ document.addEventListener('DOMContentLoaded', function () {
             localStorage.setItem('dashboard_moncompte_open', '0');
             var icon = monCompte.previousElementSibling?.querySelector('.collapse-toggle-icon');
             if (icon) icon.style.transform = 'rotate(0deg)';
+        });
+    }
+
+    // Toggle alertes email
+    var alerteToggle = document.getElementById('alertesEmailToggle');
+    if (alerteToggle) {
+        var csrfToken = '<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES) ?>';
+        alerteToggle.addEventListener('change', function () {
+            fetch('/api/notifications/toggle', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: 'actif=' + (this.checked ? '1' : '0') + '&_csrf_token=' + encodeURIComponent(csrfToken)
+            });
         });
     }
 });

@@ -6,6 +6,7 @@ use Platform\Database\Connection;
 use Platform\Enum\TypeNotification;
 use Platform\Log\Logger;
 use Platform\Module\Quota;
+use Platform\Repository\NotificationPreferenceRepository;
 use Platform\Repository\SettingsRepository;
 use Platform\User\UserRepository;
 use PDO;
@@ -41,7 +42,8 @@ class NotificationService
 
     public function envoyerBienvenue(int $userId): bool
     {
-        if (!$this->estActive(TypeNotification::Bienvenue)) {
+        $type = TypeNotification::Bienvenue;
+        if (!$this->estActive($type) || $this->estDesactiveParUtilisateur($userId, $type)) {
             return false;
         }
 
@@ -50,33 +52,37 @@ class NotificationService
             return false;
         }
 
-        $contenu = EmailTemplate::rendre('bienvenue', [
+        $unsubData = $this->donneesDesabonnement($user, $type);
+        $contenu = EmailTemplate::rendre('bienvenue', array_merge($unsubData['template'], [
             'username' => $user['username'],
             'lienPlateforme' => rtrim($this->config['url'], '/') . '/',
-        ]);
+        ]));
 
-        $sujet = $this->sujetPour(TypeNotification::Bienvenue);
-        return $this->envoyerAvecProtection($user['email'], $sujet, $contenu, TypeNotification::Bienvenue->value, $userId);
+        $sujet = $this->sujetPour($type);
+        return $this->envoyerAvecProtection($user['email'], $sujet, $contenu, $type->value, $userId, $unsubData['url']);
     }
 
     public function envoyerConfirmationSuppression(string $email, string $username): bool
     {
-        if (!$this->estActive(TypeNotification::SuppressionCompte)) {
+        $type = TypeNotification::SuppressionCompte;
+        if (!$this->estActive($type)) {
             return false;
         }
 
+        // Pas de désabonnement pour les emails transactionnels
         $contenu = EmailTemplate::rendre('suppression-compte', [
             'username' => $username,
             'dateEffective' => date('d/m/Y à H:i'),
         ]);
 
-        $sujet = $this->sujetPour(TypeNotification::SuppressionCompte);
-        return $this->envoyerAvecProtection($email, $sujet, $contenu, TypeNotification::SuppressionCompte->value);
+        $sujet = $this->sujetPour($type);
+        return $this->envoyerAvecProtection($email, $sujet, $contenu, $type->value);
     }
 
     public function envoyerConfirmationChangementMdp(int $userId): bool
     {
-        if (!$this->estActive(TypeNotification::ChangementMdp)) {
+        $type = TypeNotification::ChangementMdp;
+        if (!$this->estActive($type)) {
             return false;
         }
 
@@ -85,14 +91,15 @@ class NotificationService
             return false;
         }
 
+        // Transactionnel : pas de désabonnement
         $contenu = EmailTemplate::rendre('changement-mot-de-passe', [
             'username' => $user['username'],
             'dateChangement' => date('d/m/Y à H:i'),
             'ip' => $_SERVER['REMOTE_ADDR'] ?? 'Inconnue',
         ]);
 
-        $sujet = $this->sujetPour(TypeNotification::ChangementMdp);
-        return $this->envoyerAvecProtection($user['email'], $sujet, $contenu, TypeNotification::ChangementMdp->value, $userId);
+        $sujet = $this->sujetPour($type);
+        return $this->envoyerAvecProtection($user['email'], $sujet, $contenu, $type->value, $userId);
     }
 
     // -----------------------------------------------
@@ -101,7 +108,8 @@ class NotificationService
 
     public function envoyerAlerteQuota80(int $userId, string $slug, int $usage, int $limite): bool
     {
-        if (!$this->estActive(TypeNotification::AlerteQuota80)) {
+        $type = TypeNotification::AlerteQuota80;
+        if (!$this->estActive($type) || $this->estDesactiveParUtilisateur($userId, $type)) {
             return false;
         }
 
@@ -114,8 +122,9 @@ class NotificationService
             return false;
         }
 
+        $unsubData = $this->donneesDesabonnement($user, $type);
         $nomModule = $this->getNomModule($slug);
-        $contenu = EmailTemplate::rendre('alerte-quota-80', [
+        $contenu = EmailTemplate::rendre('alerte-quota-80', array_merge($unsubData['template'], [
             'username' => $user['username'],
             'nomModule' => $nomModule,
             'usage' => $usage,
@@ -123,10 +132,10 @@ class NotificationService
             'pourcentage' => round(($usage / $limite) * 100),
             'dateReset' => Quota::dateProchainReset(),
             'lienPlateforme' => rtrim($this->config['url'], '/') . '/mon-compte',
-        ]);
+        ]));
 
-        $sujet = $this->sujetPour(TypeNotification::AlerteQuota80);
-        $envoye = $this->envoyerAvecProtection($user['email'], $sujet, $contenu, TypeNotification::AlerteQuota80->value, $userId);
+        $sujet = $this->sujetPour($type);
+        $envoye = $this->envoyerAvecProtection($user['email'], $sujet, $contenu, $type->value, $userId, $unsubData['url']);
         if ($envoye) {
             $this->marquerEnvoye($userId, 'quota_80', $slug);
         }
@@ -135,7 +144,8 @@ class NotificationService
 
     public function envoyerAlerteQuota100(int $userId, string $slug, int $usage, int $limite): bool
     {
-        if (!$this->estActive(TypeNotification::AlerteQuota100)) {
+        $type = TypeNotification::AlerteQuota100;
+        if (!$this->estActive($type) || $this->estDesactiveParUtilisateur($userId, $type)) {
             return false;
         }
 
@@ -148,18 +158,19 @@ class NotificationService
             return false;
         }
 
+        $unsubData = $this->donneesDesabonnement($user, $type);
         $nomModule = $this->getNomModule($slug);
-        $contenu = EmailTemplate::rendre('alerte-quota-100', [
+        $contenu = EmailTemplate::rendre('alerte-quota-100', array_merge($unsubData['template'], [
             'username' => $user['username'],
             'nomModule' => $nomModule,
             'usage' => $usage,
             'limite' => $limite,
             'dateReset' => Quota::dateProchainReset(),
             'lienPlateforme' => rtrim($this->config['url'], '/') . '/mon-compte',
-        ]);
+        ]));
 
-        $sujet = $this->sujetPour(TypeNotification::AlerteQuota100);
-        $envoye = $this->envoyerAvecProtection($user['email'], $sujet, $contenu, TypeNotification::AlerteQuota100->value, $userId);
+        $sujet = $this->sujetPour($type);
+        $envoye = $this->envoyerAvecProtection($user['email'], $sujet, $contenu, $type->value, $userId, $unsubData['url']);
         if ($envoye) {
             $this->marquerEnvoye($userId, 'quota_100', $slug);
         }
@@ -171,7 +182,8 @@ class NotificationService
      */
     public function envoyerResumeResetQuotas(int $userId, array $resumeModules): bool
     {
-        if (!$this->estActive(TypeNotification::ResetQuotas)) {
+        $type = TypeNotification::ResetQuotas;
+        if (!$this->estActive($type) || $this->estDesactiveParUtilisateur($userId, $type)) {
             return false;
         }
 
@@ -185,15 +197,16 @@ class NotificationService
             return false;
         }
 
-        $contenu = EmailTemplate::rendre('reset-quotas', [
+        $unsubData = $this->donneesDesabonnement($user, $type);
+        $contenu = EmailTemplate::rendre('reset-quotas', array_merge($unsubData['template'], [
             'username' => $user['username'],
             'moisPrecedent' => $this->formaterMois($moisPrecedent),
             'resumeModules' => $resumeModules,
             'lienPlateforme' => rtrim($this->config['url'], '/') . '/',
-        ]);
+        ]));
 
-        $sujet = $this->sujetPour(TypeNotification::ResetQuotas);
-        $envoye = $this->envoyerAvecProtection($user['email'], $sujet, $contenu, TypeNotification::ResetQuotas->value, $userId);
+        $sujet = $this->sujetPour($type);
+        $envoye = $this->envoyerAvecProtection($user['email'], $sujet, $contenu, $type->value, $userId, $unsubData['url']);
         if ($envoye) {
             $this->marquerEnvoye($userId, 'reset_quotas', null, $moisPrecedent);
         }
@@ -206,7 +219,8 @@ class NotificationService
 
     public function notifierAdminNouvelInscrit(int $userId, string $username, string $email): bool
     {
-        if (!$this->estActive(TypeNotification::AdminNouvelInscrit)) {
+        $type = TypeNotification::AdminNouvelInscrit;
+        if (!$this->estActive($type)) {
             return false;
         }
 
@@ -215,17 +229,19 @@ class NotificationService
             return false;
         }
 
+        // Les admins reçoivent avec le lien de désabonnement du premier admin trouvé
         $contenu = EmailTemplate::rendre('admin-nouvel-inscrit', [
             'username' => $username,
             'email' => $email,
             'dateInscription' => date('d/m/Y à H:i'),
             'lienAdmin' => rtrim($this->config['url'], '/') . '/admin/users',
+            '_estDesabonnable' => true,
         ]);
 
-        $sujet = $this->sujetPour(TypeNotification::AdminNouvelInscrit);
+        $sujet = $this->sujetPour($type);
         $succes = true;
         foreach ($admins as $adminEmail) {
-            if (!$this->envoyerAvecProtection($adminEmail, $sujet . ' : ' . $username, $contenu, TypeNotification::AdminNouvelInscrit->value)) {
+            if (!$this->envoyerAvecProtection($adminEmail, $sujet . ' : ' . $username, $contenu, $type->value)) {
                 $succes = false;
             }
         }
@@ -236,10 +252,10 @@ class NotificationService
     // Méthodes internes
     // -----------------------------------------------
 
-    private function envoyerAvecProtection(string $destinataire, string $sujet, string $contenuHtml, ?string $typeEmail = null, ?int $userId = null): bool
+    private function envoyerAvecProtection(string $destinataire, string $sujet, string $contenuHtml, ?string $typeEmail = null, ?int $userId = null, ?string $unsubscribeUrl = null): bool
     {
         try {
-            return Mailer::instance()->envoyer($destinataire, $sujet, $contenuHtml, $typeEmail, $userId);
+            return Mailer::instance()->envoyer($destinataire, $sujet, $contenuHtml, $typeEmail, $userId, $unsubscribeUrl);
         } catch (\Throwable $e) {
             Logger::error('Échec envoi notification', [
                 'destinataire' => $destinataire,
@@ -248,6 +264,47 @@ class NotificationService
             ]);
             return false;
         }
+    }
+
+    /**
+     * Vérifie si un utilisateur a désactivé ce type de notification.
+     * Ne s'applique qu'aux types désabonnables.
+     */
+    private function estDesactiveParUtilisateur(int $userId, TypeNotification $type): bool
+    {
+        if (!$type->estDesabonnable()) {
+            return false;
+        }
+
+        try {
+            $repo = new NotificationPreferenceRepository($this->db);
+            return $repo->estDesactive($userId, $type->value);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Construit les données de désabonnement pour un utilisateur et un type.
+     *
+     * @param array<string, mixed> $user
+     * @return array{template: array<string, mixed>, url: string|null}
+     */
+    private function donneesDesabonnement(array $user, TypeNotification $type): array
+    {
+        $baseUrl = rtrim($this->config['url'] ?? '', '/');
+        $token = $user['unsubscribe_token'] ?? null;
+        $url = ($token && $type->estDesabonnable())
+            ? $baseUrl . '/desabonnement?token=' . $token
+            : null;
+
+        return [
+            'template' => [
+                '_lienDesabonnement' => $url,
+                '_estDesabonnable' => $type->estDesabonnable(),
+            ],
+            'url' => $url,
+        ];
     }
 
     /**

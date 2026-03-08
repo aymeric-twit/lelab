@@ -25,6 +25,8 @@ use Platform\Controller\AdminPluginController;
 use Platform\Controller\AdminMaintenanceController;
 use Platform\Controller\AdminAuditController;
 use Platform\Controller\AdminEmailController;
+use Platform\Controller\DesabonnementController;
+use Platform\Controller\LegalController;
 use Platform\Controller\WebhookGithubController;
 use Platform\Database\Connection;
 
@@ -72,6 +74,17 @@ $router->post('/reinitialiser-mot-de-passe', [$auth, 'reinitialiserMotDePasse'])
 // Vérification email
 $router->get('/verifier-email', [$auth, 'verifierEmail']);
 
+// Pages légales (publiques)
+$legal = new LegalController();
+$router->get('/politique-de-confidentialite', [$legal, 'politiqueConfidentialite']);
+$router->get('/mentions-legales', [$legal, 'mentionsLegales']);
+
+// Désabonnement emails (public, sans auth)
+$desabonnement = new DesabonnementController();
+$router->get('/desabonnement', [$desabonnement, 'afficher']);
+$router->post('/desabonnement', [$desabonnement, 'mettreAJour']);
+$router->post('/desabonnement/tout', [$desabonnement, 'desabonnerTout']);
+
 // -----------------------------------------------
 // Authenticated routes
 // -----------------------------------------------
@@ -87,10 +100,11 @@ $router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard,
 
     // Mon compte (avec CSRF pour les POST)
     $r->get('/mon-compte', [$compte, 'afficher']);
-    $r->group([new VerifyCsrf()], function (Router $r) use ($compte) {
+    $r->group([new VerifyCsrf()], function (Router $r) use ($compte, $dashboard) {
         $r->post('/mon-compte', [$compte, 'mettreAJour']);
         $r->post('/mon-compte/mot-de-passe', [$compte, 'changerMotDePasse']);
         $r->post('/mon-compte/supprimer', [$compte, 'supprimerCompte']);
+        $r->post('/api/notifications/toggle', [$dashboard, 'toggleNotifications']);
     });
 
     // Module routes (with CSRF + quota check)

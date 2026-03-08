@@ -4,7 +4,10 @@ namespace Platform\Controller;
 
 use Platform\Auth\Auth;
 use Platform\Database\Connection;
+use Platform\Enum\TypeNotification;
+use Platform\Http\Response;
 use Platform\Module\Quota;
+use Platform\Repository\NotificationPreferenceRepository;
 use Platform\User\AccessControl;
 use Platform\View\Layout;
 
@@ -15,10 +18,23 @@ class DashboardController
         $user = Auth::user();
         $ac = new AccessControl();
         $modules = $ac->getAccessibleModules($user['id']);
-        $quotaSummary = Quota::getUserQuotaSummary($user['id']);
+
+        $jourInscription = (int) date('j', strtotime($user['created_at'] ?? 'now'));
+        $quotaSummary = Quota::getUserQuotaSummary($user['id'], $jourInscription);
 
         $estAdmin = ($user['role'] ?? '') === 'admin';
         $journalActivite = $this->dernieresActivites($user['id'], $estAdmin);
+
+        // Préférences notifications : vérifier si au moins un type désabonnable est actif
+        $prefRepo = new NotificationPreferenceRepository();
+        $prefsUtilisateur = $prefRepo->obtenirPreferences($user['id']);
+        $alertesActives = true;
+        foreach (TypeNotification::cases() as $type) {
+            if ($type->estDesabonnable() && isset($prefsUtilisateur[$type->value]) && !$prefsUtilisateur[$type->value]) {
+                $alertesActives = false;
+                break;
+            }
+        }
 
         Layout::render('layout', [
             'template'          => 'dashboard',
@@ -28,8 +44,28 @@ class DashboardController
             'activeModule'      => '',
             'quotaSummary'      => $quotaSummary,
             'journalActivite'   => $journalActivite,
-            'dateResetQuota'    => Quota::dateProchainReset(),
+            'jourInscription'   => $jourInscription,
+            'dateResetQuota'    => Quota::dateProchainResetUtilisateur($jourInscription),
+            'alertesActives'    => $alertesActives,
+            'unsubscribeToken'  => $user['unsubscribe_token'] ?? '',
         ]);
+    }
+
+    public function toggleNotifications(): void
+    {
+        $user = Auth::user();
+        $actif = ($_POST['actif'] ?? '1') === '1';
+
+        $repo = new NotificationPreferenceRepository();
+        $prefs = [];
+        foreach (TypeNotification::cases() as $type) {
+            if ($type->estDesabonnable()) {
+                $prefs[$type->value] = $actif;
+            }
+        }
+        $repo->mettreAJourMultiple($user['id'], $prefs);
+
+        Response::json(['ok' => true]);
     }
 
     /**

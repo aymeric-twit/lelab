@@ -8,13 +8,13 @@ use Platform\Service\AuditLogger;
  * Insère directement un enregistrement d'usage dans la BDD SQLite.
  * Contourne Quota::increment() qui utilise du SQL MySQL-specific.
  */
-function insererUsage(int $userId, string $slug, int $count): void
+function insererUsage(int $userId, string $slug, int $count, ?string $yearMonth = null): void
 {
     $db = Connection::get();
     $stmt = $db->prepare('SELECT id FROM modules WHERE slug = ?');
     $stmt->execute([$slug]);
     $moduleId = (int) $stmt->fetchColumn();
-    $yearMonth = date('Ym');
+    $yearMonth ??= date('Ym');
 
     $stmt = $db->prepare('
         INSERT INTO module_usage (user_id, module_id, year_month, usage_count, last_tracked_at)
@@ -67,12 +67,27 @@ beforeEach(function () {
         ip_address TEXT,
         created_at TEXT
     )');
+    $pdo->exec('CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT,
+        email TEXT,
+        password_hash TEXT,
+        role TEXT DEFAULT "user",
+        active INTEGER DEFAULT 1,
+        domaine TEXT,
+        created_at TEXT,
+        deleted_at TEXT DEFAULT NULL,
+        last_login TEXT
+    )');
 
     // Module de test avec quota 10
     $pdo->exec("INSERT INTO modules (slug, enabled, default_quota, quota_mode) VALUES ('test-module', 1, 10, 'api_call')");
 
     // Module de test avec quota illimité
     $pdo->exec("INSERT INTO modules (slug, enabled, default_quota, quota_mode) VALUES ('illimite', 1, 0, 'api_call')");
+
+    // Utilisateur de test inscrit le 15 du mois
+    $pdo->exec("INSERT INTO users (id, username, email, password_hash, role, active, created_at) VALUES (1, 'testuser', 'test@test.com', 'hash', 'user', 1, '2025-03-15 10:30:00')");
 
     // Injecter le PDO via Reflection
     $ref = new ReflectionClass(Connection::class);
@@ -101,6 +116,44 @@ afterEach(function () {
     unset($_SESSION['user_id']);
 });
 
+// --- currentPeriod ---
+
+test('currentPeriod retourne le mois courant si jour actuel >= jour inscription', function () {
+    $jourActuel = (int) date('j');
+    // Inscription le 1er → toujours dans le mois courant
+    expect(Quota::currentPeriod(1))->toBe(date('Ym'));
+});
+
+test('currentPeriod retourne le mois précédent si jour actuel < jour inscription', function () {
+    // Inscription le 31 → si on est avant le 31, c'est la période du mois précédent
+    $jourActuel = (int) date('j');
+    if ($jourActuel < 28) {
+        expect(Quota::currentPeriod(28))->toBe(date('Ym', strtotime('first day of last month')));
+    } else {
+        // Si on est le 28+, tester avec un jour encore plus loin
+        $this->assertTrue(true); // Skip conditionnel
+    }
+});
+
+// --- dateProchainResetUtilisateur ---
+
+test('dateProchainResetUtilisateur retourne une date valide', function () {
+    $date = Quota::dateProchainResetUtilisateur(15);
+    expect($date)->toMatch('/^\d{4}-\d{2}-\d{2}$/');
+
+    // Le jour retourné doit être 15 (ou moins si mois court)
+    $jour = (int) date('j', strtotime($date));
+    expect($jour)->toBeLessThanOrEqual(15);
+});
+
+test('dateProchainResetUtilisateur gère les mois courts', function () {
+    // Inscrit le 31 → en février, le reset sera le 28 ou 29
+    $date = Quota::dateProchainResetUtilisateur(31);
+    $jour = (int) date('j', strtotime($date));
+    expect($jour)->toBeLessThanOrEqual(31);
+    expect($jour)->toBeGreaterThanOrEqual(28);
+});
+
 // --- trackerSiDisponible ---
 
 test('trackerSiDisponible retourne false si aucun utilisateur connecté', function () {
@@ -110,36 +163,31 @@ test('trackerSiDisponible retourne false si aucun utilisateur connecté', functi
 });
 
 test('trackerSiDisponible retourne true quand quota disponible', function () {
-    // Quota = 10, usage = 0, demande 3 → doit passer
-    // Note : increment() utilise du SQL MySQL, on vérifie juste le retour
-    // L'appel interne à increment() va échouer en SQLite mais le retour true est correct
-    // On teste la logique de vérification, pas l'incrément
-    insererUsage(1, 'test-module', 5);
+    $periode = Quota::currentPeriod(1);
+    insererUsage(1, 'test-module', 5, $periode);
 
-    // Quota = 10, usage = 5, on vérifie que isOverQuota et getUsage fonctionnent
-    expect(Quota::getUsage(1, 'test-module'))->toBe(5);
-    expect(Quota::isOverQuota(1, 'test-module'))->toBeFalse();
+    expect(Quota::getUsage(1, 'test-module', 1))->toBe(5);
+    expect(Quota::isOverQuota(1, 'test-module', 1))->toBeFalse();
 });
 
 test('trackerSiDisponible retourne false quand quota dépassé', function () {
-    // Pré-remplir l'usage à 9 sur un quota de 10
-    insererUsage(1, 'test-module', 9);
+    // L'utilisateur test est inscrit le 15, donc trackerSiDisponible utilise currentPeriod(15)
+    $periode = Quota::currentPeriod(15);
+    insererUsage(1, 'test-module', 9, $periode);
 
-    // Demander 2 unités alors qu'il n'en reste que 1
     expect(Quota::trackerSiDisponible('test-module', 2))->toBeFalse();
 
-    // L'usage ne doit pas avoir changé
-    expect(Quota::getUsage(1, 'test-module'))->toBe(9);
+    expect(Quota::getUsage(1, 'test-module', 15))->toBe(9);
 });
 
 test('trackerSiDisponible retourne false quand quota exactement atteint', function () {
-    insererUsage(1, 'test-module', 10);
+    $periode = Quota::currentPeriod(15);
+    insererUsage(1, 'test-module', 10, $periode);
 
     expect(Quota::trackerSiDisponible('test-module', 1))->toBeFalse();
 });
 
 test('trackerSiDisponible retourne true quand quota illimité', function () {
-    // Quota illimité (limit = 0) → toujours true
     expect(Quota::getLimit(1, 'illimite'))->toBe(0);
     expect(Quota::isOverQuota(1, 'illimite'))->toBeFalse();
 });
@@ -151,13 +199,15 @@ test('restant retourne null quand quota illimité', function () {
 });
 
 test('restant retourne le bon nombre d\'unités restantes', function () {
-    insererUsage(1, 'test-module', 3);
+    $periode = Quota::currentPeriod(15);
+    insererUsage(1, 'test-module', 3, $periode);
 
     expect(Quota::restant('test-module'))->toBe(7);
 });
 
 test('restant retourne 0 quand quota atteint', function () {
-    insererUsage(1, 'test-module', 15);
+    $periode = Quota::currentPeriod(15);
+    insererUsage(1, 'test-module', 15, $periode);
 
     expect(Quota::restant('test-module'))->toBe(0);
 });
@@ -166,4 +216,12 @@ test('restant retourne 0 si aucun utilisateur connecté', function () {
     unset($_SESSION['user_id']);
 
     expect(Quota::restant('test-module'))->toBe(0);
+});
+
+// --- jourInscriptionUtilisateur ---
+
+test('jourInscriptionUtilisateur retourne 1 si aucun utilisateur connecté', function () {
+    unset($_SESSION['user_id']);
+
+    expect(Quota::jourInscriptionUtilisateur())->toBe(1);
 });

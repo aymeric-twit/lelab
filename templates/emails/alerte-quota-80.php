@@ -11,8 +11,15 @@
                 <table width="520" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,76,76,0.06);">
                     <!-- Header -->
                     <tr>
-                        <td style="background-color: #004c4c; padding: 24px 32px; border-bottom: 3px solid #fbb03b; text-align: center;">
-                            <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">Le lab</h1>
+                        <td style="background-color: #004c4c; padding: 20px 32px; border-bottom: 3px solid #fbb03b;">
+                            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+                                <td style="width: 40px; vertical-align: middle;">
+                                    <img src="<?= htmlspecialchars($_logoUrl ?? '') ?>" alt="Le lab" width="36" height="36" style="display: block; border-radius: 6px;">
+                                </td>
+                                <td style="vertical-align: middle; padding-left: 12px;">
+                                    <span style="color: #ffffff; font-size: 22px; font-weight: 700; font-family: 'Poppins', Arial, sans-serif;">Le lab</span>
+                                </td>
+                            </tr></table>
                         </td>
                     </tr>
                     <!-- Content -->
@@ -57,12 +64,7 @@
                             </table>
                         </td>
                     </tr>
-                    <!-- Footer -->
-                    <tr>
-                        <td style="padding: 16px 32px; background-color: #f8f9fa; text-align: center; border-top: 1px solid #e2e8f0;">
-                            <p style="color: #999; font-size: 11px; margin: 0;">Le lab &mdash; Plateforme SEO</p>
-                        </td>
-                    </tr>
+                    <?php require __DIR__ . '/_footer.php'; ?>
                 </table>
             </td>
         </tr>

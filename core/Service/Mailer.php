@@ -50,7 +50,7 @@ class Mailer
         self::$instance = null;
     }
 
-    public function envoyer(string $destinataire, string $sujet, string $contenuHtml, ?string $typeEmail = null, ?int $userId = null): bool
+    public function envoyer(string $destinataire, string $sujet, string $contenuHtml, ?string $typeEmail = null, ?int $userId = null, ?string $unsubscribeUrl = null): bool
     {
         try {
             $email = (new Email())
@@ -58,6 +58,11 @@ class Mailer
                 ->to($destinataire)
                 ->subject($sujet)
                 ->html($contenuHtml);
+
+            if ($unsubscribeUrl !== null) {
+                $email->getHeaders()->addTextHeader('List-Unsubscribe', '<' . $unsubscribeUrl . '>');
+                $email->getHeaders()->addTextHeader('List-Unsubscribe-Post', 'List-Unsubscribe=One-Click');
+            }
 
             $this->mailer->send($email);
 

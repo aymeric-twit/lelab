@@ -33,7 +33,8 @@ class DependencyInstaller
             );
             $resultat['composer'] = $res['code'] === 0;
             if (!$resultat['composer']) {
-                $resultat['erreurs'][] = 'composer install a échoué : ' . trim($res['stderr']);
+                $detail = trim($res['stderr'] ?: $res['stdout']);
+                $resultat['erreurs'][] = 'composer install a échoué : ' . ($detail !== '' ? mb_substr($detail, 0, 200) : 'code ' . $res['code']);
             }
         }
 
@@ -44,7 +45,8 @@ class DependencyInstaller
             );
             $resultat['npm'] = $res['code'] === 0;
             if (!$resultat['npm']) {
-                $resultat['erreurs'][] = 'npm install a échoué : ' . trim($res['stderr']);
+                $detail = trim($res['stderr'] ?: $res['stdout']);
+                $resultat['erreurs'][] = 'npm install a échoué : ' . ($detail !== '' ? mb_substr($detail, 0, 200) : 'code ' . $res['code']);
             }
         }
 
@@ -112,6 +114,36 @@ class DependencyInstaller
     }
 
     /**
+     * Résout le chemin complet d'un binaire (composer, npm, node).
+     * Cherche dans le PATH puis dans les emplacements courants.
+     */
+    private function resoudreBinaire(string $nom): string
+    {
+        // Vérifier si le binaire est directement accessible
+        $which = trim((string) shell_exec("which {$nom} 2>/dev/null"));
+        if ($which !== '' && is_executable($which)) {
+            return $which;
+        }
+
+        // Chemins courants sur les hébergements (Gandi, etc.)
+        $chemins = [
+            "/usr/local/bin/{$nom}",
+            "/usr/bin/{$nom}",
+            "/opt/bin/{$nom}",
+            getenv('HOME') . "/.local/bin/{$nom}",
+            getenv('HOME') . "/bin/{$nom}",
+        ];
+
+        foreach ($chemins as $chemin) {
+            if (is_executable($chemin)) {
+                return $chemin;
+            }
+        }
+
+        return $nom;
+    }
+
+    /**
      * Exécute une commande shell via proc_open avec timeout.
      *
      * @param list<string> $commande
@@ -119,6 +151,8 @@ class DependencyInstaller
      */
     private function executerCommande(array $commande, string $cwd): array
     {
+        // Résoudre le chemin du binaire
+        $commande[0] = $this->resoudreBinaire($commande[0]);
         $descriptors = [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],

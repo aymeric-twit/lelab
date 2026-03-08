@@ -24,7 +24,7 @@ class EmailTemplate
 
         $donnees += [
             '_baseUrl' => $baseUrl,
-            '_logoUrl' => $baseUrl . '/assets/img/logo-login.png',
+            '_logoUrl' => $baseUrl . '/assets/img/logo-email.png',
             '_lienConfidentialite' => $baseUrl . '/politique-de-confidentialite',
             '_lienMentions' => $baseUrl . '/mentions-legales',
             '_lienDesabonnement' => null,

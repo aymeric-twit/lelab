@@ -116,7 +116,6 @@ enum TypeNotification: string
             self::ChangementMdp => [
                 'username' => 'Jean Dupont',
                 'dateChangement' => date('d/m/Y à H:i'),
-                'ip' => '192.168.1.42',
             ],
             self::AlerteQuota80 => [
                 'username' => 'Jean Dupont',

@@ -11,15 +11,8 @@
                 <table width="520" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,76,76,0.06);">
                     <!-- Header -->
                     <tr>
-                        <td style="background-color: #004c4c; padding: 20px 32px; border-bottom: 3px solid #fbb03b;">
-                            <table width="100%" cellpadding="0" cellspacing="0"><tr>
-                                <td style="width: 40px; vertical-align: middle;">
-                                    <img src="<?= htmlspecialchars($_logoUrl ?? '') ?>" alt="Le lab" width="36" height="36" style="display: block; border-radius: 6px;">
-                                </td>
-                                <td style="vertical-align: middle; padding-left: 12px;">
-                                    <span style="color: #ffffff; font-size: 22px; font-weight: 700; font-family: 'Poppins', Arial, sans-serif;">Le lab</span>
-                                </td>
-                            </tr></table>
+                        <td style="background-color: #004c4c; padding: 24px 32px; border-bottom: 3px solid #fbb03b; text-align: center;">
+                            <img src="<?= htmlspecialchars($_logoUrl ?? '') ?>" alt="Le lab — Y'a pas de quoi" width="200" style="display: inline-block;">
                         </td>
                     </tr>
                     <!-- Content -->
@@ -31,9 +24,6 @@
                             </p>
                             <p style="color: #333333; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
                                 Votre mot de passe a été modifié avec succès le <strong><?= htmlspecialchars($dateChangement ?? '') ?></strong>.
-                            </p>
-                            <p style="color: #333333; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
-                                Adresse IP utilisée : <code style="background: #f2f2f2; padding: 2px 6px; border-radius: 4px; font-size: 13px;"><?= htmlspecialchars($ip ?? '') ?></code>
                             </p>
                             <p style="color: #999; font-size: 12px; line-height: 1.6; margin: 24px 0 0;">
                                 Si vous n'êtes pas à l'origine de ce changement, contactez immédiatement l'administrateur de la plateforme.

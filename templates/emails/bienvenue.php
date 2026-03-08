@@ -11,15 +11,8 @@
                 <table width="520" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,76,76,0.06);">
                     <!-- Header -->
                     <tr>
-                        <td style="background-color: #004c4c; padding: 20px 32px; border-bottom: 3px solid #fbb03b;">
-                            <table width="100%" cellpadding="0" cellspacing="0"><tr>
-                                <td style="width: 40px; vertical-align: middle;">
-                                    <img src="<?= htmlspecialchars($_logoUrl ?? '') ?>" alt="Le lab" width="36" height="36" style="display: block; border-radius: 6px;">
-                                </td>
-                                <td style="vertical-align: middle; padding-left: 12px;">
-                                    <span style="color: #ffffff; font-size: 22px; font-weight: 700; font-family: 'Poppins', Arial, sans-serif;">Le lab</span>
-                                </td>
-                            </tr></table>
+                        <td style="background-color: #004c4c; padding: 24px 32px; border-bottom: 3px solid #fbb03b; text-align: center;">
+                            <img src="<?= htmlspecialchars($_logoUrl ?? '') ?>" alt="Le lab — Y'a pas de quoi" width="200" style="display: inline-block;">
                         </td>
                     </tr>
                     <!-- Content -->

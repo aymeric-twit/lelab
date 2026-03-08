@@ -11,6 +11,7 @@ use Platform\Http\Request;
 use Platform\Http\Response;
 use Platform\Module\Quota;
 use Platform\Service\AuditLogger;
+use Platform\Service\NotificationService;
 use Platform\User\AccessControl;
 use Platform\User\UserRepository;
 use Platform\Validation\Validator;
@@ -122,6 +123,10 @@ class AdminUserController
             );
 
             $db->commit();
+
+            if ($req->post('envoyer_bienvenue') && !empty($email)) {
+                NotificationService::instance()->envoyerBienvenue($userId);
+            }
         } catch (\Throwable $e) {
             $db->rollBack();
             Flash::error('Erreur lors de la création de l\'utilisateur.');

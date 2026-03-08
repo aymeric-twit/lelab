@@ -45,11 +45,18 @@
                         </select>
                     </div>
 
-                    <div class="form-check">
+                    <div class="form-check mb-2">
                         <input type="checkbox" class="form-check-input" id="active" name="active" value="1"
                                <?= ($editUser['active'] ?? 1) ? 'checked' : '' ?>>
                         <label class="form-check-label" for="active">Compte actif</label>
                     </div>
+
+                    <?php if (!isset($editUser)): ?>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="envoyer_bienvenue" name="envoyer_bienvenue" value="1" checked>
+                        <label class="form-check-label" for="envoyer_bienvenue">Envoyer un e-mail de bienvenue</label>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

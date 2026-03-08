@@ -95,7 +95,6 @@ class NotificationService
         $contenu = EmailTemplate::rendre('changement-mot-de-passe', [
             'username' => $user['username'],
             'dateChangement' => date('d/m/Y à H:i'),
-            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'Inconnue',
         ]);
 
         $sujet = $this->sujetPour($type);

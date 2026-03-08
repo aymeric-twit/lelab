@@ -4,18 +4,26 @@ on:
   push:
     branches: [main]
 
+  # Permet un déclenchement manuel depuis l'onglet Actions
+  workflow_dispatch:
+
+env:
+  DEPLOY_HOST: console.sd6.gpaas.net
+  DEPLOY_USER: "45947"
+  DEPLOY_PATH: /srv/data/web/vhosts/labs.yapasdequoi.com/htdocs/lelab
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Installer les dépendances PHP
+      - name: Installer PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
 
-      - name: Installer Composer
+      - name: Installer les dépendances Composer
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
       - name: Configurer la clé SSH
@@ -23,21 +31,34 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.GANDI_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -t rsa console.sd6.gpaas.net >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -t rsa $DEPLOY_HOST >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Déployer via rsync
         run: |
           rsync -avz --delete \
             --exclude='.git/' \
             --exclude='.github/' \
-            --exclude='.env' \
             --exclude='.claude/' \
-            --exclude='storage/logs/*.log' \
-            --exclude='storage/plugins/' \
-            --exclude='public/module-assets/' \
-            --exclude='database/database.sqlite' \
+            --exclude='.env' \
             --exclude='.phpunit.cache/' \
+            --exclude='database/database.sqlite' \
+            --exclude='public/module-assets/' \
+            --exclude='storage/logs/' \
+            --exclude='storage/plugins/' \
             --exclude='tests/' \
             --exclude='phpstan.neon' \
             --exclude='phpunit.xml' \
-            ./ 45947@console.sd6.gpaas.net:/srv/data/web/vhosts/labs.yapasdequoi.com/htdocs/lelab/
+            ./ $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/
+
+      - name: Post-déploiement (migrations + permissions)
+        run: |
+          ssh $DEPLOY_USER@$DEPLOY_HOST << 'ENDSSH'
+            cd /srv/data/web/vhosts/labs.yapasdequoi.com/htdocs/lelab
+
+            # Créer les dossiers nécessaires s'ils n'existent pas
+            mkdir -p storage/logs
+            mkdir -p storage/plugins
+
+            # Lancer les migrations
+            php database/migrate.php
+          ENDSSH

@@ -8,50 +8,27 @@ on:
   workflow_dispatch:
 
 env:
-  DEPLOY_HOST: console.sd6.gpaas.net
-  DEPLOY_USER: "45947"
-  DEPLOY_PATH: /srv/data/web/vhosts/labs.yapasdequoi.com/htdocs/lelab
+  GANDI_USER: 9ac28d20-95f8-11e7-b83e-00163e61ef31
+  GANDI_GIT_HOST: git.sd6.gpaas.net
+  GANDI_REPO: labs.yapasdequoi.com.git
+  GANDI_SSH_HOST: git.sd6.gpaas.net
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Installer PHP
-        uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          fetch-depth: 0
 
-      - name: Installer les dépendances Composer
-        run: composer install --no-dev --optimize-autoloader --no-interaction
-
-      - name: Configurer la clé SSH et installer lftp
+      - name: Configurer Git pour Gandi
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.GANDI_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -t rsa $DEPLOY_HOST >> ~/.ssh/known_hosts 2>/dev/null
-          sudo apt-get install -y lftp > /dev/null 2>&1
+          # Configurer le credential helper pour utiliser le token
+          git config --global credential.helper store
+          echo "https://$GANDI_USER:${{ secrets.GANDI_DEPLOY_TOKEN }}@$GANDI_GIT_HOST" > ~/.git-credentials
 
-      - name: Déployer via SFTP (lftp mirror)
-        run: |
-          lftp -e "
-            set sftp:connect-program 'ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no';
-            open sftp://$DEPLOY_USER@$DEPLOY_HOST;
-            mirror --reverse --delete --verbose \
-              --exclude ^\.git/ \
-              --exclude ^\.github/ \
-              --exclude ^\.claude/ \
-              --exclude ^\.env$ \
-              --exclude ^\.phpunit\.cache/ \
-              --exclude ^database/database\.sqlite$ \
-              --exclude ^public/module-assets/ \
-              --exclude ^storage/logs/ \
-              --exclude ^storage/plugins/ \
-              --exclude ^tests/ \
-              --exclude ^phpstan\.neon$ \
-              --exclude ^phpunit\.xml$ \
-              ./ $DEPLOY_PATH/;
-            bye
-          " 2>&1
+          # Ajouter le remote Gandi
+          git remote add gandi https://$GANDI_USER@$GANDI_GIT_HOST/$GANDI_REPO
+
+      - name: Push vers Gandi
+        run: git push gandi main:master --force

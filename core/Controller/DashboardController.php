@@ -26,14 +26,18 @@ class DashboardController
         $journalActivite = $this->dernieresActivites($user['id'], $estAdmin);
 
         // Préférences notifications : vérifier si au moins un type désabonnable est actif
-        $prefRepo = new NotificationPreferenceRepository();
-        $prefsUtilisateur = $prefRepo->obtenirPreferences($user['id']);
         $alertesActives = true;
-        foreach (TypeNotification::cases() as $type) {
-            if ($type->estDesabonnable() && isset($prefsUtilisateur[$type->value]) && !$prefsUtilisateur[$type->value]) {
-                $alertesActives = false;
-                break;
+        try {
+            $prefRepo = new NotificationPreferenceRepository();
+            $prefsUtilisateur = $prefRepo->obtenirPreferences($user['id']);
+            foreach (TypeNotification::cases() as $type) {
+                if ($type->estDesabonnable() && isset($prefsUtilisateur[$type->value]) && !$prefsUtilisateur[$type->value]) {
+                    $alertesActives = false;
+                    break;
+                }
             }
+        } catch (\PDOException) {
+            // Table user_notification_preferences pas encore créée (migration 024)
         }
 
         Layout::render('layout', [

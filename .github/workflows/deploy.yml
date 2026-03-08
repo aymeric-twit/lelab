@@ -1,0 +1,43 @@
+name: Déploiement Gandi
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer les dépendances PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Installer Composer
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Configurer la clé SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GANDI_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa console.sd6.gpaas.net >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Déployer via rsync
+        run: |
+          rsync -avz --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.env' \
+            --exclude='.claude/' \
+            --exclude='storage/logs/*.log' \
+            --exclude='storage/plugins/' \
+            --exclude='public/module-assets/' \
+            --exclude='database/database.sqlite' \
+            --exclude='.phpunit.cache/' \
+            --exclude='tests/' \
+            --exclude='phpstan.neon' \
+            --exclude='phpunit.xml' \
+            ./ 45947@console.sd6.gpaas.net:/srv/data/web/vhosts/labs.yapasdequoi.com/htdocs/lelab/

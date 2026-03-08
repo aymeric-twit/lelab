@@ -89,6 +89,23 @@ class DashboardController
         return $date->format('d/m/Y H:i');
     }
 
+    public static function tempsRelatifFutur(string $dateStr): string
+    {
+        $cible = new \DateTimeImmutable($dateStr);
+        $maintenant = new \DateTimeImmutable('today');
+        $diff = $maintenant->diff($cible);
+        $jours = (int) $diff->format('%r%a');
+
+        if ($jours <= 0) {
+            return "aujourd'hui";
+        }
+        if ($jours === 1) {
+            return 'demain';
+        }
+
+        return "dans {$jours} jours";
+    }
+
     public static function dateFrancaise(string $dateStr): string
     {
         $mois = [

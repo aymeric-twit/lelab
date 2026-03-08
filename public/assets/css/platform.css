@@ -347,6 +347,74 @@ a:hover { color: var(--brand-dark); }
     border-radius: 2px;
 }
 
+.dashboard-quota-category {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-top: 0.6rem;
+    margin-bottom: 0.3rem;
+    padding-bottom: 0.2rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-quota-category.first {
+    margin-top: 0;
+}
+
+/* ------------------------------------------------
+   Dashboard — KPI strip
+   ------------------------------------------------ */
+.dashboard-kpi {
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--brand-teal);
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+.dashboard-kpi-warning {
+    border-left-color: var(--brand-gold);
+}
+
+.dashboard-kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--brand-dark);
+    line-height: 1.2;
+}
+
+.dashboard-kpi-label {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+}
+
+/* ------------------------------------------------
+   Dashboard — Quota dots (module cards)
+   ------------------------------------------------ */
+.quota-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.quota-dot-ok {
+    background-color: var(--bs-success, #198754);
+}
+
+.quota-dot-warn {
+    background-color: var(--brand-gold);
+}
+
+.quota-dot-danger {
+    background-color: var(--bs-danger, #dc3545);
+}
+
 .dashboard-activity-item {
     border-color: var(--border-color) !important;
 }

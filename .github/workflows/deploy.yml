@@ -20,26 +20,29 @@ jobs:
       - name: Installer Composer
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
+      - name: Installer lftp
+        run: sudo apt-get install -y lftp > /dev/null 2>&1
+
       - name: Déployer via SFTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: sftp.sd6.gpaas.net
-          username: 9ac28d20-95f8-11e7-b83e-00163e61ef31
-          password: ${{ secrets.GANDI_DEPLOY_TOKEN }}
-          protocol: sftp
-          port: 22
-          local-dir: ./
-          server-dir: /lamp0/web/vhosts/labs.yapasdequoi.com/htdocs/lelab/
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.claude/**
-            .env
-            .phpunit.cache/**
-            database/database.sqlite
-            public/module-assets/**
-            storage/logs/**
-            storage/plugins/**
-            tests/**
-            phpstan.neon
-            phpunit.xml
+        env:
+          GANDI_TOKEN: ${{ secrets.GANDI_DEPLOY_TOKEN }}
+        run: |
+          lftp -u "9ac28d20-95f8-11e7-b83e-00163e61ef31,$GANDI_TOKEN" sftp://sftp.sd6.gpaas.net -e "
+            set sftp:auto-confirm yes;
+            set net:max-retries 3;
+            mirror --reverse --delete --verbose \
+              --exclude ^\.git/ \
+              --exclude ^\.github/ \
+              --exclude ^\.claude/ \
+              --exclude ^\.env$ \
+              --exclude ^\.phpunit\.cache/ \
+              --exclude ^database/database\.sqlite$ \
+              --exclude ^public/module-assets/ \
+              --exclude ^storage/logs/ \
+              --exclude ^storage/plugins/ \
+              --exclude ^tests/ \
+              --exclude ^phpstan\.neon$ \
+              --exclude ^phpunit\.xml$ \
+              ./ /lamp0/web/vhosts/labs.yapasdequoi.com/htdocs/lelab/;
+            bye
+          "

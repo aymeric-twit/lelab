@@ -80,10 +80,11 @@ class ModuleRenderer
      *
      * @return array{content: string, headExtra: string, footExtra: string}
      */
-    public static function renderIframe(ModuleDescriptor $module): array
+    public static function renderIframe(ModuleDescriptor $module, string $langueActive = 'fr'): array
     {
         $slug = htmlspecialchars($module->slug, ENT_QUOTES, 'UTF-8');
-        $iframeSrc = "/m/{$slug}/_app";
+        $lgParam = htmlspecialchars($langueActive, ENT_QUOTES, 'UTF-8');
+        $iframeSrc = "/m/{$slug}/_app?lg={$lgParam}";
 
         return [
             'content' => '<iframe src="' . $iframeSrc . '" class="module-iframe" allowfullscreen></iframe>',

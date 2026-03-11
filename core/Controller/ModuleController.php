@@ -55,10 +55,23 @@ class ModuleController
 
         // Mode iframe : le contenu est un iframe, le layout parent reste
         if ($module->modeAffichage->estIframe()) {
-            $result = ModuleRenderer::renderIframe($module);
+            $langueActive = $_GET['lg'] ?? 'fr';
+            if (!in_array($langueActive, $module->langues, true)) {
+                $langueActive = $module->langues[0] ?? 'fr';
+            }
+
+            $result = ModuleRenderer::renderIframe($module, $langueActive);
+
+            $headExtra = $result['headExtra'];
+            if (!empty($module->langues)) {
+                $languesJson = json_encode($module->langues);
+                $langueActiveJs = htmlspecialchars($langueActive, ENT_QUOTES, 'UTF-8');
+                $headExtra .= "<script>window.PLATFORM_LANG='{$langueActiveJs}';window.MODULE_LANGUAGES={$languesJson};</script>";
+            }
+
             Layout::render('layout', [
                 'content'           => $result['content'],
-                'headExtra'         => $result['headExtra'],
+                'headExtra'         => $headExtra,
                 'footExtra'         => $result['footExtra'],
                 'pageTitle'         => $module->name,
                 'currentUser'       => $user,
@@ -66,6 +79,7 @@ class ModuleController
                 'activeModule'      => $slug,
                 'quotaSummary'      => $quotaSummary,
                 'modeIframe'        => true,
+                'moduleLangages'    => $module->langues,
             ]);
             return;
         }

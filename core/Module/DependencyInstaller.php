@@ -114,29 +114,65 @@ class DependencyInstaller
     }
 
     /**
-     * Résout le chemin complet d'un binaire (composer, npm, node).
-     * Cherche dans le PATH puis dans les emplacements courants.
+     * Construit un PATH enrichi incluant nvm, composer global, etc.
+     * Résout le problème des binaires introuvables quand PHP tourne
+     * avec un PATH minimal (serveur web, php-fpm).
+     */
+    private function construirePathEnrichi(): string
+    {
+        $paths = [];
+
+        $home = getenv('HOME') ?: (posix_getpwuid(posix_getuid())['dir'] ?? '/root');
+
+        // nvm : trouver le répertoire node actif ou le plus récent
+        $nvmDir = getenv('NVM_DIR') ?: $home . '/.nvm';
+        $nvmVersions = $nvmDir . '/versions/node';
+        if (is_dir($nvmVersions)) {
+            $versions = scandir($nvmVersions, SCANDIR_SORT_DESCENDING);
+            if ($versions !== false) {
+                foreach ($versions as $v) {
+                    if ($v === '.' || $v === '..') {
+                        continue;
+                    }
+                    $binDir = $nvmVersions . '/' . $v . '/bin';
+                    if (is_dir($binDir)) {
+                        $paths[] = $binDir;
+                        break; // version la plus récente suffit
+                    }
+                }
+            }
+        }
+
+        // Chemins utilisateur courants
+        $paths[] = $home . '/.local/bin';
+        $paths[] = $home . '/bin';
+        $paths[] = $home . '/.composer/vendor/bin';
+        $paths[] = $home . '/.config/composer/vendor/bin';
+
+        // Chemins système
+        $paths[] = '/usr/local/bin';
+        $paths[] = '/usr/bin';
+        $paths[] = '/bin';
+        $paths[] = '/opt/bin';
+
+        // PATH existant du processus PHP
+        $pathActuel = getenv('PATH');
+        if ($pathActuel !== false && $pathActuel !== '') {
+            $paths[] = $pathActuel;
+        }
+
+        return implode(':', $paths);
+    }
+
+    /**
+     * Résout le chemin absolu d'un binaire en cherchant dans le PATH enrichi.
      */
     private function resoudreBinaire(string $nom): string
     {
-        // Vérifier si le binaire est directement accessible
-        $which = trim((string) shell_exec("which {$nom} 2>/dev/null"));
-        if ($which !== '' && is_executable($which)) {
-            return $which;
-        }
-
-        // Chemins courants sur les hébergements (Gandi, etc.)
-        $chemins = [
-            "/usr/local/bin/{$nom}",
-            "/usr/bin/{$nom}",
-            "/opt/bin/{$nom}",
-            getenv('HOME') . "/.local/bin/{$nom}",
-            getenv('HOME') . "/bin/{$nom}",
-        ];
-
-        foreach ($chemins as $chemin) {
-            if (is_executable($chemin)) {
-                return $chemin;
+        foreach (explode(':', $this->construirePathEnrichi()) as $dir) {
+            $candidat = $dir . '/' . $nom;
+            if (is_executable($candidat)) {
+                return $candidat;
             }
         }
 
@@ -151,15 +187,22 @@ class DependencyInstaller
      */
     private function executerCommande(array $commande, string $cwd): array
     {
-        // Résoudre le chemin du binaire
+        // Résoudre le chemin absolu du binaire avant proc_open
         $commande[0] = $this->resoudreBinaire($commande[0]);
+
         $descriptors = [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
             2 => ['pipe', 'w'],
         ];
 
-        $process = proc_open($commande, $descriptors, $pipes, $cwd);
+        // Enrichir le PATH pour les sous-processus (npm lance node, etc.)
+        $env = getenv();
+        $env['PATH'] = $this->construirePathEnrichi();
+        $home = getenv('HOME') ?: (posix_getpwuid(posix_getuid())['dir'] ?? '/root');
+        $env['HOME'] = $home;
+
+        $process = proc_open($commande, $descriptors, $pipes, $cwd, $env);
 
         if (!is_resource($process)) {
             $cmd = implode(' ', $commande);

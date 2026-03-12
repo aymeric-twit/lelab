@@ -52,6 +52,7 @@ class AdminMaintenanceController
             'accessibleModules' => $ac->getAccessibleModules(Auth::id()),
             'adminPage'         => 'maintenance',
             'etats'             => $etats,
+            'outils'            => $depInstaller->verifierOutils(),
         ]);
     }
 

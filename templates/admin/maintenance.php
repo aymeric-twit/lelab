@@ -3,7 +3,7 @@
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i> D&eacute;pendances des plugins</h5>
-        <?php if (!empty($etats)): ?>
+        <?php if (!empty($etats) && (($outils['composer'] ?? false) || ($outils['npm'] ?? false))): ?>
             <form method="POST" action="/admin/maintenance/dependances" class="d-inline">
                 <?= \Platform\Http\Csrf::field() ?>
                 <button type="submit" class="btn btn-primary btn-sm">
@@ -16,9 +16,27 @@
         <?php if (empty($etats)): ?>
             <p class="text-muted mb-0">Aucun plugin actif avec des d&eacute;pendances Composer ou npm.</p>
         <?php else: ?>
-            <p class="text-muted mb-3" style="font-size:0.9rem;">
-                &Eacute;tat des d&eacute;pendances pour chaque plugin actif. Utilisez le bouton ci-dessus pour r&eacute;installer toutes les d&eacute;pendances en une fois (utile apr&egrave;s une migration de serveur).
-            </p>
+            <?php
+                $composerDispo = $outils['composer'] ?? false;
+                $npmDispo = $outils['npm'] ?? false;
+            ?>
+            <?php if (!$composerDispo && !$npmDispo): ?>
+                <div class="alert alert-warning mb-3" style="font-size:0.9rem;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <strong>composer</strong> et <strong>npm</strong> ne sont pas install&eacute;s sur ce serveur.
+                    Les d&eacute;pendances doivent &ecirc;tre incluses dans les d&eacute;p&ocirc;ts Git des plugins (<code>vendor/</code>, <code>node_modules/</code>).
+                </div>
+            <?php elseif (!$composerDispo || !$npmDispo): ?>
+                <div class="alert alert-warning mb-3" style="font-size:0.9rem;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <?= !$composerDispo ? '<strong>composer</strong> non disponible.' : '<strong>npm</strong> non disponible.' ?>
+                    Les d&eacute;pendances concern&eacute;es doivent &ecirc;tre incluses dans les d&eacute;p&ocirc;ts Git des plugins.
+                </div>
+            <?php else: ?>
+                <p class="text-muted mb-3" style="font-size:0.9rem;">
+                    Utilisez le bouton ci-dessus pour r&eacute;installer toutes les d&eacute;pendances en une fois (utile apr&egrave;s une migration de serveur).
+                </p>
+            <?php endif; ?>
             <table class="table table-sm align-middle mb-0">
                 <thead>
                     <tr>

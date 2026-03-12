@@ -114,6 +114,19 @@ class DependencyInstaller
     }
 
     /**
+     * Vérifie si les outils d'installation (composer, npm) sont disponibles sur le serveur.
+     *
+     * @return array{composer: bool, npm: bool}
+     */
+    public function verifierOutils(): array
+    {
+        return [
+            'composer' => $this->resoudreBinaire('composer') !== 'composer',
+            'npm'      => $this->resoudreBinaire('npm') !== 'npm',
+        ];
+    }
+
+    /**
      * Construit un PATH enrichi incluant nvm, composer global, etc.
      * Résout le problème des binaires introuvables quand PHP tourne
      * avec un PATH minimal (serveur web, php-fpm).

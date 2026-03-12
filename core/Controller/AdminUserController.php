@@ -15,6 +15,7 @@ use Platform\Service\NotificationService;
 use Platform\User\AccessControl;
 use Platform\User\UserRepository;
 use Platform\Validation\Validator;
+use Platform\Log\Logger;
 use Platform\View\Flash;
 use Platform\View\Layout;
 
@@ -123,14 +124,22 @@ class AdminUserController
             );
 
             $db->commit();
-
-            if ($req->post('envoyer_bienvenue') && !empty($email)) {
-                NotificationService::instance()->envoyerBienvenue($userId);
-            }
         } catch (\Throwable $e) {
             $db->rollBack();
             Flash::error('Erreur lors de la création de l\'utilisateur.');
             Response::redirect('/admin/users/create');
+        }
+
+        // Envoi de l'email de bienvenue hors transaction : un échec SMTP
+        // ne doit pas faire croire que la création a échoué
+        if ($req->post('envoyer_bienvenue') && !empty($email)) {
+            try {
+                NotificationService::instance()->envoyerBienvenue($userId);
+            } catch (\Throwable $e) {
+                Logger::warning('Email de bienvenue non envoyé', ['userId' => $userId, 'erreur' => $e->getMessage()]);
+                Flash::warning('Utilisateur créé mais l\'email de bienvenue n\'a pas pu être envoyé. Vérifiez les paramètres SMTP.');
+                Response::redirect('/admin/users');
+            }
         }
 
         Flash::success('Utilisateur créé avec succès.');

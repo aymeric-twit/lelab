@@ -35,6 +35,8 @@
                     <div class="mb-3">
                         <label for="password" class="form-label">Mot de passe</label>
                         <input type="password" class="form-control" id="password" name="password" required minlength="8">
+                        <div class="password-strength-bar mt-1" style="height:4px;border-radius:2px;background:#e9ecef;"><div id="pwStrengthInscription" style="height:100%;width:0;border-radius:2px;transition:all 0.3s;"></div></div>
+                        <small class="password-strength-text" id="pwStrengthTextInscription"></small>
                         <div class="form-text">8 caractères min., une majuscule, une minuscule, un chiffre.</div>
                     </div>
                     <div class="mb-3">
@@ -82,5 +84,34 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>document.querySelectorAll('#toastContainer .toast').forEach(function(el){new bootstrap.Toast(el).show();});</script>
+    <script>
+    (function () {
+        var input = document.getElementById('password');
+        var bar = document.getElementById('pwStrengthInscription');
+        var text = document.getElementById('pwStrengthTextInscription');
+        if (!input || !bar || !text) return;
+
+        function evaluerForce(val) {
+            if (val.length < 8) return { pct: 33, couleur: '#dc3545', label: 'Faible' };
+            var types = 0;
+            if (/[a-z]/.test(val)) types++;
+            if (/[A-Z]/.test(val)) types++;
+            if (/[0-9]/.test(val)) types++;
+            if (/[^a-zA-Z0-9]/.test(val)) types++;
+            if (types >= 3) return { pct: 100, couleur: '#198754', label: 'Fort' };
+            if (types >= 2) return { pct: 66, couleur: '#fbb03b', label: 'Moyen' };
+            return { pct: 33, couleur: '#dc3545', label: 'Faible' };
+        }
+
+        input.addEventListener('input', function () {
+            if (!input.value) { bar.style.width = '0'; text.textContent = ''; return; }
+            var r = evaluerForce(input.value);
+            bar.style.width = r.pct + '%';
+            bar.style.background = r.couleur;
+            text.textContent = r.label;
+            text.style.color = r.couleur;
+        });
+    })();
+    </script>
 </body>
 </html>

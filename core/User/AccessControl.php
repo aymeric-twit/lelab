@@ -16,52 +16,80 @@ class AccessControl
 
     public function hasAccess(int $userId, string $moduleSlug): bool
     {
+        // Vérifier l'accès direct
         $stmt = $this->db->prepare(
             'SELECT uma.granted FROM user_module_access uma
              JOIN modules m ON m.id = uma.module_id
-             WHERE uma.user_id = ? AND m.slug = ? AND m.enabled = 1'
+             WHERE uma.user_id = ? AND m.slug = ? AND m.enabled = 1
+             AND (uma.expires_at IS NULL OR uma.expires_at > NOW())'
         );
         $stmt->execute([$userId, $moduleSlug]);
         $row = $stmt->fetch();
-        return $row && $row['granted'];
+        if ($row && $row['granted']) {
+            return true;
+        }
+
+        // Vérifier l'accès via les groupes
+        $stmtGroupe = $this->db->prepare(
+            'SELECT 1 FROM user_group_members ugm
+             JOIN group_module_access gma ON gma.group_id = ugm.group_id
+             JOIN modules m ON m.id = gma.module_id
+             WHERE ugm.user_id = ? AND m.slug = ? AND m.enabled = 1 AND gma.granted = 1'
+        );
+        $stmtGroupe->execute([$userId, $moduleSlug]);
+        return (bool) $stmtGroupe->fetch();
     }
 
     public function getAccessibleModules(int $userId): array
     {
+        // Modules accessibles via accès direct OU via groupes (UNION pour dédupliquer)
         $stmt = $this->db->prepare(
             'SELECT m.*, c.nom AS categorie_nom, c.icone AS categorie_icone, c.sort_order AS categorie_sort_order
              FROM modules m
-             JOIN user_module_access uma ON uma.module_id = m.id
              LEFT JOIN categories c ON c.id = m.categorie_id
-             WHERE uma.user_id = ? AND uma.granted = 1 AND m.enabled = 1
+             WHERE m.enabled = 1 AND (
+                 m.id IN (
+                     SELECT uma.module_id FROM user_module_access uma
+                     WHERE uma.user_id = ? AND uma.granted = 1
+                     AND (uma.expires_at IS NULL OR uma.expires_at > NOW())
+                 )
+                 OR m.id IN (
+                     SELECT gma.module_id FROM group_module_access gma
+                     JOIN user_group_members ugm ON ugm.group_id = gma.group_id
+                     WHERE ugm.user_id = ? AND gma.granted = 1
+                 )
+             )
              ORDER BY COALESCE(c.sort_order, 9999), c.nom, m.sort_order'
         );
-        $stmt->execute([$userId]);
+        $stmt->execute([$userId, $userId]);
         return $stmt->fetchAll();
     }
 
     public function getAccessMatrix(): array
     {
         $stmt = $this->db->query(
-            'SELECT uma.user_id, uma.module_id, uma.granted
+            'SELECT uma.user_id, uma.module_id, uma.granted, uma.expires_at
              FROM user_module_access uma'
         );
         $rows = $stmt->fetchAll();
         $matrix = [];
         foreach ($rows as $row) {
-            $matrix[$row['user_id']][$row['module_id']] = (bool) $row['granted'];
+            $matrix[$row['user_id']][$row['module_id']] = [
+                'granted'    => (bool) $row['granted'],
+                'expires_at' => $row['expires_at'],
+            ];
         }
         return $matrix;
     }
 
-    public function setAccess(int $userId, int $moduleId, bool $granted, ?int $grantedBy = null): void
+    public function setAccess(int $userId, int $moduleId, bool $granted, ?int $grantedBy = null, ?string $expiresAt = null): void
     {
         $stmt = $this->db->prepare(
-            'INSERT INTO user_module_access (user_id, module_id, granted, granted_by)
-             VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE granted = VALUES(granted), granted_by = VALUES(granted_by), granted_at = NOW()'
+            'INSERT INTO user_module_access (user_id, module_id, granted, granted_by, expires_at)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE granted = VALUES(granted), granted_by = VALUES(granted_by), granted_at = NOW(), expires_at = VALUES(expires_at)'
         );
-        $stmt->execute([$userId, $moduleId, (int) $granted, $grantedBy]);
+        $stmt->execute([$userId, $moduleId, (int) $granted, $grantedBy, $expiresAt]);
     }
 
     public function removeAccess(int $userId, int $moduleId): void

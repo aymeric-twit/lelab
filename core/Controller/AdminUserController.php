@@ -76,6 +76,9 @@ class AdminUserController
             'accessibleModules' => $ac->getAccessibleModules($user['id']),
             'adminPage'         => 'users',
             'modules'           => $modules,
+            'userAccess'        => [],
+            'userQuotas'        => [],
+            'userExpires'       => [],
         ]);
     }
 
@@ -180,6 +183,10 @@ class AdminUserController
             'modules'           => $modules,
             'userAccess'        => $accessMatrix[$editUserId] ?? [],
             'userQuotas'        => $quotaMatrix[$editUserId] ?? [],
+            'userExpires'       => array_map(
+                fn(array $a) => $a['expires_at'] ?? null,
+                $accessMatrix[$editUserId] ?? []
+            ),
         ]);
     }
 
@@ -197,11 +204,12 @@ class AdminUserController
 
         $domaine = trim($req->post('domaine', ''));
         $data = [
-            'username' => trim($req->post('username', '')),
-            'email'    => trim($req->post('email', '')) ?: null,
-            'domaine'  => $domaine !== '' ? $domaine : null,
-            'role'     => $role->value,
-            'active'   => $req->post('active') ? 1 : 0,
+            'username'             => trim($req->post('username', '')),
+            'email'                => trim($req->post('email', '')) ?: null,
+            'domaine'              => $domaine !== '' ? $domaine : null,
+            'role'                 => $role->value,
+            'active'               => $req->post('active') ? 1 : 0,
+            'force_password_reset' => $req->post('force_password_reset') ? 1 : 0,
         ];
 
         $password = $req->post('password', '');
@@ -231,17 +239,156 @@ class AdminUserController
         Response::redirect('/admin/users');
     }
 
+    public function actionGroupee(Request $req): void
+    {
+        $payload = json_decode(file_get_contents('php://input'), true);
+        $action = $payload['action'] ?? '';
+        $ids = array_filter(array_map('intval', $payload['ids'] ?? []), fn(int $id) => $id > 0);
+
+        $actionsValides = ['supprimer', 'activer', 'desactiver'];
+        if (!in_array($action, $actionsValides, true) || empty($ids)) {
+            Response::json(['erreur' => 'Action invalide ou aucun utilisateur sélectionné.'], 400);
+        }
+
+        $adminId = Auth::id();
+        // Empêcher l'auto-modification pour les actions destructives
+        if ($action === 'supprimer' || $action === 'desactiver') {
+            $ids = array_filter($ids, fn(int $id) => $id !== $adminId);
+            if (empty($ids)) {
+                Response::json(['erreur' => 'Vous ne pouvez pas ' . $action . ' votre propre compte.'], 400);
+            }
+        }
+
+        $repo = new UserRepository();
+        $traites = 0;
+
+        foreach ($ids as $id) {
+            match ($action) {
+                'supprimer' => $repo->delete($id),
+                'activer' => $repo->update($id, ['active' => 1]),
+                'desactiver' => $repo->update($id, ['active' => 0]),
+            };
+
+            $auditAction = match ($action) {
+                'supprimer' => AuditAction::UserDelete,
+                default => AuditAction::UserUpdate,
+            };
+
+            AuditLogger::instance()->log($auditAction, $req->ip(), $adminId, 'user', $id);
+            $traites++;
+        }
+
+        $labels = ['supprimer' => 'supprimé', 'activer' => 'activé', 'desactiver' => 'désactivé'];
+        Response::json([
+            'message' => $traites . ' utilisateur(s) ' . $labels[$action] . '(s).',
+            'traites' => $traites,
+        ]);
+    }
+
+    /**
+     * A2 : Renvoyer l'email de bienvenue à un utilisateur existant.
+     */
+    public function renvoyerBienvenue(Request $req, array $params): void
+    {
+        $repo = new UserRepository();
+        $id = (int) $params['id'];
+        $editUser = $repo->findById($id);
+
+        if (!$editUser) {
+            Response::abort(404);
+        }
+
+        if (empty($editUser['email'])) {
+            Flash::error('Cet utilisateur n\'a pas d\'adresse email.');
+            Response::redirect('/admin/users/' . $id . '/edit');
+        }
+
+        try {
+            NotificationService::instance()->envoyerBienvenue($id);
+            Flash::success('Email de bienvenue renvoyé à ' . $editUser['email'] . '.');
+        } catch (\Throwable $e) {
+            Logger::warning('Renvoi email bienvenue échoué', ['userId' => $id, 'erreur' => $e->getMessage()]);
+            Flash::error('Échec de l\'envoi : ' . $e->getMessage());
+        }
+
+        Response::redirect('/admin/users/' . $id . '/edit');
+    }
+
+    /**
+     * Renvoyer l'email de vérification à un utilisateur existant.
+     */
+    public function renvoyerVerification(Request $req, array $params): void
+    {
+        $repo = new UserRepository();
+        $id = (int) $params['id'];
+        $editUser = $repo->findById($id);
+
+        if (!$editUser) {
+            Response::abort(404);
+        }
+
+        if (empty($editUser['email'])) {
+            Flash::error('Cet utilisateur n\'a pas d\'adresse email.');
+            Response::redirect('/admin/users/' . $id . '/edit');
+        }
+
+        try {
+            \Platform\Auth\EmailVerification::envoyer($id, $editUser['email'], $editUser['username']);
+            Flash::success('Email de vérification renvoyé à ' . $editUser['email'] . '.');
+        } catch (\Throwable $e) {
+            Logger::warning('Renvoi email vérification échoué', ['userId' => $id, 'erreur' => $e->getMessage()]);
+            Flash::error('Échec de l\'envoi : ' . $e->getMessage());
+        }
+
+        Response::redirect('/admin/users/' . $id . '/edit');
+    }
+
+    /**
+     * A5 : Détails d'un utilisateur en JSON (pour la modale).
+     */
+    public function details(Request $req, array $params): void
+    {
+        $repo = new UserRepository();
+        $ac = new AccessControl();
+        $id = (int) $params['id'];
+        $u = $repo->findById($id);
+
+        if (!$u) {
+            Response::json(['erreur' => 'Utilisateur introuvable.'], 404);
+        }
+
+        $modules = $ac->getAccessibleModules($id);
+        $quotaSummary = Quota::getUserQuotaSummary($id);
+
+        Response::json([
+            'id'             => (int) $u['id'],
+            'username'       => $u['username'],
+            'email'          => $u['email'] ?? '-',
+            'domaine'        => $u['domaine'] ?? '-',
+            'role'           => $u['role'],
+            'active'         => (bool) $u['active'],
+            'lastLogin'      => $u['last_login'] ?? null,
+            'createdAt'      => $u['created_at'] ?? null,
+            'modules'        => array_map(fn($m) => $m['name'], $modules),
+            'quotas'         => $quotaSummary,
+        ]);
+    }
+
     private function sauvegarderAccesEtQuotas(Request $req, \PDO $db, int $userId): void
     {
         $ac = new AccessControl();
         $modules = $db->query('SELECT * FROM modules WHERE enabled = 1')->fetchAll();
         $accessData = $req->post('access') ?? [];
         $quotaData = $req->post('quotas') ?? [];
+        $expiresData = $req->post('access_expires') ?? [];
 
         foreach ($modules as $mod) {
             $modId = (int) $mod['id'];
             $granted = !empty($accessData[$modId]);
-            $ac->setAccess($userId, $modId, $granted, Auth::id());
+            $expiresAt = !empty($expiresData[$modId])
+                ? $expiresData[$modId] . ' 23:59:59'
+                : null;
+            $ac->setAccess($userId, $modId, $granted, Auth::id(), $expiresAt);
 
             $quotaVal = $quotaData[$modId] ?? '';
             if ($quotaVal !== '') {

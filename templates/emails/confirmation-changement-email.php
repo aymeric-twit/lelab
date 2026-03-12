@@ -26,44 +26,27 @@
                     <!-- Content -->
                     <tr>
                         <td style="padding: 32px;">
-                            <h2 style="color: #333333; font-size: 18px; font-weight: 700; margin: 0 0 16px;">Quota épuisé</h2>
+                            <h2 style="color: #333333; font-size: 18px; font-weight: 700; margin: 0 0 16px;">Confirmez votre nouvelle adresse email</h2>
                             <p style="color: #333333; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
                                 Bonjour <strong><?= htmlspecialchars($username ?? '') ?></strong>,
                             </p>
-                            <p style="color: #333333; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
-                                Vous avez atteint la limite de votre quota mensuel pour le module
-                                <strong><?= htmlspecialchars($nomModule ?? '') ?></strong>.
-                            </p>
-                            <!-- Quota bar -->
-                            <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 16px;">
-                                <tr>
-                                    <td>
-                                        <div style="background: #e2e8f0; border-radius: 8px; height: 12px; overflow: hidden;">
-                                            <div style="background: #dc3545; height: 12px; width: 100%; border-radius: 8px;"></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding-top: 4px;">
-                                        <span style="color: #666; font-size: 12px;"><?= (int) ($usage ?? 0) ?> / <?= (int) ($limite ?? 0) ?> utilisations</span>
-                                    </td>
-                                </tr>
-                            </table>
                             <p style="color: #333333; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
-                                Ce module sera de nouveau disponible le <strong><?= htmlspecialchars($dateReset ?? '') ?></strong>,
-                                date à laquelle vos quotas seront réinitialisés.
+                                Vous avez demandé à changer votre adresse email pour <strong><?= htmlspecialchars($nouvelEmail ?? '') ?></strong>. Cliquez sur le bouton ci-dessous pour confirmer ce changement.
                             </p>
                             <!-- CTA Button -->
                             <table width="100%" cellpadding="0" cellspacing="0">
                                 <tr>
                                     <td align="center">
-                                        <a href="<?= htmlspecialchars($lienPlateforme ?? '') ?>"
+                                        <a href="<?= htmlspecialchars($lien ?? '') ?>"
                                            style="display: inline-block; background-color: #004c4c; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 6px; font-size: 14px; font-weight: 600;">
-                                            Voir mon compte
+                                            Confirmer la nouvelle adresse
                                         </a>
                                     </td>
                                 </tr>
                             </table>
+                            <p style="color: #999; font-size: 12px; line-height: 1.6; margin: 24px 0 0;">
+                                Ce lien expire dans 24 heures. Si vous n'avez pas demand&eacute; ce changement, ignorez cet email.
+                            </p>
                         </td>
                     </tr>
                     <?php require __DIR__ . '/_footer.php'; ?>

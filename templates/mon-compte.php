@@ -85,6 +85,8 @@ use Platform\Controller\DashboardController;
                     <div class="mb-3">
                         <label for="password" class="form-label">Nouveau mot de passe</label>
                         <input type="password" class="form-control" id="password" name="password" required minlength="8">
+                        <div class="password-strength-bar mt-1" style="height:4px;border-radius:2px;background:#e9ecef;"><div id="pwStrengthCompte" style="height:100%;width:0;border-radius:2px;transition:all 0.3s;"></div></div>
+                        <small class="password-strength-text" id="pwStrengthCompteText"></small>
                         <div class="form-text">8 caractères min., une majuscule, une minuscule, un chiffre.</div>
                     </div>
 
@@ -97,6 +99,36 @@ use Platform\Controller\DashboardController;
                         <i class="bi bi-key me-1"></i>Changer le mot de passe
                     </button>
                 </form>
+            </div>
+        </div>
+
+        <!-- Sécurité — Authentification à deux facteurs -->
+        <div class="card dashboard-card mb-4">
+            <div class="card-header">
+                <i class="bi bi-shield-lock me-1"></i> Authentification à deux facteurs (2FA)
+            </div>
+            <div class="card-body">
+                <?php if (!empty($currentUser['totp_enabled'])): ?>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="badge bg-success me-2">Activée</span>
+                            <span class="text-muted small">Votre compte est protégé par la 2FA.</span>
+                        </div>
+                        <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalDesactiver2fa">
+                            <i class="bi bi-shield-x me-1"></i>Désactiver
+                        </button>
+                    </div>
+                <?php else: ?>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="badge bg-secondary me-2">Désactivée</span>
+                            <span class="text-muted small">Ajoutez une couche de sécurité supplémentaire.</span>
+                        </div>
+                        <a href="/mon-compte/2fa/activer" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-shield-check me-1"></i>Activer la 2FA
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -150,6 +182,80 @@ use Platform\Controller\DashboardController;
     </div>
 </div>
 
+<!-- Dernières connexions -->
+<?php $connexions = $dernieresConnexions ?? []; ?>
+<?php if (!empty($connexions)): ?>
+<div class="row g-4 mt-1">
+    <div class="col-12">
+        <div class="card dashboard-card">
+            <div class="card-header">
+                <i class="bi bi-clock-history me-1"></i> Dernières connexions
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0" style="font-size: 0.85rem;">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>IP</th>
+                                <th>Navigateur</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($connexions as $cx): ?>
+                            <tr>
+                                <td class="text-nowrap"><?= htmlspecialchars(DashboardController::dateFrancaise($cx['created_at'])) ?></td>
+                                <td><code><?= htmlspecialchars($cx['ip_address']) ?></code></td>
+                                <td class="text-truncate" style="max-width: 300px;" title="<?= htmlspecialchars($cx['user_agent'] ?? '') ?>">
+                                    <?= htmlspecialchars(mb_substr($cx['user_agent'] ?? '', 0, 80)) ?><?= mb_strlen($cx['user_agent'] ?? '') > 80 ? '...' : '' ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- Modale de désactivation 2FA -->
+<?php if (!empty($currentUser['totp_enabled'])): ?>
+<div class="modal fade" id="modalDesactiver2fa" tabindex="-1" aria-labelledby="modalDesactiver2faLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/mon-compte/2fa/desactiver">
+                <?= \Platform\Http\Csrf::field() ?>
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" id="modalDesactiver2faLabel">
+                        <i class="bi bi-shield-x text-warning me-2"></i>Désactiver la 2FA
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <strong>Attention :</strong> la désactivation de la 2FA réduit la sécurité de votre compte.
+                    </div>
+                    <div class="mb-0">
+                        <label for="mot_de_passe_2fa" class="form-label">Confirmez votre mot de passe</label>
+                        <input type="password" class="form-control" id="mot_de_passe_2fa"
+                               name="mot_de_passe_2fa" required
+                               placeholder="Entrez votre mot de passe pour confirmer">
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-shield-x me-1"></i>Désactiver la 2FA
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <?php if (($currentUser['role'] ?? '') !== 'admin'): ?>
 <!-- Modale de confirmation de suppression -->
 <div class="modal fade" id="modalSuppressionCompte" tabindex="-1" aria-labelledby="modalSuppressionCompteLabel" aria-hidden="true">
@@ -190,3 +296,33 @@ use Platform\Controller\DashboardController;
     </div>
 </div>
 <?php endif; ?>
+
+<script>
+(function () {
+    var input = document.getElementById('password');
+    var bar = document.getElementById('pwStrengthCompte');
+    var text = document.getElementById('pwStrengthCompteText');
+    if (!input || !bar || !text) return;
+
+    function evaluerForce(val) {
+        if (val.length < 8) return { pct: 33, couleur: '#dc3545', label: 'Faible' };
+        var types = 0;
+        if (/[a-z]/.test(val)) types++;
+        if (/[A-Z]/.test(val)) types++;
+        if (/[0-9]/.test(val)) types++;
+        if (/[^a-zA-Z0-9]/.test(val)) types++;
+        if (types >= 3) return { pct: 100, couleur: '#198754', label: 'Fort' };
+        if (types >= 2) return { pct: 66, couleur: '#fbb03b', label: 'Moyen' };
+        return { pct: 33, couleur: '#dc3545', label: 'Faible' };
+    }
+
+    input.addEventListener('input', function () {
+        if (!input.value) { bar.style.width = '0'; text.textContent = ''; return; }
+        var r = evaluerForce(input.value);
+        bar.style.width = r.pct + '%';
+        bar.style.background = r.couleur;
+        text.textContent = r.label;
+        text.style.color = r.couleur;
+    });
+})();
+</script>

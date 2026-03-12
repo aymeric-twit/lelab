@@ -35,6 +35,8 @@
                         </label>
                         <input type="password" class="form-control" id="password" name="password"
                                <?= isset($editUser) ? '' : 'required' ?>>
+                        <div class="password-strength-bar mt-1" style="height:4px;border-radius:2px;background:#e9ecef;"><div id="pwStrength" style="height:100%;width:0;border-radius:2px;transition:all 0.3s;"></div></div>
+                        <small class="password-strength-text" id="pwStrengthText"></small>
                     </div>
 
                     <div class="mb-3">
@@ -51,10 +53,33 @@
                         <label class="form-check-label" for="active">Compte actif</label>
                     </div>
 
+                    <?php if (isset($editUser)): ?>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input" id="force_password_reset" name="force_password_reset" value="1"
+                               <?= !empty($editUser['force_password_reset']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="force_password_reset">Forcer la réinitialisation du mot de passe</label>
+                    </div>
+                    <?php endif; ?>
+
                     <?php if (!isset($editUser)): ?>
                     <div class="form-check">
                         <input type="checkbox" class="form-check-input" id="envoyer_bienvenue" name="envoyer_bienvenue" value="1" checked>
                         <label class="form-check-label" for="envoyer_bienvenue">Envoyer un e-mail de bienvenue</label>
+                    </div>
+                    <?php else: ?>
+                    <div class="mt-3 pt-3 border-top d-flex gap-2 flex-wrap">
+                        <form method="POST" action="/admin/users/<?= $editUser['id'] ?>/renvoyer-bienvenue" class="d-inline">
+                            <?= \Platform\Http\Csrf::field() ?>
+                            <button type="submit" class="btn btn-outline-secondary btn-sm" <?= empty($editUser['email']) ? 'disabled' : '' ?>>
+                                <i class="bi bi-envelope me-1"></i>Renvoyer l'email de bienvenue
+                            </button>
+                        </form>
+                        <form method="POST" action="/admin/users/<?= $editUser['id'] ?>/renvoyer-verification" class="d-inline">
+                            <?= \Platform\Http\Csrf::field() ?>
+                            <button type="submit" class="btn btn-outline-secondary btn-sm" <?= empty($editUser['email']) ? 'disabled' : '' ?>>
+                                <i class="bi bi-shield-check me-1"></i>Renvoyer l'email de vérification
+                            </button>
+                        </form>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -72,14 +97,19 @@
                             <thead>
                                 <tr>
                                     <th>Module</th>
-                                    <th class="text-center" style="width: 80px;">Accès</th>
+                                    <th class="text-center" style="width: 150px;">
+                                        <input type="checkbox" class="form-check-input me-1" id="checkTousAcces" title="Sélectionner tous">
+                                        Acc&egrave;s
+                                    </th>
                                     <th style="width: 200px;">Quota mensuel</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($modules as $mod):
                                     $modId = (int) $mod['id'];
-                                    $hasAccess = !empty($userAccess[$modId]);
+                                    $accessInfo = $userAccess[$modId] ?? null;
+                                    $hasAccess = !empty($accessInfo['granted']);
+                                    $expireAt = $userExpires[$modId] ?? null;
                                     $quotaOverride = $userQuotas[$modId] ?? null;
                                     $hasQuota = ($mod['quota_mode'] ?? '') !== 'none';
                                 ?>
@@ -91,9 +121,22 @@
                                         <?= htmlspecialchars($mod['name']) ?>
                                     </td>
                                     <td class="text-center">
-                                        <input type="checkbox" class="form-check-input"
+                                        <input type="checkbox" class="form-check-input cb-acces-form"
                                                name="access[<?= $modId ?>]" value="1"
                                                <?= $hasAccess ? 'checked' : '' ?>>
+                                        <div class="mt-1 wrapper-expiration-form" style="<?= $hasAccess ? '' : 'display:none;' ?>">
+                                            <input type="date"
+                                                   class="form-control form-control-sm"
+                                                   name="access_expires[<?= $modId ?>]"
+                                                   value="<?= $expireAt ? date('Y-m-d', strtotime($expireAt)) : '' ?>"
+                                                   style="width:120px; font-size:0.7rem;"
+                                                   title="Date d'expiration (optionnel)">
+                                            <?php if ($expireAt): ?>
+                                                <span class="badge bg-warning text-dark mt-1" style="font-size:0.65rem;">
+                                                    Expire le <?= date('d/m', strtotime($expireAt)) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td>
                                         <?php if ($hasQuota): ?>
@@ -124,3 +167,72 @@
         <a href="/admin/users" class="btn btn-outline-secondary">Annuler</a>
     </div>
 </form>
+
+<script>
+(function () {
+    var checkAll = document.getElementById('checkTousAcces');
+    if (!checkAll) return;
+
+    function getAccessCheckboxes() {
+        return document.querySelectorAll('input[name^="access["]');
+    }
+
+    checkAll.addEventListener('change', function () {
+        getAccessCheckboxes().forEach(function (cb) {
+            cb.checked = checkAll.checked;
+            var wrapper = cb.closest('td').querySelector('.wrapper-expiration-form');
+            if (wrapper) wrapper.style.display = checkAll.checked ? '' : 'none';
+        });
+    });
+
+    document.addEventListener('change', function (e) {
+        if (e.target.name && e.target.name.startsWith('access[')) {
+            var boxes = getAccessCheckboxes();
+            var checked = document.querySelectorAll('input[name^="access["]:checked');
+            checkAll.checked = boxes.length > 0 && checked.length === boxes.length;
+            checkAll.indeterminate = checked.length > 0 && checked.length < boxes.length;
+        }
+    });
+
+    // Afficher/masquer le champ date d'expiration selon la checkbox
+    document.addEventListener('change', function (e) {
+        if (!e.target.classList.contains('cb-acces-form')) return;
+        var wrapper = e.target.closest('td').querySelector('.wrapper-expiration-form');
+        if (wrapper) wrapper.style.display = e.target.checked ? '' : 'none';
+    });
+
+    // État initial
+    var boxes = getAccessCheckboxes();
+    var checked = document.querySelectorAll('input[name^="access["]:checked');
+    if (boxes.length > 0 && checked.length === boxes.length) checkAll.checked = true;
+    else if (checked.length > 0) checkAll.indeterminate = true;
+})();
+
+(function () {
+    var input = document.getElementById('password');
+    var bar = document.getElementById('pwStrength');
+    var text = document.getElementById('pwStrengthText');
+    if (!input || !bar || !text) return;
+
+    function evaluerForce(val) {
+        if (val.length < 8) return { niveau: 'faible', pct: 33, couleur: '#dc3545', label: 'Faible' };
+        var types = 0;
+        if (/[a-z]/.test(val)) types++;
+        if (/[A-Z]/.test(val)) types++;
+        if (/[0-9]/.test(val)) types++;
+        if (/[^a-zA-Z0-9]/.test(val)) types++;
+        if (types >= 3) return { niveau: 'fort', pct: 100, couleur: '#198754', label: 'Fort' };
+        if (types >= 2) return { niveau: 'moyen', pct: 66, couleur: '#fbb03b', label: 'Moyen' };
+        return { niveau: 'faible', pct: 33, couleur: '#dc3545', label: 'Faible' };
+    }
+
+    input.addEventListener('input', function () {
+        if (!input.value) { bar.style.width = '0'; text.textContent = ''; return; }
+        var r = evaluerForce(input.value);
+        bar.style.width = r.pct + '%';
+        bar.style.background = r.couleur;
+        text.textContent = r.label;
+        text.style.color = r.couleur;
+    });
+})();
+</script>

@@ -28,11 +28,15 @@ class AdminAccessController
         $users = $repo->findAll();
         $modules = $db->query('SELECT * FROM modules WHERE enabled = 1')->fetchAll();
         $accessData = $req->post('access') ?? [];
+        $expiresData = $req->post('access_expires') ?? [];
 
         foreach ($users as $u) {
             foreach ($modules as $mod) {
                 $granted = !empty($accessData[$u['id']][$mod['id']]);
-                $ac->setAccess($u['id'], $mod['id'], $granted, Auth::id());
+                $expiresAt = !empty($expiresData[$u['id']][$mod['id']])
+                    ? $expiresData[$u['id']][$mod['id']] . ' 23:59:59'
+                    : null;
+                $ac->setAccess($u['id'], $mod['id'], $granted, Auth::id(), $expiresAt);
             }
         }
 

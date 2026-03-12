@@ -108,6 +108,11 @@
                             </a>
                         </li>
                         <li>
+                            <a class="dropdown-item <?= ($adminPage ?? '') === 'groups' ? 'active' : '' ?>" href="/admin/groups">
+                                <i class="bi bi-people-fill me-2"></i> Groupes
+                            </a>
+                        </li>
+                        <li>
                             <a class="dropdown-item <?= ($adminPage ?? '') === 'plugins' ? 'active' : '' ?>" href="/admin/plugins">
                                 <i class="bi bi-puzzle me-2"></i> Plugins
                             </a>

@@ -138,7 +138,7 @@ class UserRepository
         $fields = [];
         $values = [];
 
-        foreach (['username', 'email', 'domaine', 'password_hash', 'role', 'active'] as $field) {
+        foreach (['username', 'email', 'domaine', 'password_hash', 'role', 'active', 'force_password_reset'] as $field) {
             if (array_key_exists($field, $data)) {
                 $fields[] = "{$field} = ?";
                 $values[] = $data[$field];

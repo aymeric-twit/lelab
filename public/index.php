@@ -13,6 +13,7 @@ use Platform\Http\Middleware\RequireAuth;
 use Platform\Http\Middleware\RequireAdmin;
 use Platform\Http\Middleware\VerifyCsrf;
 use Platform\Http\Middleware\CheckModuleQuota;
+use Platform\Http\Middleware\CheckPasswordReset;
 use Platform\Module\ModuleRegistry;
 use Platform\Controller\AuthController;
 use Platform\Controller\DashboardController;
@@ -25,6 +26,7 @@ use Platform\Controller\AdminPluginController;
 use Platform\Controller\AdminMaintenanceController;
 use Platform\Controller\AdminAuditController;
 use Platform\Controller\AdminEmailController;
+use Platform\Controller\AdminGroupController;
 use Platform\Controller\DesabonnementController;
 use Platform\Controller\LegalController;
 use Platform\Controller\WebhookGithubController;
@@ -51,6 +53,7 @@ $adminPlugin = new AdminPluginController();
 $adminMaintenance = new AdminMaintenanceController();
 $adminAudit = new AdminAuditController();
 $adminEmail = new AdminEmailController();
+$adminGroup = new AdminGroupController();
 $compte = new \Platform\Controller\CompteController();
 
 // -----------------------------------------------
@@ -73,6 +76,14 @@ $router->post('/reinitialiser-mot-de-passe', [$auth, 'reinitialiserMotDePasse'])
 
 // Vérification email
 $router->get('/verifier-email', [$auth, 'verifierEmail']);
+$router->post('/renvoyer-verification', [$auth, 'renvoyerVerification']);
+
+// Confirmation changement d'email (public, lien depuis l'email)
+$router->get('/confirmer-email', [$compte, 'confirmerEmail']);
+
+// Authentification à deux facteurs (public, sans auth — utilisateur en attente de 2FA)
+$router->get('/2fa', [$auth, 'formulaire2fa']);
+$router->post('/2fa', [$auth, 'verifier2fa']);
 
 // Pages légales (publiques)
 $legal = new LegalController();
@@ -91,7 +102,7 @@ $router->post('/desabonnement/tout', [$desabonnement, 'desabonnerTout']);
 
 $quotaApi = new \Platform\Controller\QuotaApiController();
 
-$router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard, $module, $compte, $quotaApi) {
+$router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $r) use ($auth, $dashboard, $module, $compte, $quotaApi) {
     $r->get('/logout', [$auth, 'logout']);
     $r->get('/', [$dashboard, 'index']);
 
@@ -100,10 +111,13 @@ $router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard,
 
     // Mon compte (avec CSRF pour les POST)
     $r->get('/mon-compte', [$compte, 'afficher']);
+    $r->get('/mon-compte/2fa/activer', [$compte, 'activer2fa']);
     $r->group([new VerifyCsrf()], function (Router $r) use ($compte, $dashboard) {
         $r->post('/mon-compte', [$compte, 'mettreAJour']);
         $r->post('/mon-compte/mot-de-passe', [$compte, 'changerMotDePasse']);
         $r->post('/mon-compte/supprimer', [$compte, 'supprimerCompte']);
+        $r->post('/mon-compte/2fa/confirmer', [$compte, 'confirmer2fa']);
+        $r->post('/mon-compte/2fa/desactiver', [$compte, 'desactiver2fa']);
         $r->post('/api/notifications/toggle', [$dashboard, 'toggleNotifications']);
     });
 
@@ -118,12 +132,16 @@ $router->group([new RequireAuth()], function (Router $r) use ($auth, $dashboard,
 // Admin routes
 // -----------------------------------------------
 
-$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin, $adminMaintenance, $adminAudit, $adminEmail) {
+$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin, $adminMaintenance, $adminAudit, $adminEmail, $adminGroup) {
     $r->get('/admin/users', [$adminUser, 'index']);
     $r->get('/admin/users/create', [$adminUser, 'formulaireCreation']);
     $r->post('/admin/users/create', [$adminUser, 'creer']);
     $r->get('/admin/users/{id}/edit', [$adminUser, 'formulaireEdition']);
     $r->post('/admin/users/{id}/edit', [$adminUser, 'mettreAJour']);
+    $r->post('/admin/users/bulk-action', [$adminUser, 'actionGroupee']);
+    $r->post('/admin/users/{id}/renvoyer-bienvenue', [$adminUser, 'renvoyerBienvenue']);
+    $r->post('/admin/users/{id}/renvoyer-verification', [$adminUser, 'renvoyerVerification']);
+    $r->get('/admin/users/{id}/details', [$adminUser, 'details']);
 
     $r->get('/admin/access', [$adminAccess, 'index']);
     $r->post('/admin/access', [$adminAccess, 'mettreAJour']);
@@ -169,6 +187,13 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->post('/admin/emails/notifications', [$adminEmail, 'sauvegarderNotifications']);
     $r->get('/admin/emails/apercu/{type}', [$adminEmail, 'apercuTemplate']);
     $r->get('/admin/emails/historique/export', [$adminEmail, 'exporterCsv']);
+
+    $r->get('/admin/groups', [$adminGroup, 'index']);
+    $r->get('/admin/groups/create', [$adminGroup, 'formulaireCreation']);
+    $r->post('/admin/groups/create', [$adminGroup, 'creer']);
+    $r->get('/admin/groups/{id}/edit', [$adminGroup, 'formulaireEdition']);
+    $r->post('/admin/groups/{id}/edit', [$adminGroup, 'mettreAJour']);
+    $r->post('/admin/groups/{id}/supprimer', [$adminGroup, 'supprimer']);
 });
 
 // -----------------------------------------------

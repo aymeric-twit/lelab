@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - Le lab</title>
+    <title>Vérification 2FA - Le lab</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
@@ -18,55 +18,35 @@
             <div class="card-body p-4">
                 <div class="text-center mb-4">
                     <img src="/assets/img/logo-login.png" alt="Le lab" class="login-logo mb-2">
-                    <p class="text-muted small">Connectez-vous pour continuer</p>
+                    <h5 class="fw-bold mb-1">Vérification en deux étapes</h5>
+                    <p class="text-muted small">Entrez le code affiché dans votre application d'authentification.</p>
                 </div>
 
-                <form method="POST" action="/login">
+                <form method="POST" action="/2fa">
                     <?= \Platform\Http\Csrf::field() ?>
                     <div class="mb-3">
-                        <label for="username" class="form-label">Nom d'utilisateur</label>
-                        <input type="text" class="form-control" id="username" name="username" required autofocus>
+                        <label for="code" class="form-label">Code à 6 chiffres</label>
+                        <input type="text" class="form-control text-center fs-4 fw-bold letter-spacing-2"
+                               id="code" name="code"
+                               required autofocus
+                               maxlength="6"
+                               inputmode="numeric"
+                               pattern="[0-9]*"
+                               autocomplete="one-time-code"
+                               placeholder="000000"
+                               style="letter-spacing: 0.5em;">
                     </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Mot de passe</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="se_souvenir" value="1" id="se_souvenir">
-                            <label class="form-check-label small" for="se_souvenir">Se souvenir de moi</label>
-                        </div>
-                        <a href="/mot-de-passe-oublie" class="small text-decoration-none" style="color: var(--brand-teal);">Mot de passe oublié ?</a>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Se connecter</button>
+                    <button type="submit" class="btn btn-primary w-100 mb-3">
+                        <i class="bi bi-shield-check me-1"></i>Vérifier
+                    </button>
                 </form>
 
-                <?php if (!empty($compteInactif)): ?>
-                <div class="alert alert-warning mt-3 mb-0 small">
-                    <i class="bi bi-exclamation-triangle me-1"></i>
-                    Votre compte n'est pas encore activé. Vérifiez votre boîte email ou renvoyez l'email de vérification.
-                    <form method="POST" action="/renvoyer-verification" class="mt-2">
-                        <?= \Platform\Http\Csrf::field() ?>
-                        <input type="hidden" name="email" value="<?= htmlspecialchars($emailInactif ?? '') ?>">
-                        <button type="submit" class="btn btn-sm btn-outline-dark w-100">
-                            <i class="bi bi-envelope me-1"></i>Renvoyer l'email de vérification
-                        </button>
-                    </form>
+                <div class="text-center">
+                    <a href="/login" class="small text-decoration-none" style="color: var(--brand-teal);">
+                        <i class="bi bi-arrow-left me-1"></i>Annuler et revenir à la connexion
+                    </a>
                 </div>
-                <?php endif; ?>
-
-                <?php if (!empty($inscriptionActive)): ?>
-                <div class="text-center mt-3">
-                    <span class="small text-muted">Pas encore de compte ?</span>
-                    <a href="/inscription" class="small text-decoration-none fw-semibold" style="color: var(--brand-dark);">Créer un compte</a>
-                </div>
-                <?php endif; ?>
             </div>
-        </div>
-        <div class="text-center mt-3" style="font-size: 0.75rem;">
-            <a href="/politique-de-confidentialite" style="color: #66b2b2; text-decoration: none;">Politique de confidentialité</a>
-            <span class="mx-1 text-muted">&bull;</span>
-            <a href="/mentions-legales" style="color: #66b2b2; text-decoration: none;">Mentions légales</a>
         </div>
     </div>
     <?php if (!empty($flash)): ?>

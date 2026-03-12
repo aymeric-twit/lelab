@@ -5,13 +5,17 @@ namespace Platform\Controller;
 use Platform\Auth\Auth;
 use Platform\Auth\EmailVerification;
 use Platform\Auth\Inscription;
+use Platform\Auth\PasswordHasher;
 use Platform\Auth\PasswordReset;
 use Platform\Auth\RememberMe;
+use Platform\Auth\Totp;
+use Platform\Database\Connection;
 use Platform\Enum\AuditAction;
 use Platform\Http\Csrf;
 use Platform\Http\Request;
 use Platform\Http\Response;
 use Platform\Service\AuditLogger;
+use Platform\User\UserRepository;
 use Platform\Validation\Validator;
 use Platform\View\Flash;
 use Platform\View\Layout;
@@ -42,14 +46,45 @@ class AuthController
             Response::redirect('/login');
         }
 
-        if (Auth::attempt($username, $password)) {
+        // Vérifier les identifiants sans créer de session complète si 2FA activée
+        $repo = new UserRepository();
+        $utilisateur = $repo->findByUsername($username);
+
+        if ($utilisateur && $utilisateur['active'] && PasswordHasher::verify($password, $utilisateur['password_hash'])) {
+            // Vérifier si la 2FA est activée
+            if (!empty($utilisateur['totp_enabled'])) {
+                // Stocker l'ID en attente de vérification 2FA (sans Auth::login)
+                $_SESSION['_2fa_pending'] = (int) $utilisateur['id'];
+                $_SESSION['_2fa_se_souvenir'] = $sesouvenir;
+                Response::redirect('/2fa');
+            }
+
+            // Pas de 2FA : connexion normale via Auth::attempt
+            Auth::attempt($username, $password);
             $audit->log(AuditAction::LoginSuccess, $ip, Auth::id(), 'user', null, ['username' => $username]);
+
+            // Historique de connexion
+            $db = Connection::get();
+            $stmt = $db->prepare('INSERT INTO login_history (user_id, ip_address, user_agent) VALUES (?, ?, ?)');
+            $stmt->execute([Auth::id(), $ip, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
 
             if ($sesouvenir) {
                 RememberMe::creerToken(Auth::id());
             }
 
             Response::redirect('/');
+        }
+
+        // Vérifier si le compte existe mais est inactif (email non vérifié)
+        if ($utilisateur && !$utilisateur['active'] && PasswordHasher::verify($password, $utilisateur['password_hash'])) {
+            $audit->log(AuditAction::LoginFailed, $ip, (int) $utilisateur['id'], 'user', null, ['username' => $username, 'raison' => 'compte_inactif']);
+            $inscriptionActive = Inscription::estActive();
+            Layout::renderStandalone('login', [
+                'inscriptionActive' => $inscriptionActive,
+                'compteInactif' => true,
+                'emailInactif' => $utilisateur['email'] ?? '',
+            ]);
+            return;
         }
 
         $audit->log(AuditAction::LoginFailed, $ip, null, 'user', null, ['username' => $username]);
@@ -117,6 +152,34 @@ class AuthController
         EmailVerification::envoyer($compte['id'], $compte['email'], $compte['username']);
 
         Flash::success('Compte créé ! Vérifiez votre email pour activer votre compte.');
+        Response::redirect('/login');
+    }
+
+    // -----------------------------------------------
+    // Renvoi de vérification email (public)
+    // -----------------------------------------------
+
+    public function renvoyerVerification(Request $req): void
+    {
+        Csrf::validateOrAbort();
+
+        $email = trim($req->post('email', ''));
+
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $repo = new UserRepository();
+            $utilisateur = $repo->findByEmail($email);
+
+            if ($utilisateur && !$utilisateur['active']) {
+                try {
+                    EmailVerification::envoyer((int) $utilisateur['id'], $utilisateur['email'], $utilisateur['username']);
+                } catch (\Throwable) {
+                    // Silencieux : anti-énumération
+                }
+            }
+        }
+
+        // Anti-énumération : toujours le même message
+        Flash::success('Si cette adresse est associée à un compte en attente de vérification, un nouvel email a été envoyé.');
         Response::redirect('/login');
     }
 
@@ -215,5 +278,71 @@ class AuthController
 
         Flash::error('Lien de réinitialisation invalide ou expiré.');
         Response::redirect('/mot-de-passe-oublie');
+    }
+
+    // -----------------------------------------------
+    // Authentification à deux facteurs (2FA)
+    // -----------------------------------------------
+
+    public function formulaire2fa(): void
+    {
+        if (!isset($_SESSION['_2fa_pending'])) {
+            Response::redirect('/login');
+        }
+        Layout::renderStandalone('2fa');
+    }
+
+    public function verifier2fa(Request $req): void
+    {
+        Csrf::validateOrAbort();
+
+        if (!isset($_SESSION['_2fa_pending'])) {
+            Response::redirect('/login');
+        }
+
+        $userId = (int) $_SESSION['_2fa_pending'];
+        $code = trim($req->post('code', ''));
+        $ip = $req->ip();
+        $audit = AuditLogger::instance();
+
+        $repo = new UserRepository();
+        $utilisateur = $repo->findById($userId);
+
+        if (!$utilisateur || empty($utilisateur['totp_secret'])) {
+            unset($_SESSION['_2fa_pending'], $_SESSION['_2fa_se_souvenir']);
+            Flash::error('Erreur de vérification. Veuillez vous reconnecter.');
+            Response::redirect('/login');
+        }
+
+        if (Totp::verifier($utilisateur['totp_secret'], $code)) {
+            $sesouvenir = $_SESSION['_2fa_se_souvenir'] ?? false;
+            unset($_SESSION['_2fa_pending'], $_SESSION['_2fa_se_souvenir']);
+
+            // Connexion effective
+            Auth::loginParId($userId);
+            $audit->log(AuditAction::LoginSuccess, $ip, $userId, 'user', null, [
+                'username' => $utilisateur['username'],
+                '2fa' => true,
+            ]);
+
+            // Historique de connexion
+            $db = Connection::get();
+            $stmt = $db->prepare('INSERT INTO login_history (user_id, ip_address, user_agent) VALUES (?, ?, ?)');
+            $stmt->execute([$userId, $ip, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
+
+            if ($sesouvenir) {
+                RememberMe::creerToken($userId);
+            }
+
+            Response::redirect('/');
+        }
+
+        $audit->log(AuditAction::LoginFailed, $ip, $userId, 'user', null, [
+            'username' => $utilisateur['username'],
+            'raison' => '2fa_invalide',
+        ]);
+
+        Flash::error('Code de vérification invalide.');
+        Response::redirect('/2fa');
     }
 }

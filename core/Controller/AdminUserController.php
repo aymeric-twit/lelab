@@ -126,7 +126,14 @@ class AdminUserController
             $db->commit();
         } catch (\Throwable $e) {
             $db->rollBack();
-            Flash::error('Erreur lors de la création de l\'utilisateur.');
+            Logger::error('Échec création utilisateur', [
+                'message'  => $e->getMessage(),
+                'fichier'  => $e->getFile(),
+                'ligne'    => $e->getLine(),
+                'trace'    => $e->getTraceAsString(),
+                'username' => $username,
+            ]);
+            Flash::error('Erreur lors de la création de l\'utilisateur : ' . $e->getMessage());
             Response::redirect('/admin/users/create');
         }
 

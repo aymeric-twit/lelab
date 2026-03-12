@@ -14,7 +14,7 @@
                         <td style="background-color: #004c4c; padding: 14px 24px; border-bottom: 3px solid #fbb03b;">
                             <table width="100%" cellpadding="0" cellspacing="0"><tr>
                                 <td style="width: 140px;">
-                                    <img src="<?= htmlspecialchars($_logoUrl ?? '') ?>" alt="Le lab" width="160" style="display: block;">
+                                    <img src="<?= htmlspecialchars($_logoUrl ?? '') ?>" alt="Le lab" width="220" style="display: block;">
                                 </td>
                                 <td style="text-align: center; color: #ffffff; font-family: 'Poppins', Arial, sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 0.02em;">
                                     Le lab

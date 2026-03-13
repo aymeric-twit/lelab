@@ -27,6 +27,7 @@ use Platform\Controller\AdminMaintenanceController;
 use Platform\Controller\AdminAuditController;
 use Platform\Controller\AdminEmailController;
 use Platform\Controller\AdminGroupController;
+use Platform\Controller\AdminMigrationController;
 use Platform\Controller\DesabonnementController;
 use Platform\Controller\LegalController;
 use Platform\Controller\WebhookGithubController;
@@ -202,6 +203,10 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->get('/admin/groups/{id}/edit', [$adminGroup, 'formulaireEdition']);
     $r->post('/admin/groups/{id}/edit', [$adminGroup, 'mettreAJour']);
     $r->post('/admin/groups/{id}/supprimer', [$adminGroup, 'supprimer']);
+
+    $adminMigration = new AdminMigrationController();
+    $r->get('/admin/migrations', [$adminMigration, 'index']);
+    $r->post('/admin/migrations', [$adminMigration, 'index']);
 });
 
 // -----------------------------------------------

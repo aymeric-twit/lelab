@@ -123,7 +123,7 @@ class AdminUserController
             $this->sauvegarderAccesEtQuotas($req, $db, $userId);
 
             AuditLogger::instance()->log(
-                AuditAction::UserCreate, $req->ip(), Auth::id(), 'user', $userId
+                AuditAction::UserCreate, $req->ipAnonymisee(), Auth::id(), 'user', $userId
             );
 
             $db->commit();
@@ -225,7 +225,7 @@ class AdminUserController
             $this->sauvegarderAccesEtQuotas($req, $db, $id);
 
             AuditLogger::instance()->log(
-                AuditAction::UserUpdate, $req->ip(), Auth::id(), 'user', $id
+                AuditAction::UserUpdate, $req->ipAnonymisee(), Auth::id(), 'user', $id
             );
 
             $db->commit();
@@ -274,7 +274,7 @@ class AdminUserController
                 default => AuditAction::UserUpdate,
             };
 
-            AuditLogger::instance()->log($auditAction, $req->ip(), $adminId, 'user', $id);
+            AuditLogger::instance()->log($auditAction, $req->ipAnonymisee(), $adminId, 'user', $id);
             $traites++;
         }
 

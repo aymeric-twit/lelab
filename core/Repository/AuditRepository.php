@@ -65,6 +65,20 @@ class AuditRepository
     }
 
     /**
+     * Supprime les entrées d'audit dans une plage de dates.
+     * Retourne le nombre de lignes supprimées.
+     */
+    public function purgerParPlage(string $dateDebut, string $dateFin): int
+    {
+        $stmt = $this->db->prepare(
+            'DELETE FROM audit_log WHERE created_at >= ? AND created_at <= ?'
+        );
+        $stmt->execute([$dateDebut . ' 00:00:00', $dateFin . ' 23:59:59']);
+
+        return $stmt->rowCount();
+    }
+
+    /**
      * @return array{0: string, 1: array<int, mixed>}
      */
     private function construireFiltres(array $filtres): array

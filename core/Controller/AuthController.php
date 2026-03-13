@@ -35,13 +35,13 @@ class AuthController
     {
         Csrf::validateOrAbort();
 
-        $ip = $req->ip();
+        $ipAnonyme = $req->ipAnonymisee();
         $username = trim($req->post('username', ''));
         $password = $req->post('password', '');
         $sesouvenir = (bool) $req->post('se_souvenir', false);
         $audit = AuditLogger::instance();
 
-        if (Auth::isRateLimited($ip)) {
+        if (Auth::isRateLimited($ipAnonyme)) {
             Flash::error('Trop de tentatives. Réessayez dans 15 minutes.');
             Response::redirect('/login');
         }
@@ -61,12 +61,12 @@ class AuthController
 
             // Pas de 2FA : connexion normale via Auth::attempt
             Auth::attempt($username, $password);
-            $audit->log(AuditAction::LoginSuccess, $ip, Auth::id(), 'user', null, ['username' => $username]);
+            $audit->log(AuditAction::LoginSuccess, $ipAnonyme, Auth::id(), 'user', null, ['username' => $username]);
 
             // Historique de connexion
             $db = Connection::get();
             $stmt = $db->prepare('INSERT INTO login_history (user_id, ip_address, user_agent) VALUES (?, ?, ?)');
-            $stmt->execute([Auth::id(), $ip, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
+            $stmt->execute([Auth::id(), $ipAnonyme, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
 
             if ($sesouvenir) {
                 RememberMe::creerToken(Auth::id());
@@ -77,7 +77,7 @@ class AuthController
 
         // Vérifier si le compte existe mais est inactif (email non vérifié)
         if ($utilisateur && !$utilisateur['active'] && PasswordHasher::verify($password, $utilisateur['password_hash'])) {
-            $audit->log(AuditAction::LoginFailed, $ip, (int) $utilisateur['id'], 'user', null, ['username' => $username, 'raison' => 'compte_inactif']);
+            $audit->log(AuditAction::LoginFailed, $ipAnonyme, (int) $utilisateur['id'], 'user', null, ['username' => $username, 'raison' => 'compte_inactif']);
             $inscriptionActive = Inscription::estActive();
             Layout::renderStandalone('login', [
                 'inscriptionActive' => $inscriptionActive,
@@ -87,7 +87,7 @@ class AuthController
             return;
         }
 
-        $audit->log(AuditAction::LoginFailed, $ip, null, 'user', null, ['username' => $username]);
+        $audit->log(AuditAction::LoginFailed, $ipAnonyme, null, 'user', null, ['username' => $username]);
         Flash::error('Identifiants incorrects.');
         Response::redirect('/login');
     }
@@ -121,9 +121,9 @@ class AuthController
             Response::abort(404);
         }
 
-        $ip = $req->ip();
+        $ipAnonyme = $req->ipAnonymisee();
 
-        if (Inscription::estLimitee($ip)) {
+        if (Inscription::estLimitee($ipAnonyme)) {
             Flash::error('Trop de tentatives d\'inscription. Réessayez plus tard.');
             Response::redirect('/inscription');
         }
@@ -147,7 +147,7 @@ class AuthController
             Response::redirect('/inscription');
         }
 
-        $compte = Inscription::creerCompte($donnees['username'], $donnees['email'], $donnees['password'], $ip);
+        $compte = Inscription::creerCompte($donnees['username'], $donnees['email'], $donnees['password'], $ipAnonyme);
 
         EmailVerification::envoyer($compte['id'], $compte['email'], $compte['username']);
 
@@ -196,7 +196,7 @@ class AuthController
             return;
         }
 
-        $resultat = EmailVerification::verifier($token, $req->ip());
+        $resultat = EmailVerification::verifier($token, $req->ipAnonymisee());
 
         if ($resultat) {
             Flash::success('Votre adresse email a été vérifiée. Vous pouvez maintenant vous connecter.');
@@ -232,7 +232,7 @@ class AuthController
             Response::redirect('/mot-de-passe-oublie');
         }
 
-        PasswordReset::demander($email, $req->ip());
+        PasswordReset::demander($email, $req->ipAnonymisee());
 
         // Anti-énumération : toujours le même message
         Flash::success('Si cette adresse est associée à un compte, un email de réinitialisation a été envoyé.');
@@ -271,7 +271,7 @@ class AuthController
             Response::redirect('/reinitialiser-mot-de-passe?token=' . urlencode($token));
         }
 
-        if (PasswordReset::reinitialiser($token, $donnees['password'], $req->ip())) {
+        if (PasswordReset::reinitialiser($token, $donnees['password'], $req->ipAnonymisee())) {
             Flash::success('Votre mot de passe a été réinitialisé. Connectez-vous avec votre nouveau mot de passe.');
             Response::redirect('/login');
         }
@@ -302,7 +302,7 @@ class AuthController
 
         $userId = (int) $_SESSION['_2fa_pending'];
         $code = trim($req->post('code', ''));
-        $ip = $req->ip();
+        $ipAnonyme = $req->ipAnonymisee();
         $audit = AuditLogger::instance();
 
         $repo = new UserRepository();
@@ -320,7 +320,7 @@ class AuthController
 
             // Connexion effective
             Auth::loginParId($userId);
-            $audit->log(AuditAction::LoginSuccess, $ip, $userId, 'user', null, [
+            $audit->log(AuditAction::LoginSuccess, $ipAnonyme, $userId, 'user', null, [
                 'username' => $utilisateur['username'],
                 '2fa' => true,
             ]);
@@ -328,7 +328,7 @@ class AuthController
             // Historique de connexion
             $db = Connection::get();
             $stmt = $db->prepare('INSERT INTO login_history (user_id, ip_address, user_agent) VALUES (?, ?, ?)');
-            $stmt->execute([$userId, $ip, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
+            $stmt->execute([$userId, $ipAnonyme, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
 
             if ($sesouvenir) {
                 RememberMe::creerToken($userId);
@@ -337,7 +337,7 @@ class AuthController
             Response::redirect('/');
         }
 
-        $audit->log(AuditAction::LoginFailed, $ip, $userId, 'user', null, [
+        $audit->log(AuditAction::LoginFailed, $ipAnonyme, $userId, 'user', null, [
             'username' => $utilisateur['username'],
             'raison' => '2fa_invalide',
         ]);

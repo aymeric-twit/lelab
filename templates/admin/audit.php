@@ -62,6 +62,25 @@ $filtreQueryString = $filtreParams ? '&' . http_build_query($filtreParams) : '';
     </div>
 </form>
 
+<!-- Purge -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <form method="POST" action="/admin/audit/purge" class="d-flex align-items-end gap-2"
+          onsubmit="return confirm('Supprimer définitivement toutes les entrées entre ces deux dates ?')">
+        <?= \Platform\Http\Csrf::field() ?>
+        <div>
+            <label for="purge-date-debut" class="form-label small mb-1">Du</label>
+            <input type="date" class="form-control form-control-sm" id="purge-date-debut" name="date_debut" required>
+        </div>
+        <div>
+            <label for="purge-date-fin" class="form-label small mb-1">Au</label>
+            <input type="date" class="form-control form-control-sm" id="purge-date-fin" name="date_fin" required>
+        </div>
+        <button type="submit" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-trash me-1"></i>Purger
+        </button>
+    </form>
+</div>
+
 <p class="text-muted small mb-2">
     <strong><?= $pagination['total'] ?></strong> entrée(s)
     <?php if ($filtreParams): ?>

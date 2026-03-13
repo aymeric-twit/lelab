@@ -94,3 +94,26 @@ test('isAjax reste inchangé et détecte uniquement X-Requested-With', function 
     expect($req->isAjax())->toBeFalse();
     expect($req->estRequeteAjax())->toBeTrue();
 });
+
+// === ipAnonymisee (RGPD) ===
+
+test('ipAnonymisee tronque le dernier octet IPv4', function () {
+    $_SERVER['REMOTE_ADDR'] = '192.168.1.42';
+    $req = new Request();
+
+    expect($req->ipAnonymisee())->toBe('192.168.1.0');
+});
+
+test('ipAnonymisee gère 0.0.0.0', function () {
+    $_SERVER['REMOTE_ADDR'] = '0.0.0.0';
+    $req = new Request();
+
+    expect($req->ipAnonymisee())->toBe('0.0.0.0');
+});
+
+test('ipAnonymisee gère une IP déjà anonymisée', function () {
+    $_SERVER['REMOTE_ADDR'] = '10.0.0.0';
+    $req = new Request();
+
+    expect($req->ipAnonymisee())->toBe('10.0.0.0');
+});

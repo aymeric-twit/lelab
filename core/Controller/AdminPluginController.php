@@ -411,7 +411,7 @@ class AdminPluginController
             $module = $stmt->fetch();
 
             AuditLogger::instance()->log(
-                AuditAction::PluginInstall, $req->ip(), Auth::id(), 'module', $moduleId,
+                AuditAction::PluginInstall, $req->ipAnonymisee(), Auth::id(), 'module', $moduleId,
                 ['slug' => $module['slug'] ?? '', 'chemin' => $module['chemin_source'] ?? '', 'mode' => 'zip']
             );
 
@@ -504,7 +504,7 @@ class AdminPluginController
             }
 
             AuditLogger::instance()->log(
-                AuditAction::PluginInstall, $req->ip(), Auth::id(), 'module', $moduleId,
+                AuditAction::PluginInstall, $req->ipAnonymisee(), Auth::id(), 'module', $moduleId,
                 ['slug' => $slug, 'chemin' => $chemin, 'mode' => 'chemin']
             );
         } catch (\Throwable $e) {
@@ -585,7 +585,7 @@ class AdminPluginController
             $resultat = $installer->mettreAJourDepuisGit($moduleId);
 
             AuditLogger::instance()->log(
-                AuditAction::PluginUpdate, $req->ip(), Auth::id(), 'module', $moduleId,
+                AuditAction::PluginUpdate, $req->ipAnonymisee(), Auth::id(), 'module', $moduleId,
                 ['action' => 'git-pull', 'commit' => $resultat['commit']]
             );
 
@@ -618,7 +618,7 @@ class AdminPluginController
                 $resultat = $installer->mettreAJourDepuisGit((int) $mod['id']);
 
                 AuditLogger::instance()->log(
-                    AuditAction::PluginUpdate, $req->ip(), Auth::id(), 'module', (int) $mod['id'],
+                    AuditAction::PluginUpdate, $req->ipAnonymisee(), Auth::id(), 'module', (int) $mod['id'],
                     ['action' => 'git-pull-batch', 'commit' => $resultat['commit']]
                 );
 
@@ -661,7 +661,7 @@ class AdminPluginController
             $module = $stmt->fetch();
 
             AuditLogger::instance()->log(
-                AuditAction::PluginInstall, $req->ip(), Auth::id(), 'module', $resultat['module_id'],
+                AuditAction::PluginInstall, $req->ipAnonymisee(), Auth::id(), 'module', $resultat['module_id'],
                 ['slug' => $resultat['slug'], 'git_url' => $url, 'mode' => 'git']
             );
 
@@ -804,7 +804,7 @@ class AdminPluginController
                 ]);
 
                 AuditLogger::instance()->log(
-                    AuditAction::PluginUpdate, $req->ip(), Auth::id(), 'module', $moduleId,
+                    AuditAction::PluginUpdate, $req->ipAnonymisee(), Auth::id(), 'module', $moduleId,
                     ['action' => 'resync']
                 );
 
@@ -893,7 +893,7 @@ class AdminPluginController
             ->execute([$gitUrl !== '' ? $gitUrl : null, $gitUrl !== '' ? $gitBranche : null, $moduleId]);
 
         AuditLogger::instance()->log(
-            AuditAction::PluginUpdate, $req->ip(), Auth::id(), 'module', $moduleId,
+            AuditAction::PluginUpdate, $req->ipAnonymisee(), Auth::id(), 'module', $moduleId,
             $brancheChangee ? ['action' => 'branch-switch', 'branche' => $gitBranche] : []
         );
 
@@ -921,7 +921,7 @@ class AdminPluginController
         $db->prepare('UPDATE modules SET enabled = ? WHERE id = ?')->execute([$nouvelEtat, $moduleId]);
 
         AuditLogger::instance()->log(
-            AuditAction::PluginUpdate, $req->ip(), Auth::id(), 'module', $moduleId,
+            AuditAction::PluginUpdate, $req->ipAnonymisee(), Auth::id(), 'module', $moduleId,
             ['enabled' => $nouvelEtat]
         );
 
@@ -949,7 +949,7 @@ class AdminPluginController
         $installer->desinstaller($moduleId, $conserverReglages, Auth::id());
 
         AuditLogger::instance()->log(
-            AuditAction::PluginUninstall, $req->ip(), Auth::id(), 'module', $moduleId,
+            AuditAction::PluginUninstall, $req->ipAnonymisee(), Auth::id(), 'module', $moduleId,
             [
                 'slug' => $module['slug'],
                 'chemin' => $module['chemin_source'] ?? null,

@@ -65,33 +65,37 @@ class UserRepository
         $page = max(1, $page);
         $offset = ($page - 1) * $parPage;
 
-        $conditions = ['deleted_at IS NULL'];
+        $conditions = ['u.deleted_at IS NULL'];
         $params = [];
 
         if (!empty($filtres['q'])) {
-            $conditions[] = '(username LIKE ? OR email LIKE ?)';
+            $conditions[] = '(u.username LIKE ? OR u.email LIKE ?)';
             $terme = '%' . $filtres['q'] . '%';
             $params[] = $terme;
             $params[] = $terme;
         }
 
         if (!empty($filtres['role']) && in_array($filtres['role'], ['admin', 'user'], true)) {
-            $conditions[] = 'role = ?';
+            $conditions[] = 'u.role = ?';
             $params[] = $filtres['role'];
         }
 
         if (isset($filtres['actif']) && $filtres['actif'] !== '') {
-            $conditions[] = 'active = ?';
+            $conditions[] = 'u.active = ?';
             $params[] = (int) $filtres['actif'];
         }
 
         $where = 'WHERE ' . implode(' AND ', $conditions);
 
-        $stmtCount = $this->db->prepare("SELECT COUNT(*) FROM users {$where}");
+        $stmtCount = $this->db->prepare("SELECT COUNT(*) FROM users u {$where}");
         $stmtCount->execute($params);
         $total = (int) $stmtCount->fetchColumn();
 
-        $sql = "SELECT * FROM users {$where} ORDER BY id LIMIT ? OFFSET ?";
+        $sql = "SELECT u.*, ug.name AS groupe_nom
+                FROM users u
+                LEFT JOIN user_group_members ugm ON ugm.user_id = u.id
+                LEFT JOIN user_groups ug ON ug.id = ugm.group_id
+                {$where} ORDER BY u.id LIMIT ? OFFSET ?";
         $stmt = $this->db->prepare($sql);
         $i = 1;
         foreach ($params as $param) {

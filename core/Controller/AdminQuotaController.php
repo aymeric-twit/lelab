@@ -38,7 +38,7 @@ class AdminQuotaController
         }
 
         AuditLogger::instance()->log(
-            AuditAction::QuotasUpdate, $req->ip(), Auth::id(), 'matrix', null, ['updated' => true]
+            AuditAction::QuotasUpdate, $req->ipAnonymisee(), Auth::id(), 'matrix', null, ['updated' => true]
         );
 
         Flash::success('Quotas mis à jour.');
@@ -56,7 +56,7 @@ class AdminQuotaController
         }
 
         AuditLogger::instance()->log(
-            AuditAction::QuotasUpdate, $req->ip(), Auth::id(), 'defaults', null, ['updated' => array_keys($defauts)]
+            AuditAction::QuotasUpdate, $req->ipAnonymisee(), Auth::id(), 'defaults', null, ['updated' => array_keys($defauts)]
         );
 
         Flash::success('Quotas par défaut mis à jour.');

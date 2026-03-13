@@ -41,7 +41,7 @@ class AdminAccessController
         }
 
         AuditLogger::instance()->log(
-            AuditAction::AccessUpdate, $req->ip(), Auth::id(), 'matrix', null, ['updated' => true]
+            AuditAction::AccessUpdate, $req->ipAnonymisee(), Auth::id(), 'matrix', null, ['updated' => true]
         );
 
         Flash::success('Accès mis à jour.');

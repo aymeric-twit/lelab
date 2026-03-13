@@ -122,6 +122,7 @@ $filtreQueryString = $filtreParams ? '&' . http_build_query($filtreParams) : '';
                                 <th>Nom d'utilisateur</th>
                                 <th>Email</th>
                                 <th>R&ocirc;le</th>
+                                <th>Groupe</th>
                                 <th>Actif</th>
                                 <th>Derni&egrave;re connexion</th>
                                 <th style="width:100px;"></th>
@@ -130,7 +131,7 @@ $filtreQueryString = $filtreParams ? '&' . http_build_query($filtreParams) : '';
                         <tbody>
                             <?php if (empty($users)): ?>
                             <tr>
-                                <td colspan="8" class="text-center py-4 text-muted">
+                                <td colspan="9" class="text-center py-4 text-muted">
                                     <i class="bi bi-inbox d-block mb-2" style="font-size: 2rem;"></i>
                                     Aucun utilisateur ne correspond aux critères.
                                 </td>
@@ -151,6 +152,13 @@ $filtreQueryString = $filtreParams ? '&' . http_build_query($filtreParams) : '';
                                         <span class="badge badge-role-admin">Admin</span>
                                     <?php else: ?>
                                         <span class="badge badge-role-user">User</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if (!empty($u['groupe_nom'])): ?>
+                                        <span class="badge" style="background: var(--brand-teal-light); color: var(--brand-dark); font-weight: 600;"><?= htmlspecialchars($u['groupe_nom']) ?></span>
+                                    <?php else: ?>
+                                        <span class="text-muted">—</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>

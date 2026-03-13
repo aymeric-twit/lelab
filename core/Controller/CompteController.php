@@ -107,7 +107,7 @@ class CompteController
                 'domaine' => $donnees['domaine'] ?: null,
             ]);
 
-            AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ip(), $user['id'], 'user', $user['id']);
+            AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ipAnonymisee(), $user['id'], 'user', $user['id']);
 
             Flash::info('Un email de confirmation a été envoyé à la nouvelle adresse.');
             Response::redirect('/mon-compte');
@@ -119,7 +119,7 @@ class CompteController
             'domaine' => $donnees['domaine'] ?: null,
         ]);
 
-        AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ip(), $user['id'], 'user', $user['id']);
+        AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ipAnonymisee(), $user['id'], 'user', $user['id']);
 
         Flash::success('Informations mises à jour.');
         Response::redirect('/mon-compte');
@@ -188,7 +188,7 @@ class CompteController
             'force_password_reset' => 0,
         ]);
 
-        AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ip(), $user['id'], 'user', $user['id'], [
+        AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ipAnonymisee(), $user['id'], 'user', $user['id'], [
             'action' => 'changement_mot_de_passe',
         ]);
 
@@ -220,7 +220,7 @@ class CompteController
         $repo = new UserRepository();
         $repo->supprimerCompte($user['id']);
 
-        AuditLogger::instance()->log(AuditAction::AccountDelete, $req->ip(), $user['id'], 'user', $user['id'], [
+        AuditLogger::instance()->log(AuditAction::AccountDelete, $req->ipAnonymisee(), $user['id'], 'user', $user['id'], [
             'username' => $user['username'],
         ]);
 
@@ -292,7 +292,7 @@ class CompteController
 
         unset($_SESSION['_2fa_setup_secret']);
 
-        AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ip(), $user['id'], 'user', $user['id'], [
+        AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ipAnonymisee(), $user['id'], 'user', $user['id'], [
             'action' => '2fa_activee',
         ]);
 
@@ -318,7 +318,7 @@ class CompteController
             'totp_enabled' => 0,
         ]);
 
-        AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ip(), $user['id'], 'user', $user['id'], [
+        AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ipAnonymisee(), $user['id'], 'user', $user['id'], [
             'action' => '2fa_desactivee',
         ]);
 

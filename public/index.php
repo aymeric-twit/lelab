@@ -187,6 +187,7 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
 
     $r->get('/admin/audit', [$adminAudit, 'index']);
     $r->get('/admin/audit/export-csv', [$adminAudit, 'exporterCsv']);
+    $r->post('/admin/audit/purge', [$adminAudit, 'purger']);
 
     $r->get('/admin/emails', [$adminEmail, 'index']);
     $r->post('/admin/emails/smtp', [$adminEmail, 'sauvegarderSmtp']);

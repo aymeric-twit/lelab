@@ -226,7 +226,7 @@ class Quota
         if (!$check->fetch()) {
             AuditLogger::instance()->log(
                 AuditAction::ModuleUse,
-                $_SERVER['REMOTE_ADDR'] ?? '',
+                preg_replace('/\.\d+$/', '.0', $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
                 $userId,
                 'module',
                 $moduleId,

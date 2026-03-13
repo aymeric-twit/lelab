@@ -4,9 +4,12 @@ namespace Platform\Controller;
 
 use Platform\Auth\Auth;
 use Platform\Enum\AuditAction;
+use Platform\Http\Csrf;
 use Platform\Http\Request;
+use Platform\Http\Response;
 use Platform\Repository\AuditRepository;
 use Platform\User\AccessControl;
+use Platform\View\Flash;
 use Platform\View\Layout;
 
 class AdminAuditController
@@ -61,6 +64,35 @@ class AdminAuditController
 
         fclose($out);
         exit;
+    }
+
+    public function purger(Request $req): void
+    {
+        Csrf::validateOrAbort();
+
+        $dateDebut = trim((string) $req->post('date_debut', ''));
+        $dateFin = trim((string) $req->post('date_fin', ''));
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateDebut) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFin)) {
+            Flash::error('Dates invalides. Veuillez sélectionner une plage de dates valide.');
+            Response::redirect('/admin/audit');
+        }
+
+        if ($dateDebut > $dateFin) {
+            Flash::error('La date de début doit être antérieure à la date de fin.');
+            Response::redirect('/admin/audit');
+        }
+
+        $repo = new AuditRepository();
+        $supprimees = $repo->purgerParPlage($dateDebut, $dateFin);
+
+        if ($supprimees > 0) {
+            Flash::success("{$supprimees} entrée(s) d'audit supprimée(s) du {$dateDebut} au {$dateFin}.");
+        } else {
+            Flash::set('info', 'Aucune entrée à supprimer dans cette plage.');
+        }
+
+        Response::redirect('/admin/audit');
     }
 
     /**

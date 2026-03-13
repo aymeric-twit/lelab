@@ -63,6 +63,29 @@ class Request
         return $remoteAddr;
     }
 
+    /**
+     * Adresse IP anonymisée (RGPD) : dernier octet IPv4 → 0, 80 derniers bits IPv6 → 0.
+     */
+    public function ipAnonymisee(): string
+    {
+        $ip = $this->ip();
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return preg_replace('/\.\d+$/', '.0', $ip);
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $packed = inet_pton($ip);
+            if ($packed !== false) {
+                // Masquer les 80 derniers bits (10 derniers octets)
+                $packed = substr($packed, 0, 6) . str_repeat("\0", 10);
+                return inet_ntop($packed);
+            }
+        }
+
+        return '0.0.0.0';
+    }
+
     public function header(string $name): ?string
     {
         $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));

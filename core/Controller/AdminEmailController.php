@@ -129,7 +129,7 @@ class AdminEmailController
         // Reset le singleton Mailer pour utiliser la nouvelle config
         Mailer::resetInstance();
 
-        AuditLogger::instance()->log(AuditAction::EmailConfigUpdate, $req->ip(), Auth::id(), 'settings');
+        AuditLogger::instance()->log(AuditAction::EmailConfigUpdate, $req->ipAnonymisee(), Auth::id(), 'settings');
 
         Flash::success('Configuration SMTP enregistrée.');
         Response::redirect('/admin/emails?onglet=smtp');
@@ -199,7 +199,7 @@ class AdminEmailController
             }
         }
 
-        AuditLogger::instance()->log(AuditAction::EmailConfigUpdate, $req->ip(), Auth::id(), 'settings');
+        AuditLogger::instance()->log(AuditAction::EmailConfigUpdate, $req->ipAnonymisee(), Auth::id(), 'settings');
 
         Flash::success('Configuration des notifications enregistrée.');
         Response::redirect('/admin/emails?onglet=notifications');

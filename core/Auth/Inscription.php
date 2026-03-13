@@ -69,6 +69,22 @@ class Inscription
                 $ac->setAccess($userId, (int) $moduleId, true);
             }
 
+            // Ajouter au groupe "Inscrits" (créé automatiquement s'il n'existe pas)
+            $stmtGroupe = $db->prepare('SELECT id FROM user_groups WHERE name = ? LIMIT 1');
+            $stmtGroupe->execute(['Inscrits']);
+            $groupe = $stmtGroupe->fetch();
+
+            if (!$groupe) {
+                $db->prepare('INSERT INTO user_groups (name, description, created_at, updated_at) VALUES (?, ?, NOW(), NOW())')
+                    ->execute(['Inscrits', 'Utilisateurs inscrits via le formulaire public']);
+                $groupeId = (int) $db->lastInsertId();
+            } else {
+                $groupeId = (int) $groupe['id'];
+            }
+
+            $db->prepare('INSERT IGNORE INTO user_group_members (group_id, user_id) VALUES (?, ?)')
+                ->execute([$groupeId, $userId]);
+
             $db->commit();
 
             AuditLogger::instance()->log(AuditAction::Inscription, $ip, $userId, 'user', null, [

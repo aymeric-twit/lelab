@@ -303,7 +303,7 @@ $ongletActif = $onglet ?? 'plugins';
                                     <th>Modules</th>
                                     <th>Valeur</th>
                                     <th>Statut</th>
-                                    <th>Requ&ecirc;tes ce mois</th>
+                                    <th>Requ&ecirc;tes</th>
                                     <th>Cr&eacute;dits</th>
                                     <th style="width: 220px;">Actions</th>
                                 </tr>
@@ -320,6 +320,11 @@ $ongletActif = $onglet ?? 'plugins';
                                         $creditsMensuels = $infoCle['credits_mensuels'];
                                         $usageMois = $infoCle['usage_mois'];
                                         $commentaire = $infoCle['commentaire'] ?? '';
+                                        $dateDebut = $infoCle['date_debut'] ?? '';
+                                        $prochainReset = $infoCle['prochain_reset'] ?? '';
+                                        $periode = $infoCle['periode'] ?? 'mensuel';
+                                        $labelCredits = $periode === 'hebdomadaire' ? 'sem.' : 'mois';
+                                        $labelReset = $periode === 'hebdomadaire' ? 'lun.' : '';
                                     ?>
                                     <tr>
                                         <td>
@@ -361,11 +366,16 @@ $ongletActif = $onglet ?? 'plugins';
                                                 ?>
                                                 <div style="font-size: 0.85rem;">
                                                     <strong><?= number_format($restants, 0, ',', ' ') ?></strong>
-                                                    <span class="text-muted">/ <?= number_format((int) $creditsMensuels, 0, ',', ' ') ?></span>
+                                                    <span class="text-muted">/ <?= number_format((int) $creditsMensuels, 0, ',', ' ') ?>/<?= $labelCredits ?></span>
                                                 </div>
                                                 <div class="progress mt-1" style="height: 4px; width: 80px;">
                                                     <div class="progress-bar <?= $barClass ?>" style="width: <?= $pctUtilise ?>%"></div>
                                                 </div>
+                                                <?php if ($prochainReset !== ''): ?>
+                                                    <div class="text-muted mt-1" style="font-size: 0.7rem;">
+                                                        Reset <?= $periode === 'hebdomadaire' ? 'lun.' : 'le' ?> <?= date('j', strtotime($prochainReset)) ?>&nbsp;<?= ['', 'jan.', 'f&eacute;v.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'ao&ucirc;t', 'sept.', 'oct.', 'nov.', 'd&eacute;c.'][(int) date('n', strtotime($prochainReset))] ?>
+                                                    </div>
+                                                <?php endif; ?>
                                             <?php else: ?>
                                                 <span class="text-muted">&mdash;</span>
                                             <?php endif; ?>
@@ -390,17 +400,26 @@ $ongletActif = $onglet ?? 'plugins';
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="credits-config-action" data-cle="<?= htmlspecialchars($cle) ?>" data-credits="<?= (int) ($creditsMensuels ?? 0) ?>" data-commentaire="<?= htmlspecialchars($commentaire) ?>">
+                                                <div class="credits-config-action" data-cle="<?= htmlspecialchars($cle) ?>" data-credits="<?= (int) ($creditsMensuels ?? 0) ?>" data-commentaire="<?= htmlspecialchars($commentaire) ?>" data-date-debut="<?= htmlspecialchars($dateDebut) ?>" data-periode="<?= htmlspecialchars($periode) ?>">
                                                     <button type="button" class="btn btn-sm btn-outline-secondary btn-config-credits" title="Configurer cr&eacute;dits &amp; commentaire">
                                                         <i class="bi bi-gear"></i>
                                                     </button>
                                                     <div class="credits-config-edit d-none">
-                                                        <div class="d-flex flex-column gap-1" style="min-width: 200px;">
+                                                        <div class="d-flex flex-column gap-1" style="min-width: 240px;">
                                                             <div class="input-group input-group-sm">
-                                                                <span class="input-group-text" style="font-size: 0.75rem;">Cr&eacute;dits/mois</span>
+                                                                <span class="input-group-text" style="font-size: 0.75rem;">Cr&eacute;dits</span>
                                                                 <input type="number" class="form-control credits-input" min="0"
                                                                        placeholder="Ex: 10000"
                                                                        value="<?= (int) ($creditsMensuels ?? 0) ?>">
+                                                                <select class="form-select periode-input" style="max-width: 90px; font-size: 0.75rem;">
+                                                                    <option value="mensuel"<?= $periode === 'mensuel' ? ' selected' : '' ?>>/mois</option>
+                                                                    <option value="hebdomadaire"<?= $periode === 'hebdomadaire' ? ' selected' : '' ?>>/sem.</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text" style="font-size: 0.75rem;">D&eacute;but</span>
+                                                                <input type="date" class="form-control date-debut-input"
+                                                                       value="<?= htmlspecialchars($dateDebut) ?>">
                                                             </div>
                                                             <div class="input-group input-group-sm">
                                                                 <span class="input-group-text" style="font-size: 0.75rem;">Note</span>
@@ -827,6 +846,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const btnConfig = container.querySelector('.btn-config-credits');
         const editZone = container.querySelector('.credits-config-edit');
         const creditsInput = container.querySelector('.credits-input');
+        const periodeInput = container.querySelector('.periode-input');
+        const dateDebutInput = container.querySelector('.date-debut-input');
         const commentaireInput = container.querySelector('.commentaire-input');
         const btnSauver = container.querySelector('.btn-sauver-credits');
         const btnAnnuler = container.querySelector('.btn-annuler-credits');
@@ -851,6 +872,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const formData = new FormData();
             formData.append('cle', cle);
             formData.append('credits_mensuels', creditsInput.value);
+            formData.append('periode', periodeInput.value);
+            formData.append('date_debut', dateDebutInput.value);
             formData.append('commentaire', commentaireInput.value);
             formData.append('_csrf_token', csrfToken);
 
@@ -877,6 +900,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         creditsInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); btnSauver.click(); }
+            if (e.key === 'Escape') { btnAnnuler.click(); }
+        });
+        dateDebutInput.addEventListener('keydown', e => {
             if (e.key === 'Enter') { e.preventDefault(); btnSauver.click(); }
             if (e.key === 'Escape') { btnAnnuler.click(); }
         });

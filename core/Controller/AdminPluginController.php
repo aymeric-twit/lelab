@@ -11,6 +11,7 @@ use Platform\Http\Response;
 use Platform\Module\GitClient;
 use Platform\Module\ModuleRegistry;
 use Platform\Module\PluginInstaller;
+use Platform\Module\Quota;
 use Platform\Service\AuditLogger;
 use Platform\User\AccessControl;
 use Platform\Repository\SettingsRepository;
@@ -77,15 +78,17 @@ class AdminPluginController
         $modulesAvecCles = array_filter($modules, fn(array $m) => !empty($m['_cles_env_liste']));
 
         // Grouper les clés d'API par clé unique (pour l'onglet Clés d'API enrichi)
-        $moisEnCours = date('Ym');
-        $usageParModule = [];
+        // Charger l'usage sur les 2 derniers mois (pour gérer les périodes décalées)
+        $moisCourant = date('Ym');
+        $moisPrecedent = date('Ym', strtotime('first day of last month'));
+        $usageParModulePeriode = []; // $usageParModulePeriode[$moduleId][$yearMonth] = total
         try {
             $stmtUsage = $db->prepare(
-                'SELECT module_id, SUM(usage_count) AS total FROM module_usage WHERE year_month = ? GROUP BY module_id'
+                'SELECT module_id, year_month, SUM(usage_count) AS total FROM module_usage WHERE year_month IN (?, ?) GROUP BY module_id, year_month'
             );
-            $stmtUsage->execute([$moisEnCours]);
+            $stmtUsage->execute([$moisCourant, $moisPrecedent]);
             foreach ($stmtUsage->fetchAll() as $row) {
-                $usageParModule[(int) $row['module_id']] = (int) $row['total'];
+                $usageParModulePeriode[(int) $row['module_id']][$row['year_month']] = (int) $row['total'];
             }
         } catch (\PDOException) {
             // Table module_usage pas encore créée
@@ -118,6 +121,14 @@ class AdminPluginController
                         $envGetenv = getenv($cle);
                         $valeur = $envGetenv !== false ? $envGetenv : '';
                     }
+                    $dateDebut = $creditsConfig[$cle]['date_debut'] ?? null;
+                    $jourDebut = $dateDebut !== null ? (int) date('j', strtotime($dateDebut)) : 1;
+                    $periode = $creditsConfig[$cle]['periode'] ?? 'mensuel';
+                    $periodeActive = Quota::currentPeriod($jourDebut);
+                    $prochainReset = $periode === 'hebdomadaire'
+                        ? self::calculerProchainResetHebdo()
+                        : self::calculerProchainReset($jourDebut);
+
                     $clesApiGroupees[$cle] = [
                         'cle'              => $cle,
                         'valeur'           => $valeur,
@@ -125,17 +136,24 @@ class AdminPluginController
                         'modules'          => [],
                         'usage_mois'       => 0,
                         'credits_mensuels' => $creditsConfig[$cle]['credits_mensuels'] ?? null,
+                        'date_debut'       => $dateDebut,
+                        'jour_debut'       => $jourDebut,
+                        'periode'          => $periode,
+                        'periode_active'   => $periodeActive,
+                        'prochain_reset'   => $prochainReset,
                         'commentaire'      => $creditsConfig[$cle]['commentaire'] ?? '',
                         'api_doc_url'      => $mod['_api_doc_url'] ?? '',
                     ];
                 }
+                $moduleId = (int) $mod['id'];
                 $clesApiGroupees[$cle]['modules'][] = [
-                    'id'   => (int) $mod['id'],
+                    'id'   => $moduleId,
                     'name' => $mod['name'],
                     'icon' => $mod['icon'] ?? 'bi-tools',
                     'slug' => $mod['slug'],
                 ];
-                $clesApiGroupees[$cle]['usage_mois'] += $usageParModule[(int) $mod['id']] ?? 0;
+                $periodeActive = $clesApiGroupees[$cle]['periode_active'];
+                $clesApiGroupees[$cle]['usage_mois'] += $usageParModulePeriode[$moduleId][$periodeActive] ?? 0;
                 if (empty($clesApiGroupees[$cle]['api_doc_url']) && !empty($mod['_api_doc_url'])) {
                     $clesApiGroupees[$cle]['api_doc_url'] = $mod['_api_doc_url'];
                 }
@@ -951,7 +969,7 @@ class AdminPluginController
             }
         }
 
-        // Calcul local : config manuelle - usage du mois
+        // Calcul local : config manuelle - usage de la période
         $db = Connection::get();
         $settingsRepo = new SettingsRepository($db);
         $configJson = $settingsRepo->obtenir('api_credits', $cle);
@@ -961,13 +979,17 @@ class AdminPluginController
             $creditsMensuels = $config['credits_mensuels'] ?? null;
 
             if ($creditsMensuels !== null) {
-                $usageMois = $this->calculerUsageParCle($db, $cle);
+                $dateDebut = $config['date_debut'] ?? null;
+                $jourDebut = $dateDebut !== null ? (int) date('j', strtotime($dateDebut)) : 1;
+                $usageMois = $this->calculerUsageParCle($db, $cle, $jourDebut);
                 $restants = max(0, (int) $creditsMensuels - $usageMois);
+                $prochainReset = self::calculerProchainReset($jourDebut);
                 Response::json([
                     'ok'               => true,
                     'credits'          => $restants,
                     'credits_mensuels' => (int) $creditsMensuels,
                     'usage_mois'       => $usageMois,
+                    'prochain_reset'   => $prochainReset,
                     'source'           => 'config',
                 ]);
             }
@@ -983,6 +1005,8 @@ class AdminPluginController
     {
         $cle = trim($req->post('cle', ''));
         $creditsMensuels = $req->post('credits_mensuels', '');
+        $dateDebut = trim($req->post('date_debut', ''));
+        $periode = trim($req->post('periode', ''));
         $commentaire = trim($req->post('commentaire', ''));
 
         if ($cle === '') {
@@ -1005,6 +1029,14 @@ class AdminPluginController
             unset($configExistante['credits_mensuels']);
         }
 
+        if ($dateDebut !== '') {
+            $configExistante['date_debut'] = $dateDebut;
+        }
+
+        if (in_array($periode, ['mensuel', 'hebdomadaire'], true)) {
+            $configExistante['periode'] = $periode;
+        }
+
         $configExistante['commentaire'] = $commentaire;
 
         $settingsRepo->definir('api_credits', $cle, json_encode($configExistante, JSON_UNESCAPED_UNICODE));
@@ -1013,9 +1045,42 @@ class AdminPluginController
     }
 
     /**
-     * Calcule l'usage total du mois en cours pour tous les modules utilisant une clé API.
+     * Calcule la date du prochain reset pour un jour de début donné.
      */
-    private function calculerUsageParCle(\PDO $db, string $cle): int
+    private static function calculerProchainReset(int $jourDebut): string
+    {
+        $jourActuel = (int) date('j');
+        if ($jourActuel < $jourDebut) {
+            // Le reset est ce mois-ci
+            $mois = (int) date('n');
+            $annee = (int) date('Y');
+        } else {
+            // Le reset est le mois prochain
+            $mois = (int) date('n') + 1;
+            $annee = (int) date('Y');
+            if ($mois > 12) {
+                $mois = 1;
+                $annee++;
+            }
+        }
+        // Gérer les mois courts (ex: jour 31 en février → dernier jour du mois)
+        $dernierJourMois = (int) date('t', mktime(0, 0, 0, $mois, 1, $annee));
+        $jour = min($jourDebut, $dernierJourMois);
+        return sprintf('%04d-%02d-%02d', $annee, $mois, $jour);
+    }
+
+    /**
+     * Prochain lundi (reset hebdomadaire, lundi–dimanche).
+     */
+    private static function calculerProchainResetHebdo(): string
+    {
+        return date('Y-m-d', strtotime('next monday'));
+    }
+
+    /**
+     * Calcule l'usage total de la période en cours pour tous les modules utilisant une clé API.
+     */
+    private function calculerUsageParCle(\PDO $db, string $cle, int $jourDebut = 1): int
     {
         $modules = $db->query('SELECT id, cles_env FROM modules WHERE cles_env IS NOT NULL AND desinstalle_le IS NULL')->fetchAll();
         $moduleIds = [];
@@ -1031,8 +1096,8 @@ class AdminPluginController
         }
 
         $placeholders = implode(',', array_fill(0, count($moduleIds), '?'));
-        $moisEnCours = date('Ym');
-        $params = array_merge($moduleIds, [$moisEnCours]);
+        $periodeActive = Quota::currentPeriod($jourDebut);
+        $params = array_merge($moduleIds, [$periodeActive]);
 
         $stmt = $db->prepare(
             "SELECT SUM(usage_count) AS total FROM module_usage WHERE module_id IN ({$placeholders}) AND year_month = ?"

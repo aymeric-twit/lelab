@@ -141,3 +141,17 @@ test('devrait retourner null si domain_field absent', function () {
     $desc = creerDescriptor();
     expect($desc->domainField)->toBeNull();
 });
+
+// Tests api_credits_period et api_credits_default
+
+test('devrait utiliser mensuel par défaut pour apiCreditsPeriod', function () {
+    $desc = creerDescriptor();
+    expect($desc->apiCreditsPeriod)->toBe('mensuel');
+    expect($desc->apiCreditsDefault)->toBe(0);
+});
+
+test('devrait lire api_credits_period hebdomadaire', function () {
+    $desc = creerDescriptor(['api_credits_period' => 'hebdomadaire', 'api_credits_default' => 10000]);
+    expect($desc->apiCreditsPeriod)->toBe('hebdomadaire');
+    expect($desc->apiCreditsDefault)->toBe(10000);
+});

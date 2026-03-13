@@ -20,6 +20,8 @@ beforeEach(function () {
         sort_order INTEGER DEFAULT 100,
         quota_mode TEXT DEFAULT "none",
         default_quota INTEGER DEFAULT 0,
+        api_credits_period TEXT DEFAULT "mensuel",
+        api_credits_default INTEGER DEFAULT 0,
         enabled INTEGER DEFAULT 1,
         chemin_source TEXT,
         point_entree TEXT DEFAULT "index.php",

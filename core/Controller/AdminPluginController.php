@@ -11,6 +11,7 @@ use Platform\Http\Response;
 use Platform\Module\GitClient;
 use Platform\Module\ModuleRegistry;
 use Platform\Module\PluginInstaller;
+use Platform\Module\ApiCreditsTracker;
 use Platform\Module\Quota;
 use Platform\Service\AuditLogger;
 use Platform\User\AccessControl;
@@ -78,10 +79,21 @@ class AdminPluginController
         $modulesAvecCles = array_filter($modules, fn(array $m) => !empty($m['_cles_env_liste']));
 
         // Grouper les clés d'API par clé unique (pour l'onglet Clés d'API enrichi)
-        // Charger l'usage sur les 2 derniers mois (pour gérer les périodes décalées)
+        // Charger l'usage depuis api_credits_usage (nouveau) avec fallback module_usage
+        $usageApiCredits = []; // $usageApiCredits[$cleApi] = usage_count
+        try {
+            $stmtApiUsage = $db->query('SELECT cle_api, periode_id, usage_count FROM api_credits_usage');
+            foreach ($stmtApiUsage->fetchAll() as $row) {
+                $usageApiCredits[$row['cle_api']][$row['periode_id']] = (int) $row['usage_count'];
+            }
+        } catch (\PDOException) {
+            // Table api_credits_usage pas encore créée
+        }
+
+        // Fallback : charger aussi module_usage pour les clés pas encore dans api_credits_usage
         $moisCourant = date('Ym');
         $moisPrecedent = date('Ym', strtotime('first day of last month'));
-        $usageParModulePeriode = []; // $usageParModulePeriode[$moduleId][$yearMonth] = total
+        $usageParModulePeriode = [];
         try {
             $stmtUsage = $db->prepare(
                 'SELECT module_id, year_month, SUM(usage_count) AS total FROM module_usage WHERE year_month IN (?, ?) GROUP BY module_id, year_month'
@@ -152,13 +164,29 @@ class AdminPluginController
                     'icon' => $mod['icon'] ?? 'bi-tools',
                     'slug' => $mod['slug'],
                 ];
-                $periodeActive = $clesApiGroupees[$cle]['periode_active'];
-                $clesApiGroupees[$cle]['usage_mois'] += $usageParModulePeriode[$moduleId][$periodeActive] ?? 0;
                 if (empty($clesApiGroupees[$cle]['api_doc_url']) && !empty($mod['_api_doc_url'])) {
                     $clesApiGroupees[$cle]['api_doc_url'] = $mod['_api_doc_url'];
                 }
             }
         }
+
+        // Calculer usage_mois pour chaque clé API depuis api_credits_usage (avec fallback module_usage)
+        foreach ($clesApiGroupees as $cle => &$infoCle) {
+            $periodeId = $infoCle['periode'] === 'hebdomadaire'
+                ? ApiCreditsTracker::currentWeekPeriod()
+                : Quota::currentPeriod($infoCle['jour_debut']);
+
+            if (isset($usageApiCredits[$cle][$periodeId])) {
+                $infoCle['usage_mois'] = $usageApiCredits[$cle][$periodeId];
+            } else {
+                // Fallback: somme depuis module_usage
+                $periodeActive = Quota::currentPeriod($infoCle['jour_debut']);
+                foreach ($infoCle['modules'] as $modInfo) {
+                    $infoCle['usage_mois'] += $usageParModulePeriode[$modInfo['id']][$periodeActive] ?? 0;
+                }
+            }
+        }
+        unset($infoCle);
 
         // Modules Git / sans Git (pour l'onglet MAJ Github)
         $modulesGit = array_filter($modules, fn(array $m) => !empty($m['git_url']));
@@ -757,20 +785,22 @@ class AdminPluginController
                 }
 
                 $installer->mettreAJour($moduleId, [
-                    'name'            => $moduleJson['name'],
-                    'description'     => $moduleJson['description'] ?? '',
-                    'version'         => $moduleJson['version'] ?? '1.0.0',
-                    'icon'            => $moduleJson['icon'] ?? 'bi-tools',
-                    'sort_order'      => (int) ($moduleJson['sort_order'] ?? 100),
-                    'quota_mode'      => $moduleJson['quota_mode'] ?? 'none',
-                    'default_quota'   => (int) ($moduleJson['default_quota'] ?? 0),
-                    'point_entree'    => $moduleJson['entry_point'] ?? 'index.php',
-                    'cles_env'        => $clesEnv,
-                    'routes_config'   => !empty($moduleJson['routes']) ? $moduleJson['routes'] : null,
-                    'passthrough_all' => !empty($moduleJson['passthrough_all']),
-                    'mode_affichage'  => $moduleJson['display_mode'] ?? 'embedded',
-                    'langues'         => $moduleJson['languages'] ?? [],
-                    'categorie_id'    => $resyncCategorieId,
+                    'name'                => $moduleJson['name'],
+                    'description'         => $moduleJson['description'] ?? '',
+                    'version'             => $moduleJson['version'] ?? '1.0.0',
+                    'icon'                => $moduleJson['icon'] ?? 'bi-tools',
+                    'sort_order'          => (int) ($moduleJson['sort_order'] ?? 100),
+                    'quota_mode'          => $moduleJson['quota_mode'] ?? 'none',
+                    'default_quota'       => (int) ($moduleJson['default_quota'] ?? 0),
+                    'api_credits_period'  => $moduleJson['api_credits_period'] ?? 'mensuel',
+                    'api_credits_default' => (int) ($moduleJson['api_credits_default'] ?? 0),
+                    'point_entree'        => $moduleJson['entry_point'] ?? 'index.php',
+                    'cles_env'            => $clesEnv,
+                    'routes_config'       => !empty($moduleJson['routes']) ? $moduleJson['routes'] : null,
+                    'passthrough_all'     => !empty($moduleJson['passthrough_all']),
+                    'mode_affichage'      => $moduleJson['display_mode'] ?? 'embedded',
+                    'langues'             => $moduleJson['languages'] ?? [],
+                    'categorie_id'        => $resyncCategorieId,
                 ]);
 
                 AuditLogger::instance()->log(
@@ -806,20 +836,22 @@ class AdminPluginController
 
         $installer = new PluginInstaller($db);
         $installer->mettreAJour($moduleId, [
-            'name'            => trim($req->post('name', '')),
-            'description'     => trim($req->post('description', '')),
-            'version'         => trim($req->post('version', '1.0.0')),
-            'icon'            => trim($req->post('icon', 'bi-tools')),
-            'sort_order'      => (int) $req->post('sort_order', 100),
-            'quota_mode'      => $req->post('quota_mode', 'none'),
-            'default_quota'   => (int) $req->post('default_quota', 0),
-            'point_entree'    => trim($req->post('point_entree', 'index.php')),
-            'cles_env'        => $clesEnv !== [] ? $clesEnv : null,
-            'routes_config'   => $routesExistantes,
-            'passthrough_all' => $req->post('mode_affichage', 'embedded') === 'passthrough',
-            'mode_affichage'  => $req->post('mode_affichage', 'embedded'),
-            'langues'         => $languesExistantes,
-            'categorie_id'    => $categorieId !== '' ? (int) $categorieId : null,
+            'name'                => trim($req->post('name', '')),
+            'description'         => trim($req->post('description', '')),
+            'version'             => trim($req->post('version', '1.0.0')),
+            'icon'                => trim($req->post('icon', 'bi-tools')),
+            'sort_order'          => (int) $req->post('sort_order', 100),
+            'quota_mode'          => $req->post('quota_mode', 'none'),
+            'default_quota'       => (int) $req->post('default_quota', 0),
+            'api_credits_period'  => $req->post('api_credits_period', 'mensuel'),
+            'api_credits_default' => (int) $req->post('api_credits_default', 0),
+            'point_entree'        => trim($req->post('point_entree', 'index.php')),
+            'cles_env'            => $clesEnv !== [] ? $clesEnv : null,
+            'routes_config'       => $routesExistantes,
+            'passthrough_all'     => $req->post('mode_affichage', 'embedded') === 'passthrough',
+            'mode_affichage'      => $req->post('mode_affichage', 'embedded'),
+            'langues'             => $languesExistantes,
+            'categorie_id'        => $categorieId !== '' ? (int) $categorieId : null,
         ]);
 
         // Sauvegarder git_url et git_branche
@@ -981,15 +1013,19 @@ class AdminPluginController
             if ($creditsMensuels !== null) {
                 $dateDebut = $config['date_debut'] ?? null;
                 $jourDebut = $dateDebut !== null ? (int) date('j', strtotime($dateDebut)) : 1;
-                $usageMois = $this->calculerUsageParCle($db, $cle, $jourDebut);
+                $periode = $config['periode'] ?? 'mensuel';
+                $usageMois = $this->calculerUsageParCle($db, $cle, $jourDebut, $periode);
                 $restants = max(0, (int) $creditsMensuels - $usageMois);
-                $prochainReset = self::calculerProchainReset($jourDebut);
+                $prochainReset = $periode === 'hebdomadaire'
+                    ? self::calculerProchainResetHebdo()
+                    : self::calculerProchainReset($jourDebut);
                 Response::json([
                     'ok'               => true,
                     'credits'          => $restants,
                     'credits_mensuels' => (int) $creditsMensuels,
                     'usage_mois'       => $usageMois,
                     'prochain_reset'   => $prochainReset,
+                    'periode'          => $periode,
                     'source'           => 'config',
                 ]);
             }
@@ -1080,7 +1116,33 @@ class AdminPluginController
     /**
      * Calcule l'usage total de la période en cours pour tous les modules utilisant une clé API.
      */
-    private function calculerUsageParCle(\PDO $db, string $cle, int $jourDebut = 1): int
+    private function calculerUsageParCle(\PDO $db, string $cle, int $jourDebut = 1, string $periode = 'mensuel'): int
+    {
+        // Requêter la table api_credits_usage (nouveau tracking)
+        try {
+            $periodeId = $periode === 'hebdomadaire'
+                ? ApiCreditsTracker::currentWeekPeriod()
+                : Quota::currentPeriod($jourDebut);
+
+            $stmt = $db->prepare('SELECT usage_count FROM api_credits_usage WHERE cle_api = ? AND periode_id = ?');
+            $stmt->execute([$cle, $periodeId]);
+            $row = $stmt->fetch();
+
+            if ($row !== false) {
+                return (int) $row['usage_count'];
+            }
+        } catch (\PDOException) {
+            // Table pas encore créée
+        }
+
+        // Fallback : module_usage (transition)
+        return $this->calculerUsageDepuisModuleUsage($db, $cle, $jourDebut);
+    }
+
+    /**
+     * Fallback : calcul usage depuis module_usage (avant migration vers api_credits_usage).
+     */
+    private function calculerUsageDepuisModuleUsage(\PDO $db, string $cle, int $jourDebut): int
     {
         $modules = $db->query('SELECT id, cles_env FROM modules WHERE cles_env IS NOT NULL AND desinstalle_le IS NULL')->fetchAll();
         $moduleIds = [];

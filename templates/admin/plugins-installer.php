@@ -187,6 +187,25 @@
                         <input type="number" class="form-control" id="default_quota" name="default_quota" value="0" min="0">
                     </div>
 
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="api_credits_period" class="form-label">P&eacute;riode cr&eacute;dits API</label>
+                                <select class="form-select" id="api_credits_period" name="api_credits_period">
+                                    <option value="mensuel">Mensuel</option>
+                                    <option value="hebdomadaire">Hebdomadaire</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="api_credits_default" class="form-label">Cr&eacute;dits API / p&eacute;riode</label>
+                                <input type="number" class="form-control" id="api_credits_default" name="api_credits_default" value="0" min="0">
+                                <small class="text-muted">0 = non configur&eacute;</small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label for="cles_env" class="form-label">Clés d'environnement</label>
                         <input type="text" class="form-control" id="cles_env" name="cles_env"
@@ -499,6 +518,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sort_order').value = data.sort_order || 100;
         document.getElementById('quota_mode').value = data.quota_mode || 'none';
         document.getElementById('default_quota').value = data.default_quota || 0;
+        document.getElementById('api_credits_period').value = data.api_credits_period || 'mensuel';
+        document.getElementById('api_credits_default').value = data.api_credits_default || 0;
         document.getElementById('cles_env').value = (data.env_keys || []).join(', ');
         document.getElementById('mode_affichage').value = data.display_mode || 'embedded';
         document.getElementById('categorie_id').value = data.categorie_id || '';

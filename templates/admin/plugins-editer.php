@@ -201,6 +201,26 @@ $clesEnv = $module['cles_env'] ? json_decode($module['cles_env'], true) : [];
                                value="<?= (int) ($module['default_quota'] ?? 0) ?>" min="0">
                     </div>
 
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="api_credits_period" class="form-label">P&eacute;riode cr&eacute;dits API</label>
+                                <select class="form-select" id="api_credits_period" name="api_credits_period">
+                                    <option value="mensuel" <?= ($module['api_credits_period'] ?? 'mensuel') === 'mensuel' ? 'selected' : '' ?>>Mensuel</option>
+                                    <option value="hebdomadaire" <?= ($module['api_credits_period'] ?? '') === 'hebdomadaire' ? 'selected' : '' ?>>Hebdomadaire</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label for="api_credits_default" class="form-label">Cr&eacute;dits API / p&eacute;riode</label>
+                                <input type="number" class="form-control" id="api_credits_default" name="api_credits_default"
+                                       value="<?= (int) ($module['api_credits_default'] ?? 0) ?>" min="0">
+                                <small class="text-muted">0 = non configur&eacute;</small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label for="cles_env" class="form-label">Clés d'environnement</label>
                         <input type="text" class="form-control" id="cles_env" name="cles_env"

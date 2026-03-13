@@ -7,6 +7,7 @@ use Platform\Database\Connection;
 use Platform\Http\Request;
 use Platform\Http\Response;
 use Platform\Module\DependencyInstaller;
+use Platform\Module\ApiCreditsTracker;
 use Platform\Module\Quota;
 use Platform\User\AccessControl;
 use Platform\View\Flash;
@@ -107,9 +108,11 @@ class AdminMaintenanceController
     public function purgerUsage(Request $req): void
     {
         $supprimees = Quota::purgerAncienUsage(12);
+        $supprimeesApi = ApiCreditsTracker::purger(6);
+        $total = $supprimees + $supprimeesApi;
 
-        if ($supprimees > 0) {
-            Flash::success("{$supprimees} ligne(s) d'usage supprimée(s).");
+        if ($total > 0) {
+            Flash::success("{$total} ligne(s) d'usage supprimée(s) ({$supprimees} quotas + {$supprimeesApi} crédits API).");
         } else {
             Flash::set('info', 'Aucune donnée à purger.');
         }

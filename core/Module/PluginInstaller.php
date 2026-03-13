@@ -130,39 +130,44 @@ class PluginInstaller
         $stmt = $this->db->prepare('
             INSERT INTO modules (
                 slug, name, description, version, icon, sort_order,
-                quota_mode, default_quota, enabled,
+                quota_mode, default_quota, api_credits_period, api_credits_default, enabled,
                 chemin_source, point_entree, cles_env, routes_config, passthrough_all,
                 mode_affichage, langues, domain_field, categorie_id, installe_par, installe_le
             ) VALUES (
                 :slug, :name, :description, :version, :icon, :sort_order,
-                :quota_mode, :default_quota, 1,
+                :quota_mode, :default_quota, :api_credits_period, :api_credits_default, 1,
                 :chemin_source, :point_entree, :cles_env, :routes_config, :passthrough_all,
                 :mode_affichage, :langues, :domain_field, :categorie_id, :installe_par, NOW()
             )
         ');
 
         $stmt->execute([
-            'slug'            => $donnees['slug'],
-            'name'            => $donnees['name'],
-            'description'     => $donnees['description'] ?? '',
-            'version'         => $donnees['version'] ?? '1.0.0',
-            'icon'            => $donnees['icon'] ?? 'bi-tools',
-            'sort_order'      => (int) ($donnees['sort_order'] ?? 100),
-            'quota_mode'      => $donnees['quota_mode'] ?? 'none',
-            'default_quota'   => (int) ($donnees['default_quota'] ?? 0),
-            'chemin_source'   => $donnees['chemin_source'],
-            'point_entree'    => $donnees['point_entree'] ?? 'index.php',
-            'cles_env'        => !empty($donnees['cles_env']) ? json_encode($donnees['cles_env']) : null,
-            'routes_config'   => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
-            'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
-            'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
-            'langues'         => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
-            'domain_field'    => $donnees['domain_field'] ?? null,
-            'categorie_id'    => $donnees['categorie_id'] ?? null,
-            'installe_par'    => $installeParId,
+            'slug'                => $donnees['slug'],
+            'name'                => $donnees['name'],
+            'description'         => $donnees['description'] ?? '',
+            'version'             => $donnees['version'] ?? '1.0.0',
+            'icon'                => $donnees['icon'] ?? 'bi-tools',
+            'sort_order'          => (int) ($donnees['sort_order'] ?? 100),
+            'quota_mode'          => $donnees['quota_mode'] ?? 'none',
+            'default_quota'       => (int) ($donnees['default_quota'] ?? 0),
+            'api_credits_period'  => $donnees['api_credits_period'] ?? 'mensuel',
+            'api_credits_default' => (int) ($donnees['api_credits_default'] ?? 0),
+            'chemin_source'       => $donnees['chemin_source'],
+            'point_entree'        => $donnees['point_entree'] ?? 'index.php',
+            'cles_env'            => !empty($donnees['cles_env']) ? json_encode($donnees['cles_env']) : null,
+            'routes_config'       => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
+            'passthrough_all'     => !empty($donnees['passthrough_all']) ? 1 : 0,
+            'mode_affichage'      => $donnees['mode_affichage'] ?? 'embedded',
+            'langues'             => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
+            'domain_field'        => $donnees['domain_field'] ?? null,
+            'categorie_id'        => $donnees['categorie_id'] ?? null,
+            'installe_par'        => $installeParId,
         ]);
 
         $moduleId = (int) $this->db->lastInsertId();
+
+        // Initialiser la config crédits API par défaut pour chaque clé d'env
+        $this->initialiserCreditsApiDefauts($donnees);
 
         // Auto-attribution de l'accès à tous les utilisateurs actifs
         $this->accorderAccesTousUtilisateurs($moduleId, $installeParId);
@@ -192,6 +197,8 @@ class PluginInstaller
                 sort_order = :sort_order,
                 quota_mode = :quota_mode,
                 default_quota = :default_quota,
+                api_credits_period = :api_credits_period,
+                api_credits_default = :api_credits_default,
                 enabled = 1,
                 chemin_source = :chemin_source,
                 point_entree = :point_entree,
@@ -210,24 +217,26 @@ class PluginInstaller
         ');
 
         $stmt->execute([
-            'id'              => $moduleId,
-            'name'            => $donnees['name'],
-            'description'     => $donnees['description'] ?? '',
-            'version'         => $donnees['version'] ?? '1.0.0',
-            'icon'            => $donnees['icon'] ?? 'bi-tools',
-            'sort_order'      => (int) ($donnees['sort_order'] ?? 100),
-            'quota_mode'      => $donnees['quota_mode'] ?? 'none',
-            'default_quota'   => (int) ($donnees['default_quota'] ?? 0),
-            'chemin_source'   => $donnees['chemin_source'],
-            'point_entree'    => $donnees['point_entree'] ?? 'index.php',
-            'cles_env'        => !empty($donnees['cles_env']) ? json_encode($donnees['cles_env']) : null,
-            'routes_config'   => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
-            'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
-            'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
-            'langues'         => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
-            'domain_field'    => $donnees['domain_field'] ?? null,
-            'categorie_id'    => $donnees['categorie_id'] ?? null,
-            'installe_par'    => $installeParId,
+            'id'                  => $moduleId,
+            'name'                => $donnees['name'],
+            'description'         => $donnees['description'] ?? '',
+            'version'             => $donnees['version'] ?? '1.0.0',
+            'icon'                => $donnees['icon'] ?? 'bi-tools',
+            'sort_order'          => (int) ($donnees['sort_order'] ?? 100),
+            'quota_mode'          => $donnees['quota_mode'] ?? 'none',
+            'default_quota'       => (int) ($donnees['default_quota'] ?? 0),
+            'api_credits_period'  => $donnees['api_credits_period'] ?? 'mensuel',
+            'api_credits_default' => (int) ($donnees['api_credits_default'] ?? 0),
+            'chemin_source'       => $donnees['chemin_source'],
+            'point_entree'        => $donnees['point_entree'] ?? 'index.php',
+            'cles_env'            => !empty($donnees['cles_env']) ? json_encode($donnees['cles_env']) : null,
+            'routes_config'       => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
+            'passthrough_all'     => !empty($donnees['passthrough_all']) ? 1 : 0,
+            'mode_affichage'      => $donnees['mode_affichage'] ?? 'embedded',
+            'langues'             => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
+            'domain_field'        => $donnees['domain_field'] ?? null,
+            'categorie_id'        => $donnees['categorie_id'] ?? null,
+            'installe_par'        => $installeParId,
         ]);
 
         // Accorder l'accès à tous les utilisateurs actifs (réactivation = nouveau plugin pour eux)
@@ -257,6 +266,8 @@ class PluginInstaller
                 sort_order = :sort_order,
                 quota_mode = :quota_mode,
                 default_quota = :default_quota,
+                api_credits_period = :api_credits_period,
+                api_credits_default = :api_credits_default,
                 point_entree = :point_entree,
                 cles_env = :cles_env,
                 routes_config = :routes_config,
@@ -269,23 +280,60 @@ class PluginInstaller
         ');
 
         $stmt->execute([
-            'id'              => $moduleId,
-            'name'            => $donnees['name'],
-            'description'     => $donnees['description'] ?? '',
-            'version'         => $donnees['version'] ?? '1.0.0',
-            'icon'            => $donnees['icon'] ?? 'bi-tools',
-            'sort_order'      => (int) ($donnees['sort_order'] ?? 100),
-            'quota_mode'      => $donnees['quota_mode'] ?? 'none',
-            'default_quota'   => (int) ($donnees['default_quota'] ?? 0),
-            'point_entree'    => $donnees['point_entree'] ?? 'index.php',
-            'cles_env'        => !empty($donnees['cles_env']) ? json_encode($donnees['cles_env']) : null,
-            'routes_config'   => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
-            'passthrough_all' => !empty($donnees['passthrough_all']) ? 1 : 0,
-            'mode_affichage'  => $donnees['mode_affichage'] ?? 'embedded',
-            'langues'         => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
-            'domain_field'    => $donnees['domain_field'] ?? null,
-            'categorie_id'    => $donnees['categorie_id'] ?? null,
+            'id'                  => $moduleId,
+            'name'                => $donnees['name'],
+            'description'         => $donnees['description'] ?? '',
+            'version'             => $donnees['version'] ?? '1.0.0',
+            'icon'                => $donnees['icon'] ?? 'bi-tools',
+            'sort_order'          => (int) ($donnees['sort_order'] ?? 100),
+            'quota_mode'          => $donnees['quota_mode'] ?? 'none',
+            'default_quota'       => (int) ($donnees['default_quota'] ?? 0),
+            'api_credits_period'  => $donnees['api_credits_period'] ?? 'mensuel',
+            'api_credits_default' => (int) ($donnees['api_credits_default'] ?? 0),
+            'point_entree'        => $donnees['point_entree'] ?? 'index.php',
+            'cles_env'            => !empty($donnees['cles_env']) ? json_encode($donnees['cles_env']) : null,
+            'routes_config'       => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
+            'passthrough_all'     => !empty($donnees['passthrough_all']) ? 1 : 0,
+            'mode_affichage'      => $donnees['mode_affichage'] ?? 'embedded',
+            'langues'             => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
+            'domain_field'        => $donnees['domain_field'] ?? null,
+            'categorie_id'        => $donnees['categorie_id'] ?? null,
         ]);
+    }
+
+    /**
+     * Initialise la config crédits API par défaut pour les clés d'env du module.
+     * Ne remplace pas une config existante.
+     *
+     * @param array<string, mixed> $donnees
+     */
+    private function initialiserCreditsApiDefauts(array $donnees): void
+    {
+        $apiCreditsDefault = (int) ($donnees['api_credits_default'] ?? 0);
+        $apiCreditsPeriod = $donnees['api_credits_period'] ?? 'mensuel';
+        $clesEnv = $donnees['cles_env'] ?? [];
+
+        if ($apiCreditsDefault <= 0 || empty($clesEnv)) {
+            return;
+        }
+
+        try {
+            $settingsRepo = new \Platform\Repository\SettingsRepository($this->db);
+
+            foreach ($clesEnv as $envKey) {
+                $existant = $settingsRepo->obtenir('api_credits', $envKey);
+                if ($existant !== null) {
+                    continue;
+                }
+
+                $settingsRepo->definir('api_credits', $envKey, json_encode([
+                    'credits_mensuels' => $apiCreditsDefault,
+                    'periode' => $apiCreditsPeriod,
+                ], JSON_UNESCAPED_UNICODE));
+            }
+        } catch (\PDOException) {
+            // Table settings pas encore créée
+        }
     }
 
     /**

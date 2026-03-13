@@ -26,6 +26,10 @@ class ModuleDescriptor
     public readonly array $langues;
     /** Identifiant HTML du champ à pré-remplir avec le domaine utilisateur */
     public readonly ?string $domainField;
+    /** Période de facturation API : 'mensuel' ou 'hebdomadaire' */
+    public readonly string $apiCreditsPeriod;
+    /** Nombre de crédits API par période (0 = non configuré) */
+    public readonly int $apiCreditsDefault;
     public readonly string $path;
 
     public function __construct(string $basePath, array $data)
@@ -56,6 +60,8 @@ class ModuleDescriptor
         $this->defaultQuota = (int) ($data['default_quota'] ?? 0);
         $this->langues = $data['languages'] ?? [];
         $this->domainField = $data['domain_field'] ?? null;
+        $this->apiCreditsPeriod = $data['api_credits_period'] ?? 'mensuel';
+        $this->apiCreditsDefault = (int) ($data['api_credits_default'] ?? 0);
     }
 
     public function getEntryFile(): string

@@ -3,6 +3,7 @@
 namespace Platform\Controller;
 
 use Platform\Auth\Auth;
+use Platform\Database\Connection;
 use Platform\Enum\Role;
 use Platform\Enum\RouteType;
 use Platform\Http\Request;
@@ -11,7 +12,10 @@ use Platform\Log\Logger;
 use Platform\Module\ModuleRegistry;
 use Platform\Module\ModuleRenderer;
 use Platform\Module\Quota;
+use Platform\Service\EmailTemplate;
+use Platform\Service\Mailer;
 use Platform\User\AccessControl;
+use Platform\View\Flash;
 use Platform\View\Layout;
 
 class ModuleController
@@ -24,7 +28,8 @@ class ModuleController
 
         $ac = new AccessControl();
         if ($role !== Role::Admin && !$ac->hasAccess($user['id'], $slug)) {
-            Response::abortAvecPage(403);
+            $this->afficherAccesRefuse($user, $slug);
+            return;
         }
 
         $module = ModuleRegistry::get($slug);
@@ -126,7 +131,11 @@ class ModuleController
 
         $ac = new AccessControl();
         if ($role !== Role::Admin && !$ac->hasAccess($user['id'], $slug)) {
-            Response::abortAvecPage(403);
+            if ($req->estRequeteAjax()) {
+                Response::abortAvecPage(403);
+            }
+            $this->afficherAccesRefuse($user, $slug);
+            return;
         }
 
         $module = ModuleRegistry::get($slug);
@@ -257,6 +266,94 @@ class ModuleController
         }
 
         return $script;
+    }
+
+    /**
+     * Affiche la page d'accès refusé avec formulaire de demande.
+     */
+    private function afficherAccesRefuse(array $user, string $slug): void
+    {
+        http_response_code(403);
+
+        $db = Connection::get();
+        $stmt = $db->prepare('SELECT name, icon FROM modules WHERE slug = ? AND desinstalle_le IS NULL LIMIT 1');
+        $stmt->execute([$slug]);
+        $moduleInfo = $stmt->fetch();
+
+        $ac = new AccessControl();
+        $modules = $ac->getAccessibleModules($user['id']);
+        $quotaSummary = Quota::getUserQuotaSummary($user['id']);
+
+        Layout::render('layout', [
+            'template'          => 'acces-refuse-module',
+            'pageTitle'         => 'Accès refusé',
+            'currentUser'       => $user,
+            'accessibleModules' => $modules,
+            'quotaSummary'      => $quotaSummary,
+            'moduleSlug'        => $slug,
+            'moduleNom'         => $moduleInfo['name'] ?? $slug,
+            'moduleIcone'       => $moduleInfo['icon'] ?? 'bi-shield-x',
+            'username'          => $user['username'] ?? '',
+            'email'             => $user['email'] ?? '',
+        ]);
+        exit;
+    }
+
+    /**
+     * POST /m/{slug}/demander-acces — Envoie un email de demande d'accès à l'admin.
+     */
+    public function demanderAcces(Request $req, array $params): void
+    {
+        $user = Auth::user();
+        $slug = $params['slug'];
+        $role = Role::tryFrom($user['role']) ?? Role::User;
+
+        $ac = new AccessControl();
+        if ($role === Role::Admin || $ac->hasAccess($user['id'], $slug)) {
+            Response::redirect('/m/' . $slug);
+        }
+
+        $message = trim($req->post('message', ''));
+
+        $db = Connection::get();
+        $stmt = $db->prepare('SELECT name, icon FROM modules WHERE slug = ? AND desinstalle_le IS NULL LIMIT 1');
+        $stmt->execute([$slug]);
+        $moduleInfo = $stmt->fetch();
+
+        $moduleNom = $moduleInfo['name'] ?? $slug;
+
+        // Trouver l'email admin
+        $adminRow = $db->query("SELECT email FROM users WHERE role = 'admin' AND deleted_at IS NULL LIMIT 1")->fetch();
+
+        if ($adminRow && !empty($adminRow['email'])) {
+            $config = require __DIR__ . '/../../config/app.php';
+            $baseUrl = rtrim($config['url'] ?? '', '/');
+
+            $contenu = EmailTemplate::rendre('demande-acces', [
+                'username'   => $user['username'] ?? '',
+                'email'      => $user['email'] ?? '',
+                'moduleNom'  => $moduleNom,
+                'moduleSlug' => $slug,
+                'message'    => $message,
+                'date'       => date('d/m/Y à H:i'),
+                'lienAcces'  => $baseUrl . '/admin/access',
+            ]);
+
+            try {
+                Mailer::instance()->envoyer(
+                    $adminRow['email'],
+                    "Demande d'accès : {$moduleNom}",
+                    $contenu,
+                    'demande_acces',
+                    $user['id']
+                );
+            } catch (\Throwable) {
+                // Silencieux — on affiche quand même le succès
+            }
+        }
+
+        Flash::success("Votre demande d'accès au module « {$moduleNom} » a été envoyée.");
+        Response::redirect('/');
     }
 
     public function assets(Request $req, array $params): void

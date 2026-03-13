@@ -121,6 +121,11 @@ $router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $
         $r->post('/api/notifications/toggle', [$dashboard, 'toggleNotifications']);
     });
 
+    // Demande d'accès module (CSRF, sans quota check)
+    $r->group([new VerifyCsrf()], function (Router $r) use ($module) {
+        $r->post('/m/{slug}/demander-acces', [$module, 'demanderAcces']);
+    });
+
     // Module routes (with CSRF + quota check)
     $r->group([new VerifyCsrf(), new CheckModuleQuota()], function (Router $r) use ($module) {
         $r->any('/m/{slug}', [$module, 'afficher']);
@@ -174,6 +179,7 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->post('/admin/plugins/{id}/desinstaller', [$adminPlugin, 'desinstaller']);
     $r->post('/admin/plugins/cles-env', [$adminPlugin, 'mettreAJourCleEnv']);
     $r->post('/admin/plugins/api-credits', [$adminPlugin, 'apiCredits']);
+    $r->post('/admin/plugins/api-credits-config', [$adminPlugin, 'sauvegarderCreditsApi']);
 
     $r->get('/admin/maintenance', [$adminMaintenance, 'index']);
     $r->post('/admin/maintenance/dependances', [$adminMaintenance, 'installerDependances']);

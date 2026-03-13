@@ -111,38 +111,16 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
             </div>
         </div>
 
-        <!-- Card Modules (groupés par catégorie) -->
+        <!-- Card Mes modules (liste cliquable) -->
         <div class="card dashboard-card mb-3">
             <div class="card-header">
                 <i class="bi bi-box-seam me-1"></i> Mes modules
             </div>
-            <div class="card-body">
-                <?php if (!$estAdmin): ?>
-                <div class="dashboard-quota-header mb-2 pb-2 border-bottom">
-                    <div class="d-flex justify-content-between align-items-center" style="font-size: 0.78rem; font-weight: 600; color: var(--brand-dark);">
-                        <span>Quotas restants</span>
-                    </div>
-                    <div style="font-size: 0.7rem; color: var(--text-muted);">
-                        <i class="bi bi-arrow-repeat me-1"></i>Renouvellement <?= htmlspecialchars($resetRelatif) ?>
-                        <span class="text-muted">(<?= htmlspecialchars(DashboardController::dateFrancaise($dateResetQuota ?? date('Y-m-d'))) ?>)</span>
-                    </div>
-                </div>
-                <?php endif; ?>
+            <div class="card-body py-2">
                 <?php
-                $aDesQuotas = false;
                 $premiereCat = true;
                 foreach ($modulesParCategorie as $catId => $catData):
-                    // Filtrer les modules avec quota actif dans cette catégorie
-                    $modulesAvecQuota = [];
-                    foreach ($catData['modules'] as $mod) {
-                        $s = $mod['slug'];
-                        if (isset($qs[$s]) && $qs[$s]['quota_mode'] !== \Platform\Enum\QuotaMode::None) {
-                            $modulesAvecQuota[] = $mod;
-                        }
-                    }
-                    if (empty($modulesAvecQuota)) continue;
-                    $aDesQuotas = true;
-
+                    if (empty($catData['modules'])) continue;
                     $catNom = $catId === 0 ? 'Autres' : htmlspecialchars($catData['nom']);
                     $catIcone = $catId === 0 ? 'bi-three-dots' : htmlspecialchars($catData['icone']);
                 ?>
@@ -151,39 +129,18 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
                     </div>
                     <?php $premiereCat = false; ?>
 
-                    <?php foreach ($modulesAvecQuota as $mod):
-                        $slug = $mod['slug'];
-                        $q = $qs[$slug];
-                        $limit = (int) $q['limit'];
-                        $usage = (int) $q['usage'];
-                    ?>
-                        <div class="dashboard-quota-item mb-2">
-                            <div class="d-flex justify-content-between align-items-center" style="font-size: 0.82rem;">
-                                <span class="text-truncate me-2"><?= htmlspecialchars($mod['name']) ?></span>
-                                <?php if ($estAdmin || $limit === 0): ?>
-                                    <span class="text-muted" style="font-size: 0.75rem; white-space: nowrap;">Illimit&eacute;</span>
-                                <?php else: ?>
-                                    <span style="font-size: 0.75rem; white-space: nowrap;"><?= $usage ?> / <?= $limit ?></span>
-                                <?php endif; ?>
-                            </div>
-                            <?php if (!$estAdmin && $limit > 0):
-                                $pct = min(100, round(($usage / $limit) * 100));
-                                $barClass = $pct >= 100 ? 'progress-bar-danger' : ($pct >= 80 ? 'progress-bar-warn' : 'progress-bar-teal');
-                            ?>
-                            <div class="progress mt-1" style="height: 4px;">
-                                <div class="progress-bar <?= $barClass ?>" style="width: <?= $pct ?>%"></div>
-                            </div>
-                            <?php endif; ?>
+                    <?php foreach ($catData['modules'] as $mod): ?>
+                        <div class="mb-1">
+                            <a href="/m/<?= htmlspecialchars($mod['slug']) ?>" class="text-decoration-none d-flex align-items-center py-1" style="font-size: 0.82rem; color: var(--brand-dark);">
+                                <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-2" style="color: var(--brand-teal); font-size: 0.9rem;"></i>
+                                <span class="text-truncate"><?= htmlspecialchars($mod['name']) ?></span>
+                            </a>
                         </div>
                     <?php endforeach; ?>
                 <?php endforeach; ?>
 
-                <?php if (!$aDesQuotas): ?>
-                    <p class="text-muted small mb-0">Aucun quota actif.</p>
-                <?php endif; ?>
-
-                <?php if (!$aDesQuotas && $estAdmin): ?>
-                    <p class="text-muted small mb-0">Quotas illimit&eacute;s (admin).</p>
+                <?php if (empty($accessibleModules)): ?>
+                    <p class="text-muted small mb-0">Aucun module accessible.</p>
                 <?php endif; ?>
             </div>
         </div>

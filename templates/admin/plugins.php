@@ -304,8 +304,8 @@ $ongletActif = $onglet ?? 'plugins';
                                     <th>Valeur</th>
                                     <th>Statut</th>
                                     <th>Requ&ecirc;tes ce mois</th>
-                                    <th>Cr&eacute;dits restants</th>
-                                    <th style="width: 200px;">Action</th>
+                                    <th>Cr&eacute;dits</th>
+                                    <th style="width: 220px;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -316,10 +316,20 @@ $ongletActif = $onglet ?? 'plugins';
                                         $valeurMasquee = $estPresente && strlen($valeur) > 4
                                             ? str_repeat('&bull;', 4) . htmlspecialchars(substr($valeur, -4))
                                             : ($estPresente ? '****' : '');
-                                        $supportsCredits = in_array($cle, ['SEMRUSH_API_KEY'], true);
+                                        $supportsLive = in_array($cle, ['SEMRUSH_API_KEY'], true);
+                                        $creditsMensuels = $infoCle['credits_mensuels'];
+                                        $usageMois = $infoCle['usage_mois'];
+                                        $commentaire = $infoCle['commentaire'] ?? '';
                                     ?>
                                     <tr>
-                                        <td><code><?= htmlspecialchars($cle) ?></code></td>
+                                        <td>
+                                            <code><?= htmlspecialchars($cle) ?></code>
+                                            <?php if ($commentaire !== ''): ?>
+                                                <div class="text-muted mt-1" style="font-size: 0.75rem; font-style: italic;">
+                                                    <?= htmlspecialchars($commentaire) ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </td>
                                         <td>
                                             <?php foreach ($infoCle['modules'] as $modInfo): ?>
                                                 <span class="badge bg-light text-dark border me-1 mb-1" style="font-size: 0.78rem;">
@@ -336,33 +346,77 @@ $ongletActif = $onglet ?? 'plugins';
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <strong><?= number_format($infoCle['usage_mois'], 0, ',', ' ') ?></strong>
+                                            <strong><?= number_format($usageMois, 0, ',', ' ') ?></strong>
                                         </td>
                                         <td>
-                                            <?php if ($supportsCredits && $estPresente): ?>
+                                            <?php if ($supportsLive && $estPresente): ?>
                                                 <span class="credits-api-cell" data-cle="<?= htmlspecialchars($cle) ?>">
                                                     <span class="spinner-border spinner-border-sm text-muted" role="status"></span>
                                                 </span>
+                                            <?php elseif ($creditsMensuels !== null): ?>
+                                                <?php
+                                                    $restants = max(0, (int) $creditsMensuels - $usageMois);
+                                                    $pctUtilise = $creditsMensuels > 0 ? min(100, round(($usageMois / $creditsMensuels) * 100)) : 0;
+                                                    $barClass = $pctUtilise >= 100 ? 'bg-danger' : ($pctUtilise >= 80 ? 'bg-warning' : 'bg-success');
+                                                ?>
+                                                <div style="font-size: 0.85rem;">
+                                                    <strong><?= number_format($restants, 0, ',', ' ') ?></strong>
+                                                    <span class="text-muted">/ <?= number_format((int) $creditsMensuels, 0, ',', ' ') ?></span>
+                                                </div>
+                                                <div class="progress mt-1" style="height: 4px; width: 80px;">
+                                                    <div class="progress-bar <?= $barClass ?>" style="width: <?= $pctUtilise ?>%"></div>
+                                                </div>
                                             <?php else: ?>
                                                 <span class="text-muted">&mdash;</span>
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <div class="cle-api-action" data-cle="<?= htmlspecialchars($cle) ?>">
-                                                <button type="button" class="btn btn-sm btn-outline-primary btn-modifier-cle">
-                                                    <i class="bi bi-pencil me-1"></i> <?= $estPresente ? 'Modifier' : 'D&eacute;finir' ?>
-                                                </button>
-                                                <div class="cle-api-edit d-none">
-                                                    <div class="input-group input-group-sm">
-                                                        <input type="text" class="form-control cle-api-input"
-                                                               placeholder="Nouvelle valeur"
-                                                               value="">
-                                                        <button type="button" class="btn btn-primary btn-sauver-cle">
-                                                            <i class="bi bi-check-lg"></i>
-                                                        </button>
-                                                        <button type="button" class="btn btn-outline-secondary btn-annuler-cle">
-                                                            <i class="bi bi-x-lg"></i>
-                                                        </button>
+                                            <div class="d-flex gap-1">
+                                                <div class="cle-api-action" data-cle="<?= htmlspecialchars($cle) ?>">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary btn-modifier-cle" title="<?= $estPresente ? 'Modifier la cl&eacute;' : 'D&eacute;finir la cl&eacute;' ?>">
+                                                        <i class="bi bi-key"></i>
+                                                    </button>
+                                                    <div class="cle-api-edit d-none">
+                                                        <div class="input-group input-group-sm">
+                                                            <input type="text" class="form-control cle-api-input"
+                                                                   placeholder="Nouvelle valeur"
+                                                                   value="">
+                                                            <button type="button" class="btn btn-primary btn-sauver-cle">
+                                                                <i class="bi bi-check-lg"></i>
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-secondary btn-annuler-cle">
+                                                                <i class="bi bi-x-lg"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="credits-config-action" data-cle="<?= htmlspecialchars($cle) ?>" data-credits="<?= (int) ($creditsMensuels ?? 0) ?>" data-commentaire="<?= htmlspecialchars($commentaire) ?>">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-config-credits" title="Configurer cr&eacute;dits &amp; commentaire">
+                                                        <i class="bi bi-gear"></i>
+                                                    </button>
+                                                    <div class="credits-config-edit d-none">
+                                                        <div class="d-flex flex-column gap-1" style="min-width: 200px;">
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text" style="font-size: 0.75rem;">Cr&eacute;dits/mois</span>
+                                                                <input type="number" class="form-control credits-input" min="0"
+                                                                       placeholder="Ex: 10000"
+                                                                       value="<?= (int) ($creditsMensuels ?? 0) ?>">
+                                                            </div>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text" style="font-size: 0.75rem;">Note</span>
+                                                                <input type="text" class="form-control commentaire-input"
+                                                                       placeholder="Commentaire..."
+                                                                       value="<?= htmlspecialchars($commentaire) ?>">
+                                                            </div>
+                                                            <div class="d-flex gap-1">
+                                                                <button type="button" class="btn btn-sm btn-primary btn-sauver-credits flex-grow-1">
+                                                                    <i class="bi bi-check-lg me-1"></i>OK
+                                                                </button>
+                                                                <button type="button" class="btn btn-sm btn-outline-secondary btn-annuler-credits">
+                                                                    <i class="bi bi-x-lg"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -764,6 +818,71 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(() => {
             cell.innerHTML = '<span class="text-muted">Erreur</span>';
+        });
+    });
+
+    // --- Gestion config crédits API ---
+    document.querySelectorAll('.credits-config-action').forEach(container => {
+        const cle = container.dataset.cle;
+        const btnConfig = container.querySelector('.btn-config-credits');
+        const editZone = container.querySelector('.credits-config-edit');
+        const creditsInput = container.querySelector('.credits-input');
+        const commentaireInput = container.querySelector('.commentaire-input');
+        const btnSauver = container.querySelector('.btn-sauver-credits');
+        const btnAnnuler = container.querySelector('.btn-annuler-credits');
+
+        if (!btnConfig) return;
+
+        btnConfig.addEventListener('click', () => {
+            btnConfig.classList.add('d-none');
+            editZone.classList.remove('d-none');
+            creditsInput.focus();
+        });
+
+        btnAnnuler.addEventListener('click', () => {
+            editZone.classList.add('d-none');
+            btnConfig.classList.remove('d-none');
+        });
+
+        btnSauver.addEventListener('click', () => {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="_csrf_token"]')?.value || '';
+
+            const formData = new FormData();
+            formData.append('cle', cle);
+            formData.append('credits_mensuels', creditsInput.value);
+            formData.append('commentaire', commentaireInput.value);
+            formData.append('_csrf_token', csrfToken);
+
+            btnSauver.disabled = true;
+
+            fetch('/admin/plugins/api-credits-config', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    window.location.href = '/admin/plugins?onglet=cles-api';
+                } else {
+                    alert(data.erreur || 'Erreur.');
+                    btnSauver.disabled = false;
+                }
+            })
+            .catch(() => {
+                alert('Erreur réseau.');
+                btnSauver.disabled = false;
+            });
+        });
+
+        creditsInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); btnSauver.click(); }
+            if (e.key === 'Escape') { btnAnnuler.click(); }
+        });
+        commentaireInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); btnSauver.click(); }
+            if (e.key === 'Escape') { btnAnnuler.click(); }
         });
     });
 

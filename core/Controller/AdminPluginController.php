@@ -13,6 +13,7 @@ use Platform\Module\ModuleRegistry;
 use Platform\Module\PluginInstaller;
 use Platform\Service\AuditLogger;
 use Platform\User\AccessControl;
+use Platform\Repository\SettingsRepository;
 use Platform\Validation\Validator;
 use Platform\View\Flash;
 use Platform\View\Layout;
@@ -76,7 +77,7 @@ class AdminPluginController
         $modulesAvecCles = array_filter($modules, fn(array $m) => !empty($m['_cles_env_liste']));
 
         // Grouper les clés d'API par clé unique (pour l'onglet Clés d'API enrichi)
-        $moisEnCours = date('Y-m');
+        $moisEnCours = date('Ym');
         $usageParModule = [];
         try {
             $stmtUsage = $db->prepare(
@@ -88,6 +89,21 @@ class AdminPluginController
             }
         } catch (\PDOException) {
             // Table module_usage pas encore créée
+        }
+
+        // Charger la config crédits manuels depuis settings
+        $settingsRepo = new SettingsRepository($db);
+        $creditsConfig = [];
+        try {
+            $creditsConfigBrut = $settingsRepo->obtenirGroupe('api_credits');
+            foreach ($creditsConfigBrut as $cleApi => $jsonVal) {
+                $decoded = json_decode($jsonVal, true);
+                if (is_array($decoded)) {
+                    $creditsConfig[$cleApi] = $decoded;
+                }
+            }
+        } catch (\PDOException) {
+            // Table settings pas encore créée
         }
 
         $clesApiGroupees = [];
@@ -103,13 +119,14 @@ class AdminPluginController
                         $valeur = $envGetenv !== false ? $envGetenv : '';
                     }
                     $clesApiGroupees[$cle] = [
-                        'cle'        => $cle,
-                        'valeur'     => $valeur,
-                        'presente'   => $valeur !== '',
-                        'modules'    => [],
-                        'usage_mois' => 0,
-                        'credits'    => null,
-                        'api_doc_url' => $mod['_api_doc_url'] ?? '',
+                        'cle'              => $cle,
+                        'valeur'           => $valeur,
+                        'presente'         => $valeur !== '',
+                        'modules'          => [],
+                        'usage_mois'       => 0,
+                        'credits_mensuels' => $creditsConfig[$cle]['credits_mensuels'] ?? null,
+                        'commentaire'      => $creditsConfig[$cle]['commentaire'] ?? '',
+                        'api_doc_url'      => $mod['_api_doc_url'] ?? '',
                     ];
                 }
                 $clesApiGroupees[$cle]['modules'][] = [
@@ -119,7 +136,6 @@ class AdminPluginController
                     'slug' => $mod['slug'],
                 ];
                 $clesApiGroupees[$cle]['usage_mois'] += $usageParModule[(int) $mod['id']] ?? 0;
-                // Garder l'api_doc_url si pas encore définie
                 if (empty($clesApiGroupees[$cle]['api_doc_url']) && !empty($mod['_api_doc_url'])) {
                     $clesApiGroupees[$cle]['api_doc_url'] = $mod['_api_doc_url'];
                 }
@@ -909,7 +925,7 @@ class AdminPluginController
             Response::json(['ok' => false, 'erreur' => 'Clé manquante.']);
         }
 
-        // Seule SEMRUSH_API_KEY supporte la vérification des crédits
+        // SEMrush : vérification live
         if ($cle === 'SEMRUSH_API_KEY') {
             $valeur = array_key_exists($cle, $_ENV) ? (string) $_ENV[$cle] : '';
             if ($valeur === '') {
@@ -917,30 +933,114 @@ class AdminPluginController
                 $valeur = $envGetenv !== false ? $envGetenv : '';
             }
 
-            if ($valeur === '') {
-                Response::json(['ok' => true, 'credits' => null, 'raison' => 'Clé non configurée.']);
-            }
+            if ($valeur !== '') {
+                try {
+                    $url = 'https://www.semrush.com/users/countapiunits.html?key=' . urlencode($valeur);
+                    $contexte = stream_context_create([
+                        'http' => ['timeout' => 10, 'method' => 'GET'],
+                    ]);
+                    $reponse = @file_get_contents($url, false, $contexte);
 
-            try {
-                $url = 'https://www.semrush.com/users/countapiunits.html?key=' . urlencode($valeur);
-                $contexte = stream_context_create([
-                    'http' => ['timeout' => 10, 'method' => 'GET'],
-                ]);
-                $reponse = @file_get_contents($url, false, $contexte);
-
-                if ($reponse === false) {
-                    Response::json(['ok' => true, 'credits' => null, 'raison' => 'Impossible de contacter SEMrush.']);
+                    if ($reponse !== false) {
+                        $credits = (int) trim($reponse);
+                        Response::json(['ok' => true, 'credits' => $credits, 'fournisseur' => 'SEMrush', 'source' => 'live']);
+                    }
+                } catch (\Throwable) {
+                    // Fallback vers le calcul local ci-dessous
                 }
-
-                $credits = (int) trim($reponse);
-                Response::json(['ok' => true, 'credits' => $credits, 'fournisseur' => 'SEMrush']);
-            } catch (\Throwable) {
-                Response::json(['ok' => true, 'credits' => null, 'raison' => 'Erreur lors de la vérification.']);
             }
         }
 
-        // Autres clés : pas de vérification possible
+        // Calcul local : config manuelle - usage du mois
+        $db = Connection::get();
+        $settingsRepo = new SettingsRepository($db);
+        $configJson = $settingsRepo->obtenir('api_credits', $cle);
+
+        if ($configJson !== null) {
+            $config = json_decode($configJson, true);
+            $creditsMensuels = $config['credits_mensuels'] ?? null;
+
+            if ($creditsMensuels !== null) {
+                $usageMois = $this->calculerUsageParCle($db, $cle);
+                $restants = max(0, (int) $creditsMensuels - $usageMois);
+                Response::json([
+                    'ok'               => true,
+                    'credits'          => $restants,
+                    'credits_mensuels' => (int) $creditsMensuels,
+                    'usage_mois'       => $usageMois,
+                    'source'           => 'config',
+                ]);
+            }
+        }
+
         Response::json(['ok' => true, 'credits' => null]);
+    }
+
+    /**
+     * POST /admin/plugins/api-credits-config — Sauvegarde la config crédits pour une clé API.
+     */
+    public function sauvegarderCreditsApi(Request $req): void
+    {
+        $cle = trim($req->post('cle', ''));
+        $creditsMensuels = $req->post('credits_mensuels', '');
+        $commentaire = trim($req->post('commentaire', ''));
+
+        if ($cle === '') {
+            Response::json(['ok' => false, 'erreur' => 'Clé manquante.']);
+        }
+
+        $db = Connection::get();
+        $settingsRepo = new SettingsRepository($db);
+
+        // Charger la config existante pour préserver les champs non modifiés
+        $configExistante = [];
+        $existant = $settingsRepo->obtenir('api_credits', $cle);
+        if ($existant !== null) {
+            $configExistante = json_decode($existant, true) ?: [];
+        }
+
+        if ($creditsMensuels !== '') {
+            $configExistante['credits_mensuels'] = (int) $creditsMensuels;
+        } elseif (array_key_exists('credits_mensuels', $configExistante)) {
+            unset($configExistante['credits_mensuels']);
+        }
+
+        $configExistante['commentaire'] = $commentaire;
+
+        $settingsRepo->definir('api_credits', $cle, json_encode($configExistante, JSON_UNESCAPED_UNICODE));
+
+        Response::json(['ok' => true]);
+    }
+
+    /**
+     * Calcule l'usage total du mois en cours pour tous les modules utilisant une clé API.
+     */
+    private function calculerUsageParCle(\PDO $db, string $cle): int
+    {
+        $modules = $db->query('SELECT id, cles_env FROM modules WHERE cles_env IS NOT NULL AND desinstalle_le IS NULL')->fetchAll();
+        $moduleIds = [];
+        foreach ($modules as $mod) {
+            $envKeys = json_decode($mod['cles_env'], true);
+            if (is_array($envKeys) && in_array($cle, $envKeys, true)) {
+                $moduleIds[] = (int) $mod['id'];
+            }
+        }
+
+        if ($moduleIds === []) {
+            return 0;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($moduleIds), '?'));
+        $moisEnCours = date('Ym');
+        $params = array_merge($moduleIds, [$moisEnCours]);
+
+        $stmt = $db->prepare(
+            "SELECT SUM(usage_count) AS total FROM module_usage WHERE module_id IN ({$placeholders}) AND year_month = ?"
+        );
+        $stmt->execute($params);
+        $row = $stmt->fetch();
+
+        return (int) ($row['total'] ?? 0);
     }
 
     /**

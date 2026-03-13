@@ -75,6 +75,57 @@ class AdminPluginController
         // Modules avec clés d'environnement (pour l'onglet Clés d'API)
         $modulesAvecCles = array_filter($modules, fn(array $m) => !empty($m['_cles_env_liste']));
 
+        // Grouper les clés d'API par clé unique (pour l'onglet Clés d'API enrichi)
+        $moisEnCours = date('Y-m');
+        $usageParModule = [];
+        try {
+            $stmtUsage = $db->prepare(
+                'SELECT module_id, SUM(usage_count) AS total FROM module_usage WHERE year_month = ? GROUP BY module_id'
+            );
+            $stmtUsage->execute([$moisEnCours]);
+            foreach ($stmtUsage->fetchAll() as $row) {
+                $usageParModule[(int) $row['module_id']] = (int) $row['total'];
+            }
+        } catch (\PDOException) {
+            // Table module_usage pas encore créée
+        }
+
+        $clesApiGroupees = [];
+        foreach ($modules as $mod) {
+            if (empty($mod['_cles_env_liste'])) {
+                continue;
+            }
+            foreach ($mod['_cles_env_liste'] as $cle) {
+                if (!isset($clesApiGroupees[$cle])) {
+                    $valeur = array_key_exists($cle, $_ENV) ? (string) $_ENV[$cle] : '';
+                    if ($valeur === '') {
+                        $envGetenv = getenv($cle);
+                        $valeur = $envGetenv !== false ? $envGetenv : '';
+                    }
+                    $clesApiGroupees[$cle] = [
+                        'cle'        => $cle,
+                        'valeur'     => $valeur,
+                        'presente'   => $valeur !== '',
+                        'modules'    => [],
+                        'usage_mois' => 0,
+                        'credits'    => null,
+                        'api_doc_url' => $mod['_api_doc_url'] ?? '',
+                    ];
+                }
+                $clesApiGroupees[$cle]['modules'][] = [
+                    'id'   => (int) $mod['id'],
+                    'name' => $mod['name'],
+                    'icon' => $mod['icon'] ?? 'bi-tools',
+                    'slug' => $mod['slug'],
+                ];
+                $clesApiGroupees[$cle]['usage_mois'] += $usageParModule[(int) $mod['id']] ?? 0;
+                // Garder l'api_doc_url si pas encore définie
+                if (empty($clesApiGroupees[$cle]['api_doc_url']) && !empty($mod['_api_doc_url'])) {
+                    $clesApiGroupees[$cle]['api_doc_url'] = $mod['_api_doc_url'];
+                }
+            }
+        }
+
         // Modules Git / sans Git (pour l'onglet MAJ Github)
         $modulesGit = array_filter($modules, fn(array $m) => !empty($m['git_url']));
         $modulesSansGit = array_filter($modules, fn(array $m) => empty($m['git_url']) && $m['enabled']);
@@ -168,6 +219,7 @@ class AdminPluginController
             'modules'             => $modules,
             'categories'          => $categories,
             'modulesAvecCles'     => $modulesAvecCles,
+            'clesApiGroupees'     => $clesApiGroupees,
             'modulesGit'          => $modulesGit,
             'modulesSansGit'      => $modulesSansGit,
             'modulesParCategorie'    => $modulesParCategorie,
@@ -844,6 +896,51 @@ class AdminPluginController
             : '';
         Flash::success("Module « {$module['name']} » désinstallé.{$messageSupplement}");
         Response::redirect('/admin/plugins');
+    }
+
+    /**
+     * POST /admin/plugins/api-credits — Vérifie les crédits restants pour une clé API.
+     */
+    public function apiCredits(Request $req): void
+    {
+        $cle = trim($req->post('cle', ''));
+
+        if ($cle === '') {
+            Response::json(['ok' => false, 'erreur' => 'Clé manquante.']);
+        }
+
+        // Seule SEMRUSH_API_KEY supporte la vérification des crédits
+        if ($cle === 'SEMRUSH_API_KEY') {
+            $valeur = array_key_exists($cle, $_ENV) ? (string) $_ENV[$cle] : '';
+            if ($valeur === '') {
+                $envGetenv = getenv($cle);
+                $valeur = $envGetenv !== false ? $envGetenv : '';
+            }
+
+            if ($valeur === '') {
+                Response::json(['ok' => true, 'credits' => null, 'raison' => 'Clé non configurée.']);
+            }
+
+            try {
+                $url = 'https://www.semrush.com/users/countapiunits.html?key=' . urlencode($valeur);
+                $contexte = stream_context_create([
+                    'http' => ['timeout' => 10, 'method' => 'GET'],
+                ]);
+                $reponse = @file_get_contents($url, false, $contexte);
+
+                if ($reponse === false) {
+                    Response::json(['ok' => true, 'credits' => null, 'raison' => 'Impossible de contacter SEMrush.']);
+                }
+
+                $credits = (int) trim($reponse);
+                Response::json(['ok' => true, 'credits' => $credits, 'fournisseur' => 'SEMrush']);
+            } catch (\Throwable) {
+                Response::json(['ok' => true, 'credits' => null, 'raison' => 'Erreur lors de la vérification.']);
+            }
+        }
+
+        // Autres clés : pas de vérification possible
+        Response::json(['ok' => true, 'credits' => null]);
     }
 
     /**

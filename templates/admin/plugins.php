@@ -286,7 +286,7 @@ $ongletActif = $onglet ?? 'plugins';
             G&eacute;rez les cl&eacute;s d'API utilis&eacute;es par les plugins. Les valeurs sont stock&eacute;es dans le fichier <code>.env</code> de la plateforme.
         </p>
 
-        <?php if (empty($modulesAvecCles)): ?>
+        <?php if (empty($clesApiGroupees)): ?>
             <div class="card">
                 <div class="card-body text-center text-muted py-4">
                     Aucun plugin ne d&eacute;clare de cl&eacute; d'environnement.
@@ -299,63 +299,75 @@ $ongletActif = $onglet ?? 'plugins';
                         <table class="table table-sm mb-0">
                             <thead>
                                 <tr>
-                                    <th>Module</th>
                                     <th>Cl&eacute;</th>
-                                    <th>Valeur actuelle</th>
+                                    <th>Modules</th>
+                                    <th>Valeur</th>
                                     <th>Statut</th>
+                                    <th>Requ&ecirc;tes ce mois</th>
+                                    <th>Cr&eacute;dits restants</th>
                                     <th style="width: 200px;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($modulesAvecCles as $mod): ?>
-                                    <?php foreach ($mod['_cles_env_liste'] as $cle): ?>
-                                        <?php
-                                            $valeur = array_key_exists($cle, $_ENV) ? (string) $_ENV[$cle] : '';
-                                            if ($valeur === '') {
-                                                $envGetenv = getenv($cle);
-                                                $valeur = $envGetenv !== false ? $envGetenv : '';
-                                            }
-                                            $estPresente = $valeur !== '';
-                                            $valeurMasquee = $estPresente && strlen($valeur) > 4
-                                                ? str_repeat('&bull;', 4) . htmlspecialchars(substr($valeur, -4))
-                                                : ($estPresente ? '****' : '');
-                                        ?>
-                                        <tr>
-                                            <td>
-                                                <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
-                                                <?= htmlspecialchars($mod['name']) ?>
-                                            </td>
-                                            <td><code><?= htmlspecialchars($cle) ?></code></td>
-                                            <td class="cle-valeur-masquee"><?= $valeurMasquee ?: '<span class="text-muted">&mdash;</span>' ?></td>
-                                            <td>
-                                                <?php if ($estPresente): ?>
-                                                    <span class="badge badge-active"><i class="bi bi-check-circle me-1"></i>Configur&eacute;e</span>
-                                                <?php else: ?>
-                                                    <span class="badge badge-inactive"><i class="bi bi-exclamation-triangle me-1"></i>Manquante</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <div class="cle-api-action" data-cle="<?= htmlspecialchars($cle) ?>">
-                                                    <button type="button" class="btn btn-sm btn-outline-primary btn-modifier-cle">
-                                                        <i class="bi bi-pencil me-1"></i> <?= $estPresente ? 'Modifier' : 'D&eacute;finir' ?>
-                                                    </button>
-                                                    <div class="cle-api-edit d-none">
-                                                        <div class="input-group input-group-sm">
-                                                            <input type="text" class="form-control cle-api-input"
-                                                                   placeholder="Nouvelle valeur"
-                                                                   value="">
-                                                            <button type="button" class="btn btn-primary btn-sauver-cle">
-                                                                <i class="bi bi-check-lg"></i>
-                                                            </button>
-                                                            <button type="button" class="btn btn-outline-secondary btn-annuler-cle">
-                                                                <i class="bi bi-x-lg"></i>
-                                                            </button>
-                                                        </div>
+                                <?php foreach ($clesApiGroupees as $cle => $infoCle): ?>
+                                    <?php
+                                        $estPresente = $infoCle['presente'];
+                                        $valeur = $infoCle['valeur'];
+                                        $valeurMasquee = $estPresente && strlen($valeur) > 4
+                                            ? str_repeat('&bull;', 4) . htmlspecialchars(substr($valeur, -4))
+                                            : ($estPresente ? '****' : '');
+                                        $supportsCredits = in_array($cle, ['SEMRUSH_API_KEY'], true);
+                                    ?>
+                                    <tr>
+                                        <td><code><?= htmlspecialchars($cle) ?></code></td>
+                                        <td>
+                                            <?php foreach ($infoCle['modules'] as $modInfo): ?>
+                                                <span class="badge bg-light text-dark border me-1 mb-1" style="font-size: 0.78rem;">
+                                                    <i class="bi <?= htmlspecialchars($modInfo['icon']) ?> me-1" style="color: var(--brand-teal);"></i><?= htmlspecialchars($modInfo['name']) ?>
+                                                </span>
+                                            <?php endforeach; ?>
+                                        </td>
+                                        <td class="cle-valeur-masquee"><?= $valeurMasquee ?: '<span class="text-muted">&mdash;</span>' ?></td>
+                                        <td>
+                                            <?php if ($estPresente): ?>
+                                                <span class="badge badge-active"><i class="bi bi-check-circle me-1"></i>Configur&eacute;e</span>
+                                            <?php else: ?>
+                                                <span class="badge badge-inactive"><i class="bi bi-exclamation-triangle me-1"></i>Manquante</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <strong><?= number_format($infoCle['usage_mois'], 0, ',', ' ') ?></strong>
+                                        </td>
+                                        <td>
+                                            <?php if ($supportsCredits && $estPresente): ?>
+                                                <span class="credits-api-cell" data-cle="<?= htmlspecialchars($cle) ?>">
+                                                    <span class="spinner-border spinner-border-sm text-muted" role="status"></span>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="text-muted">&mdash;</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <div class="cle-api-action" data-cle="<?= htmlspecialchars($cle) ?>">
+                                                <button type="button" class="btn btn-sm btn-outline-primary btn-modifier-cle">
+                                                    <i class="bi bi-pencil me-1"></i> <?= $estPresente ? 'Modifier' : 'D&eacute;finir' ?>
+                                                </button>
+                                                <div class="cle-api-edit d-none">
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="text" class="form-control cle-api-input"
+                                                               placeholder="Nouvelle valeur"
+                                                               value="">
+                                                        <button type="button" class="btn btn-primary btn-sauver-cle">
+                                                            <i class="bi bi-check-lg"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-annuler-cle">
+                                                            <i class="bi bi-x-lg"></i>
+                                                        </button>
                                                     </div>
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
@@ -721,6 +733,37 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.key === 'Escape') {
                 btnAnnuler.click();
             }
+        });
+    });
+
+    // --- Chargement AJAX des crédits API ---
+    document.querySelectorAll('.credits-api-cell').forEach(cell => {
+        const cle = cell.dataset.cle;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+            || document.querySelector('input[name="_csrf_token"]')?.value || '';
+
+        const formData = new FormData();
+        formData.append('cle', cle);
+        formData.append('_csrf_token', csrfToken);
+
+        fetch('/admin/plugins/api-credits', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok && data.credits !== null) {
+                cell.innerHTML = '<strong style="color: var(--brand-dark);">' +
+                    new Intl.NumberFormat('fr-FR').format(data.credits) +
+                    '</strong>' +
+                    (data.fournisseur ? ' <small class="text-muted">(' + data.fournisseur + ')</small>' : '');
+            } else {
+                cell.innerHTML = '<span class="text-muted">' + (data.raison || '&mdash;') + '</span>';
+            }
+        })
+        .catch(() => {
+            cell.innerHTML = '<span class="text-muted">Erreur</span>';
         });
     });
 

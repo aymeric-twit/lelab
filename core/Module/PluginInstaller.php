@@ -14,9 +14,40 @@ class PluginInstaller
 
     private PDO $db;
 
+    private static ?bool $hasApiCreditsColumns = null;
+
     public function __construct(PDO $db)
     {
         $this->db = $db;
+    }
+
+    /**
+     * Vérifie si la table modules possède les colonnes api_credits_period et api_credits_default.
+     * Résultat mis en cache statique pour éviter les requêtes répétées.
+     */
+    private function hasApiCreditsColumns(): bool
+    {
+        if (self::$hasApiCreditsColumns !== null) {
+            return self::$hasApiCreditsColumns;
+        }
+
+        $driver = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        try {
+            if ($driver === 'sqlite') {
+                $stmt = $this->db->query("PRAGMA table_info(modules)");
+                $colonnes = array_column($stmt->fetchAll(), 'name');
+            } else {
+                $stmt = $this->db->query("SHOW COLUMNS FROM modules LIKE 'api_credits_period'");
+                $colonnes = $stmt->fetchAll() ? ['api_credits_period'] : [];
+            }
+
+            self::$hasApiCreditsColumns = in_array('api_credits_period', $colonnes, true);
+        } catch (\PDOException) {
+            self::$hasApiCreditsColumns = false;
+        }
+
+        return self::$hasApiCreditsColumns;
     }
 
     /**
@@ -127,21 +158,26 @@ class PluginInstaller
             return $this->reactiver((int) $moduleSoftDeleted['id'], $donnees, $installeParId);
         }
 
-        $stmt = $this->db->prepare('
+        $hasApiCredits = $this->hasApiCreditsColumns();
+
+        $colonnesCredits = $hasApiCredits ? ', api_credits_period, api_credits_default' : '';
+        $valeursCredits = $hasApiCredits ? ', :api_credits_period, :api_credits_default' : '';
+
+        $stmt = $this->db->prepare("
             INSERT INTO modules (
                 slug, name, description, version, icon, sort_order,
-                quota_mode, default_quota, api_credits_period, api_credits_default, enabled,
+                quota_mode, default_quota{$colonnesCredits}, enabled,
                 chemin_source, point_entree, cles_env, routes_config, passthrough_all,
                 mode_affichage, langues, domain_field, categorie_id, installe_par, installe_le
             ) VALUES (
                 :slug, :name, :description, :version, :icon, :sort_order,
-                :quota_mode, :default_quota, :api_credits_period, :api_credits_default, 1,
+                :quota_mode, :default_quota{$valeursCredits}, 1,
                 :chemin_source, :point_entree, :cles_env, :routes_config, :passthrough_all,
                 :mode_affichage, :langues, :domain_field, :categorie_id, :installe_par, NOW()
             )
-        ');
+        ");
 
-        $stmt->execute([
+        $params = [
             'slug'                => $donnees['slug'],
             'name'                => $donnees['name'],
             'description'         => $donnees['description'] ?? '',
@@ -150,8 +186,6 @@ class PluginInstaller
             'sort_order'          => (int) ($donnees['sort_order'] ?? 100),
             'quota_mode'          => $donnees['quota_mode'] ?? 'none',
             'default_quota'       => (int) ($donnees['default_quota'] ?? 0),
-            'api_credits_period'  => $donnees['api_credits_period'] ?? 'mensuel',
-            'api_credits_default' => (int) ($donnees['api_credits_default'] ?? 0),
             'chemin_source'       => $donnees['chemin_source'],
             'point_entree'        => $donnees['point_entree'] ?? 'index.php',
             'cles_env'            => !empty($donnees['cles_env']) ? json_encode($donnees['cles_env']) : null,
@@ -162,7 +196,14 @@ class PluginInstaller
             'domain_field'        => $donnees['domain_field'] ?? null,
             'categorie_id'        => $donnees['categorie_id'] ?? null,
             'installe_par'        => $installeParId,
-        ]);
+        ];
+
+        if ($hasApiCredits) {
+            $params['api_credits_period'] = $donnees['api_credits_period'] ?? 'mensuel';
+            $params['api_credits_default'] = (int) ($donnees['api_credits_default'] ?? 0);
+        }
+
+        $stmt->execute($params);
 
         $moduleId = (int) $this->db->lastInsertId();
 
@@ -188,7 +229,12 @@ class PluginInstaller
      */
     private function reactiver(int $moduleId, array $donnees, int $installeParId): int
     {
-        $stmt = $this->db->prepare('
+        $hasApiCredits = $this->hasApiCreditsColumns();
+        $creditsSet = $hasApiCredits
+            ? 'api_credits_period = :api_credits_period, api_credits_default = :api_credits_default,'
+            : '';
+
+        $stmt = $this->db->prepare("
             UPDATE modules SET
                 name = :name,
                 description = :description,
@@ -197,8 +243,7 @@ class PluginInstaller
                 sort_order = :sort_order,
                 quota_mode = :quota_mode,
                 default_quota = :default_quota,
-                api_credits_period = :api_credits_period,
-                api_credits_default = :api_credits_default,
+                {$creditsSet}
                 enabled = 1,
                 chemin_source = :chemin_source,
                 point_entree = :point_entree,
@@ -214,9 +259,9 @@ class PluginInstaller
                 desinstalle_le = NULL,
                 desinstalle_par = NULL
             WHERE id = :id
-        ');
+        ");
 
-        $stmt->execute([
+        $params = [
             'id'                  => $moduleId,
             'name'                => $donnees['name'],
             'description'         => $donnees['description'] ?? '',
@@ -225,8 +270,6 @@ class PluginInstaller
             'sort_order'          => (int) ($donnees['sort_order'] ?? 100),
             'quota_mode'          => $donnees['quota_mode'] ?? 'none',
             'default_quota'       => (int) ($donnees['default_quota'] ?? 0),
-            'api_credits_period'  => $donnees['api_credits_period'] ?? 'mensuel',
-            'api_credits_default' => (int) ($donnees['api_credits_default'] ?? 0),
             'chemin_source'       => $donnees['chemin_source'],
             'point_entree'        => $donnees['point_entree'] ?? 'index.php',
             'cles_env'            => !empty($donnees['cles_env']) ? json_encode($donnees['cles_env']) : null,
@@ -237,7 +280,14 @@ class PluginInstaller
             'domain_field'        => $donnees['domain_field'] ?? null,
             'categorie_id'        => $donnees['categorie_id'] ?? null,
             'installe_par'        => $installeParId,
-        ]);
+        ];
+
+        if ($hasApiCredits) {
+            $params['api_credits_period'] = $donnees['api_credits_period'] ?? 'mensuel';
+            $params['api_credits_default'] = (int) ($donnees['api_credits_default'] ?? 0);
+        }
+
+        $stmt->execute($params);
 
         // Accorder l'accès à tous les utilisateurs actifs (réactivation = nouveau plugin pour eux)
         $this->accorderAccesTousUtilisateurs($moduleId, $installeParId);
@@ -257,7 +307,12 @@ class PluginInstaller
      */
     public function mettreAJour(int $moduleId, array $donnees): void
     {
-        $stmt = $this->db->prepare('
+        $hasApiCredits = $this->hasApiCreditsColumns();
+        $creditsSet = $hasApiCredits
+            ? 'api_credits_period = :api_credits_period, api_credits_default = :api_credits_default,'
+            : '';
+
+        $stmt = $this->db->prepare("
             UPDATE modules SET
                 name = :name,
                 description = :description,
@@ -266,8 +321,7 @@ class PluginInstaller
                 sort_order = :sort_order,
                 quota_mode = :quota_mode,
                 default_quota = :default_quota,
-                api_credits_period = :api_credits_period,
-                api_credits_default = :api_credits_default,
+                {$creditsSet}
                 point_entree = :point_entree,
                 cles_env = :cles_env,
                 routes_config = :routes_config,
@@ -277,9 +331,9 @@ class PluginInstaller
                 domain_field = :domain_field,
                 categorie_id = :categorie_id
             WHERE id = :id
-        ');
+        ");
 
-        $stmt->execute([
+        $params = [
             'id'                  => $moduleId,
             'name'                => $donnees['name'],
             'description'         => $donnees['description'] ?? '',
@@ -288,8 +342,6 @@ class PluginInstaller
             'sort_order'          => (int) ($donnees['sort_order'] ?? 100),
             'quota_mode'          => $donnees['quota_mode'] ?? 'none',
             'default_quota'       => (int) ($donnees['default_quota'] ?? 0),
-            'api_credits_period'  => $donnees['api_credits_period'] ?? 'mensuel',
-            'api_credits_default' => (int) ($donnees['api_credits_default'] ?? 0),
             'point_entree'        => $donnees['point_entree'] ?? 'index.php',
             'cles_env'            => !empty($donnees['cles_env']) ? json_encode($donnees['cles_env']) : null,
             'routes_config'       => !empty($donnees['routes_config']) ? json_encode($donnees['routes_config']) : null,
@@ -298,7 +350,14 @@ class PluginInstaller
             'langues'             => !empty($donnees['langues']) ? json_encode($donnees['langues']) : null,
             'domain_field'        => $donnees['domain_field'] ?? null,
             'categorie_id'        => $donnees['categorie_id'] ?? null,
-        ]);
+        ];
+
+        if ($hasApiCredits) {
+            $params['api_credits_period'] = $donnees['api_credits_period'] ?? 'mensuel';
+            $params['api_credits_default'] = (int) ($donnees['api_credits_default'] ?? 0);
+        }
+
+        $stmt->execute($params);
     }
 
     /**

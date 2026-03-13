@@ -167,6 +167,45 @@ $migrations = [
         'test' => fn() => !colonneExiste($db, 'users', 'totp_enabled'),
         'sql' => 'ALTER TABLE users ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0',
     ],
+
+    // 032
+    [
+        'nom' => '032 — table api_credits_usage',
+        'test' => fn() => !tableExiste($db, 'api_credits_usage'),
+        'sql' => "CREATE TABLE api_credits_usage (
+            id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            cle_api         VARCHAR(100) NOT NULL,
+            periode_id      VARCHAR(10) NOT NULL,
+            usage_count     INT UNSIGNED NOT NULL DEFAULT 0,
+            last_tracked_at DATETIME DEFAULT NULL,
+            UNIQUE KEY uk_cle_periode (cle_api, periode_id),
+            INDEX idx_periode_id (periode_id)
+        ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    ],
+
+    // 033
+    [
+        'nom' => '033 — api_credits_period sur modules',
+        'test' => fn() => !colonneExiste($db, 'modules', 'api_credits_period'),
+        'sql' => "ALTER TABLE modules ADD COLUMN api_credits_period VARCHAR(20) NOT NULL DEFAULT 'mensuel' AFTER default_quota",
+    ],
+    [
+        'nom' => '033 — api_credits_default sur modules',
+        'test' => fn() => !colonneExiste($db, 'modules', 'api_credits_default'),
+        'sql' => 'ALTER TABLE modules ADD COLUMN api_credits_default INT UNSIGNED NOT NULL DEFAULT 0 AFTER api_credits_period',
+    ],
+
+    // 034
+    [
+        'nom' => '034 — anonymiser IPs audit_log (RGPD)',
+        'test' => fn() => (int) $db->query("SELECT COUNT(*) FROM audit_log WHERE ip_address IS NOT NULL AND ip_address != '' AND ip_address LIKE '%.%.%.%' AND ip_address NOT LIKE '%.0'")->fetchColumn() > 0,
+        'sql' => "UPDATE audit_log SET ip_address = CONCAT(SUBSTRING_INDEX(ip_address, '.', 3), '.0') WHERE ip_address IS NOT NULL AND ip_address != '' AND ip_address LIKE '%.%.%.%' AND ip_address NOT LIKE '%.0'",
+    ],
+    [
+        'nom' => '034 — anonymiser IPs login_history (RGPD)',
+        'test' => fn() => tableExiste($db, 'login_history') && (int) $db->query("SELECT COUNT(*) FROM login_history WHERE ip_address IS NOT NULL AND ip_address != '' AND ip_address LIKE '%.%.%.%' AND ip_address NOT LIKE '%.0'")->fetchColumn() > 0,
+        'sql' => "UPDATE login_history SET ip_address = CONCAT(SUBSTRING_INDEX(ip_address, '.', 3), '.0') WHERE ip_address IS NOT NULL AND ip_address != '' AND ip_address LIKE '%.%.%.%' AND ip_address NOT LIKE '%.0'",
+    ],
 ];
 
 echo "=== Exécution des migrations ===\n\n";

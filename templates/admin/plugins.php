@@ -369,7 +369,7 @@ $ongletActif = $onglet ?? 'plugins';
     <div class="tab-pane fade <?= $ongletActif === 'maj-git' ? 'show active' : '' ?>"
          id="tab-maj-git" role="tabpanel">
 
-        <?php if (!empty($modulesGit)): ?>
+        <?php if (!empty($modulesGitParCategorie)): ?>
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <p class="text-muted mb-0" style="font-size:0.9rem;">
                     Plugins connect&eacute;s &agrave; un d&eacute;p&ocirc;t Git. Mettez &agrave; jour individuellement ou tous en une fois.
@@ -381,7 +381,17 @@ $ongletActif = $onglet ?? 'plugins';
 
             <div id="majGitResultats" class="mb-3" style="display:none;"></div>
 
-            <div class="card mb-4">
+            <?php foreach ($modulesGitParCategorie as $catId => $catData):
+                $catNom = $catId === 0 ? 'Non class&eacute;' : htmlspecialchars($catData['nom'] ?? 'Sans nom');
+                $catIcone = $catId === 0 ? 'bi-folder' : htmlspecialchars($catData['icone'] ?? 'bi-folder');
+                $nbPlugins = count($catData['modules']);
+            ?>
+            <div class="card mb-3">
+                <div class="card-header d-flex align-items-center py-2">
+                    <i class="bi <?= $catIcone ?> me-2" style="color: var(--brand-teal);"></i>
+                    <strong><?= $catNom ?></strong>
+                    <span class="badge bg-secondary ms-2"><?= $nbPlugins ?></span>
+                </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-sm mb-0">
@@ -397,7 +407,7 @@ $ongletActif = $onglet ?? 'plugins';
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($modulesGit as $mod): ?>
+                                <?php foreach ($catData['modules'] as $mod): ?>
                                 <tr>
                                     <td>
                                         <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
@@ -442,6 +452,7 @@ $ongletActif = $onglet ?? 'plugins';
                     </div>
                 </div>
             </div>
+            <?php endforeach; ?>
         <?php else: ?>
             <div class="card mb-4">
                 <div class="card-body text-center text-muted py-4">

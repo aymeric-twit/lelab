@@ -79,6 +79,44 @@ class AdminPluginController
         $modulesGit = array_filter($modules, fn(array $m) => !empty($m['git_url']));
         $modulesSansGit = array_filter($modules, fn(array $m) => empty($m['git_url']) && $m['enabled']);
 
+        // Grouper les modules Git par catégorie
+        $modulesGitParCategorie = [];
+        foreach ($modulesGit as $mod) {
+            $catId = (int) ($mod['categorie_id'] ?? 0);
+            if (!isset($modulesGitParCategorie[$catId])) {
+                $modulesGitParCategorie[$catId] = [
+                    'nom'     => $mod['categorie_nom'] ?? null,
+                    'icone'   => null,
+                    'modules' => [],
+                ];
+            }
+            $modulesGitParCategorie[$catId]['modules'][] = $mod;
+        }
+        foreach ($categories as $cat) {
+            $catId = (int) $cat['id'];
+            if (isset($modulesGitParCategorie[$catId])) {
+                $modulesGitParCategorie[$catId]['icone'] = $cat['icone'] ?? 'bi-folder';
+            }
+        }
+        uksort($modulesGitParCategorie, function (int $a, int $b) use ($categories) {
+            if ($a === 0) {
+                return 1;
+            }
+            if ($b === 0) {
+                return -1;
+            }
+            $orderA = $orderB = 9999;
+            foreach ($categories as $cat) {
+                if ((int) $cat['id'] === $a) {
+                    $orderA = (int) $cat['sort_order'];
+                }
+                if ((int) $cat['id'] === $b) {
+                    $orderB = (int) $cat['sort_order'];
+                }
+            }
+            return $orderA <=> $orderB;
+        });
+
         // Grouper les plugins par catégorie (pour l'onglet Plugins)
         $modulesParCategorie = [];
         foreach ($modules as $mod) {
@@ -132,7 +170,8 @@ class AdminPluginController
             'modulesAvecCles'     => $modulesAvecCles,
             'modulesGit'          => $modulesGit,
             'modulesSansGit'      => $modulesSansGit,
-            'modulesParCategorie' => $modulesParCategorie,
+            'modulesParCategorie'    => $modulesParCategorie,
+            'modulesGitParCategorie' => $modulesGitParCategorie,
         ]);
     }
 

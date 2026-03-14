@@ -47,37 +47,37 @@ foreach ($qs as $slug => $q) {
 $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('Y-m-01', strtotime('+1 month')));
 ?>
 
-<div class="row g-4">
-    <!-- Colonne gauche : Mon compte + Quotas -->
-    <div class="col-lg-3">
-
-        <!-- Card Mon compte (repliable) -->
-        <div class="card dashboard-card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#monCompteCollapse" aria-expanded="false" aria-controls="monCompteCollapse">
-                <span>
-                    <i class="bi bi-person-circle me-1"></i>
-                    <strong><?= htmlspecialchars($currentUser['username'] ?? '') ?></strong>
-                    <?php if ($estAdmin): ?>
-                        <span class="badge badge-role-admin ms-1">admin</span>
-                    <?php else: ?>
-                        <span class="badge badge-role-user ms-1">utilisateur</span>
-                    <?php endif; ?>
-                </span>
-                <i class="bi bi-chevron-down collapse-toggle-icon" style="font-size: 0.75rem; transition: transform 0.2s;"></i>
-            </div>
-            <div class="collapse" id="monCompteCollapse">
-                <div class="card-body">
+<!-- Bloc Mon compte — pleine largeur -->
+<div class="card dashboard-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#monCompteCollapse" aria-expanded="false" aria-controls="monCompteCollapse">
+        <span>
+            <i class="bi bi-person-circle me-1"></i>
+            <strong><?= htmlspecialchars($currentUser['username'] ?? '') ?></strong>
+            <?php if ($estAdmin): ?>
+                <span class="badge badge-role-admin ms-1">admin</span>
+            <?php else: ?>
+                <span class="badge badge-role-user ms-1">utilisateur</span>
+            <?php endif; ?>
+        </span>
+        <i class="bi bi-chevron-down collapse-toggle-icon" style="font-size: 0.75rem; transition: transform 0.2s;"></i>
+    </div>
+    <div class="collapse" id="monCompteCollapse">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
                     <dl class="dashboard-info-list mb-0">
                         <?php if (!empty($currentUser['domaine'])): ?>
                         <dt>Domaine</dt>
                         <dd><?= htmlspecialchars($currentUser['domaine']) ?></dd>
                         <?php endif; ?>
-
                         <?php if (!empty($currentUser['email'])): ?>
                         <dt>Email</dt>
                         <dd><?= htmlspecialchars($currentUser['email']) ?></dd>
                         <?php endif; ?>
-
+                    </dl>
+                </div>
+                <div class="col-md-3">
+                    <dl class="dashboard-info-list mb-0">
                         <dt>Derni&egrave;re connexion</dt>
                         <dd>
                             <?php if (!empty($currentUser['last_login'])): ?>
@@ -86,10 +86,12 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
                                 <span class="text-muted">&mdash;</span>
                             <?php endif; ?>
                         </dd>
-
                         <dt>Membre depuis</dt>
                         <dd><?= htmlspecialchars(DashboardController::dateFrancaise($currentUser['created_at'] ?? 'now')) ?></dd>
-
+                    </dl>
+                </div>
+                <div class="col-md-3">
+                    <dl class="dashboard-info-list mb-0">
                         <dt>Alertes email</dt>
                         <dd>
                             <div class="form-check form-switch mb-1">
@@ -108,16 +110,18 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
                         </dd>
                     </dl>
                 </div>
+                <div class="col-md-3 d-flex align-items-center justify-content-end">
+                    <a href="/mon-compte" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-pencil me-1"></i>Mon compte
+                    </a>
+                </div>
             </div>
         </div>
-
     </div>
+</div>
 
-    <!-- Colonne droite : Outils + Activité récente -->
-    <div class="col-lg-9">
-
-        <!-- Grille plugins (en premier) -->
-        <h5 class="mb-3" style="color: var(--brand-dark); font-weight: 600;">Mes outils</h5>
+<!-- Mes outils -->
+<h5 class="mb-3" style="color: var(--brand-dark); font-weight: 600;">Mes outils</h5>
 
         <!-- Bandeau KPI -->
         <div class="row g-3 mb-4">
@@ -302,8 +306,6 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
             <?php endif; ?>
         </div>
         <?php endif; ?>
-    </div>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>

@@ -30,6 +30,8 @@ class ModuleDescriptor
     public readonly string $apiCreditsPeriod;
     /** Nombre de crédits API par période (0 = non configuré) */
     public readonly int $apiCreditsDefault;
+    /** Poids en crédits universels par analyse (0 = gratuit) */
+    public readonly int $creditsParAnalyse;
     public readonly string $path;
 
     public function __construct(string $basePath, array $data)
@@ -62,6 +64,7 @@ class ModuleDescriptor
         $this->domainField = $data['domain_field'] ?? null;
         $this->apiCreditsPeriod = $data['api_credits_period'] ?? 'mensuel';
         $this->apiCreditsDefault = (int) ($data['api_credits_default'] ?? 0);
+        $this->creditsParAnalyse = (int) ($data['credits_per_use'] ?? $data['credits_par_analyse'] ?? 1);
     }
 
     public function getEntryFile(): string

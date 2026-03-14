@@ -3,12 +3,12 @@
 namespace Platform\Http\Middleware;
 
 use Platform\Auth\Auth;
-use Platform\Enum\QuotaMode;
 use Platform\Enum\Role;
 use Platform\Http\Request;
 use Platform\Http\Response;
 use Platform\Module\ModuleRegistry;
 use Platform\Module\Quota;
+use Platform\Service\CreditService;
 use Platform\Service\NotificationService;
 use Platform\User\AccessControl;
 use Platform\View\Layout;
@@ -36,79 +36,156 @@ class CheckModuleQuota implements Middleware
         }
 
         $module = ModuleRegistry::get($slug);
-        if (!$module || $module->quotaMode === QuotaMode::None) {
+        if (!$module) {
+            $next($request);
+            return;
+        }
+
+        // Module gratuit (poids 0) → toujours accessible
+        if ($module->creditsParAnalyse === 0) {
             $next($request);
             return;
         }
 
         // Mode iframe : la requête parente (/m/{slug}) charge juste l'iframe,
-        // le quota sera compté sur les sous-routes réelles (_app, etc.)
+        // les crédits seront comptés sur les sous-routes réelles
         if ($module->modeAffichage->estIframe() && !preg_match('#^/m/[^/]+/.+#', $path)) {
             $next($request);
             return;
         }
 
-        // 1. Déterminer si le quota doit être vérifié pour ce mode
-        $doitVerifier = $module->quotaMode->estSuivi(); // true pour request, form_submit, api_call
+        // Déterminer si cette requête doit consommer des crédits
+        $doitConsommer = true;
 
-        // En mode form_submit, seuls les POST sont vérifiés
-        if ($module->quotaMode === QuotaMode::FormSubmit && $request->method() !== 'POST') {
-            $doitVerifier = false;
+        // En mode form_submit, seuls les POST consomment
+        if ($module->quotaMode === \Platform\Enum\QuotaMode::FormSubmit && $request->method() !== 'POST') {
+            $doitConsommer = false;
         }
 
-        if (!$doitVerifier) {
+        // En mode api_call, le plugin gère lui-même via Quota::track() / CreditService
+        // Le middleware vérifie juste qu'il reste des crédits
+        if ($module->quotaMode === \Platform\Enum\QuotaMode::ApiCall) {
+            $doitConsommer = false;
+        }
+
+        // En mode none, pas de vérification
+        if ($module->quotaMode === \Platform\Enum\QuotaMode::None) {
             $next($request);
             return;
         }
 
-        // Jour d'inscription pour le calcul de la période de quota
-        $jourInscription = (int) date('j', strtotime($user['created_at'] ?? 'now'));
+        // Vérifier les crédits
+        try {
+            $creditService = new CreditService();
 
-        // 2. Bloquer si quota dépassé — s'applique à TOUS les modes suivis (y compris api_call)
-        if (Quota::isOverQuota($user['id'], $slug, $jourInscription)) {
-            NotificationService::instance()->envoyerAlerteQuota100(
-                $user['id'],
-                $slug,
-                Quota::getUsage($user['id'], $slug, $jourInscription),
-                Quota::getLimit($user['id'], $slug)
-            );
-
-            if ($request->isAjax()) {
-                Response::json([
-                    'error'          => 'Quota dépassé',
-                    'quota_exceeded' => true,
-                    'usage'          => Quota::getUsage($user['id'], $slug, $jourInscription),
-                    'limit'          => Quota::getLimit($user['id'], $slug),
-                    'reset_date'     => Quota::dateProchainResetUtilisateur($jourInscription),
-                ], 429);
+            if (!$creditService->peutConsommer($user['id'], $slug)) {
+                $this->bloquer($request, $user, $slug, $module, $creditService);
             }
 
-            $ac = new AccessControl();
-            $quotaSummary = Quota::getUserQuotaSummary($user['id'], $jourInscription);
-            $modules = $ac->getAccessibleModules($user['id']);
-            Layout::render('layout', [
-                'template'          => 'quota-exceeded',
-                'pageTitle'         => 'Quota dépassé',
-                'currentUser'       => $user,
-                'accessibleModules' => $modules,
-                'activeModule'      => $slug,
-                'quotaSummary'      => $quotaSummary,
-                'moduleSlug'        => $slug,
-                'moduleName'        => $module->name,
-                'quotaUsage'        => Quota::getUsage($user['id'], $slug, $jourInscription),
-                'quotaLimit'        => Quota::getLimit($user['id'], $slug),
-                'dateResetQuota'    => Quota::dateProchainResetUtilisateur($jourInscription),
-            ]);
-            exit;
-        }
+            // Auto-consommer pour request, form_submit (POST), url
+            if ($doitConsommer) {
+                $creditService->consommer($user['id'], $slug);
 
-        // 3. Auto-incrémenter uniquement pour request et form_submit
-        //    Le mode api_call est incrémenté manuellement par le plugin via Quota::track()
-        if ($module->quotaMode === QuotaMode::Request
-            || ($module->quotaMode === QuotaMode::FormSubmit && $request->method() === 'POST')) {
-            Quota::increment($user['id'], $slug, 1, $jourInscription);
+                // Incrémenter aussi module_usage pour le suivi par module
+                $jourInscription = (int) date('j', strtotime($user['created_at'] ?? 'now'));
+                Quota::increment($user['id'], $slug, 1, $jourInscription);
+            }
+        } catch (\PDOException) {
+            // Table user_credits pas encore créée → fallback ancien système
+            $this->fallbackAncienSysteme($request, $user, $slug, $module);
         }
 
         $next($request);
+    }
+
+    /**
+     * Fallback vers l'ancien système de quotas par module.
+     */
+    private function fallbackAncienSysteme(Request $request, array $user, string $slug, \Platform\Module\ModuleDescriptor $module): void
+    {
+        if ($module->quotaMode === \Platform\Enum\QuotaMode::None) {
+            return;
+        }
+
+        $jourInscription = (int) date('j', strtotime($user['created_at'] ?? 'now'));
+
+        if (Quota::isOverQuota($user['id'], $slug, $jourInscription)) {
+            $this->bloquerAncien($request, $user, $slug, $module, $jourInscription);
+        }
+
+        // Auto-incrémenter pour request et form_submit
+        if ($module->quotaMode === \Platform\Enum\QuotaMode::Request
+            || ($module->quotaMode === \Platform\Enum\QuotaMode::FormSubmit && $request->method() === 'POST')) {
+            Quota::increment($user['id'], $slug, 1, $jourInscription);
+        }
+    }
+
+    private function bloquer(Request $request, array $user, string $slug, \Platform\Module\ModuleDescriptor $module, CreditService $creditService): never
+    {
+        $resume = $creditService->resumePourDashboard($user['id']);
+
+        if ($request->isAjax()) {
+            Response::json([
+                'error'            => 'Crédits épuisés',
+                'credits_exceeded' => true,
+                'utilises'         => $resume['utilises'],
+                'limite'           => $resume['limite'],
+                'periode_fin'      => $resume['periode_fin'],
+            ], 429);
+        }
+
+        $ac = new AccessControl();
+        $modules = $ac->getAccessibleModules($user['id']);
+
+        Layout::render('layout', [
+            'template'          => 'quota-exceeded',
+            'pageTitle'         => 'Crédits épuisés',
+            'currentUser'       => $user,
+            'accessibleModules' => $modules,
+            'activeModule'      => $slug,
+            'quotaSummary'      => Quota::getUserQuotaSummary($user['id']),
+            'moduleSlug'        => $slug,
+            'moduleName'        => $module->name,
+            'quotaUsage'        => $resume['utilises'],
+            'quotaLimit'        => $resume['limite'],
+            'dateResetQuota'    => $resume['periode_fin'],
+            'creditsMode'       => true,
+        ]);
+        exit;
+    }
+
+    private function bloquerAncien(Request $request, array $user, string $slug, \Platform\Module\ModuleDescriptor $module, int $jourInscription): never
+    {
+        NotificationService::instance()->envoyerAlerteQuota100(
+            $user['id'], $slug,
+            Quota::getUsage($user['id'], $slug, $jourInscription),
+            Quota::getLimit($user['id'], $slug)
+        );
+
+        if ($request->isAjax()) {
+            Response::json([
+                'error'          => 'Quota dépassé',
+                'quota_exceeded' => true,
+                'usage'          => Quota::getUsage($user['id'], $slug, $jourInscription),
+                'limit'          => Quota::getLimit($user['id'], $slug),
+                'reset_date'     => Quota::dateProchainResetUtilisateur($jourInscription),
+            ], 429);
+        }
+
+        $ac = new AccessControl();
+        Layout::render('layout', [
+            'template'          => 'quota-exceeded',
+            'pageTitle'         => 'Quota dépassé',
+            'currentUser'       => $user,
+            'accessibleModules' => $ac->getAccessibleModules($user['id']),
+            'activeModule'      => $slug,
+            'quotaSummary'      => Quota::getUserQuotaSummary($user['id'], $jourInscription),
+            'moduleSlug'        => $slug,
+            'moduleName'        => $module->name,
+            'quotaUsage'        => Quota::getUsage($user['id'], $slug, $jourInscription),
+            'quotaLimit'        => Quota::getLimit($user['id'], $slug),
+            'dateResetQuota'    => Quota::dateProchainResetUtilisateur($jourInscription),
+        ]);
+        exit;
     }
 }

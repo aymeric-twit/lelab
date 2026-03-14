@@ -120,6 +120,62 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
     </div>
 </div>
 
+<!-- Barre de crédits globale -->
+<?php
+$cr = $credits ?? ['utilises' => 0, 'limite' => 50, 'pourcentage' => 0, 'illimite' => false, 'periode_fin' => ''];
+$crParModule = $creditsParModule ?? [];
+if (!$estAdmin):
+?>
+<div class="card dashboard-card mb-4">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <i class="bi bi-lightning-charge me-1" style="color: var(--brand-teal);"></i>
+                <strong style="font-size: 0.9rem;">Cr&eacute;dits</strong>
+            </div>
+            <div style="font-size: 0.85rem;">
+                <?php if ($cr['illimite']): ?>
+                    <span class="text-success"><i class="bi bi-infinity me-1"></i>Illimit&eacute;</span>
+                <?php else: ?>
+                    <strong><?= $cr['utilises'] ?></strong> / <?= $cr['limite'] ?> utilis&eacute;s
+                    <?php if (!empty($cr['periode_fin'])): ?>
+                        <span class="text-muted ms-2" style="font-size: 0.75rem;">
+                            Reset <?= htmlspecialchars(DashboardController::tempsRelatifFutur($cr['periode_fin'])) ?>
+                        </span>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php if (!$cr['illimite']): ?>
+            <?php
+            $crPct = min(100, $cr['pourcentage']);
+            $crBarClass = $crPct >= 100 ? 'bg-danger' : ($crPct >= 80 ? 'bg-warning' : '');
+            $crBarStyle = $crBarClass === '' ? 'background: var(--brand-teal);' : '';
+            ?>
+            <div class="progress" style="height: 8px; border-radius: 4px;">
+                <div class="progress-bar <?= $crBarClass ?>" style="width: <?= $crPct ?>%; <?= $crBarStyle ?> border-radius: 4px;"></div>
+            </div>
+            <?php if (!empty($crParModule)): ?>
+            <div class="mt-2" style="font-size: 0.75rem; color: var(--text-muted);">
+                <?php
+                $topModules = array_slice($crParModule, 0, 4, true);
+                $parts = [];
+                foreach ($topModules as $slug => $info) {
+                    $parts[] = htmlspecialchars($info['nom']) . '&nbsp;:&nbsp;' . $info['credits'] . '&nbsp;cr.';
+                }
+                echo implode(' &middot; ', $parts);
+                $reste = count($crParModule) - count($topModules);
+                if ($reste > 0) {
+                    echo ' &middot; +' . $reste . ' autres';
+                }
+                ?>
+            </div>
+            <?php endif; ?>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- Mes outils -->
 <h5 class="mb-3" style="color: var(--brand-dark); font-weight: 600;">Mes outils</h5>
 

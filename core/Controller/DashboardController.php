@@ -9,6 +9,7 @@ use Platform\Http\Response;
 use Platform\Module\Quota;
 use Platform\Repository\NotificationPreferenceRepository;
 use Platform\User\AccessControl;
+use Platform\Service\CreditService;
 use Platform\View\Layout;
 
 class DashboardController
@@ -43,6 +44,17 @@ class DashboardController
         // Données d'usage pour les graphiques (6 derniers mois)
         $usageParMois = $this->usageMensuel($user['id'], $estAdmin);
 
+        // Crédits universels
+        $credits = ['utilises' => 0, 'limite' => 50, 'pourcentage' => 0, 'illimite' => false, 'periode_fin' => ''];
+        $creditsParModule = [];
+        try {
+            $creditService = new CreditService();
+            $credits = $creditService->resumePourDashboard($user['id']);
+            $creditsParModule = $creditService->usageParModule($user['id']);
+        } catch (\PDOException) {
+            // Table user_credits pas encore créée
+        }
+
         Layout::render('layout', [
             'template'          => 'dashboard',
             'pageTitle'         => 'Dashboard',
@@ -56,6 +68,8 @@ class DashboardController
             'alertesActives'    => $alertesActives,
             'unsubscribeToken'  => $user['unsubscribe_token'] ?? '',
             'usageParMois'      => $usageParMois,
+            'credits'           => $credits,
+            'creditsParModule'  => $creditsParModule,
         ]);
     }
 

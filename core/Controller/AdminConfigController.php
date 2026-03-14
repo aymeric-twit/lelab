@@ -62,8 +62,12 @@ class AdminConfigController
         } elseif ($onglet === 'general') {
             $donnees['general'] = $settings->obtenirGroupe('general');
         } elseif ($onglet === 'webhooks') {
-            $dispatcher = new WebhookDispatcher($db);
-            $donnees['webhooks'] = $dispatcher->listerTous();
+            try {
+                $dispatcher = new WebhookDispatcher($db);
+                $donnees['webhooks'] = $dispatcher->listerTous();
+            } catch (\PDOException) {
+                $donnees['webhooks'] = [];
+            }
             $donnees['evenementsDisponibles'] = WebhookDispatcher::EVENEMENTS;
         } elseif ($onglet === 'api') {
             $donnees = array_merge($donnees, $this->chargerDonneesApiKeys($db));
@@ -289,7 +293,7 @@ class AdminConfigController
 
         $utilisateurs = [];
         try {
-            $utilisateurs = $db->query('SELECT id, username, email FROM users WHERE is_active = 1 ORDER BY username')->fetchAll();
+            $utilisateurs = $db->query('SELECT id, username, email FROM users WHERE active = 1 AND deleted_at IS NULL ORDER BY username')->fetchAll();
         } catch (\PDOException) {
         }
 

@@ -3,6 +3,8 @@
 /modules/*/vendor/
 /modules/*/node_modules/
 /storage/logs/*.log
+/storage/cache/
+/storage/backups/
 /storage/plugins/*/
 .claude/
 .phpunit.cache/

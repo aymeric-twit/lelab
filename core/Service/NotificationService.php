@@ -129,7 +129,9 @@ class NotificationService
             'usage' => $usage,
             'limite' => $limite,
             'pourcentage' => round(($usage / $limite) * 100),
-            'dateReset' => Quota::dateProchainReset(),
+            'dateReset' => Quota::dateProchainResetUtilisateur(
+                (int) date('j', strtotime($user['created_at'] ?? 'now'))
+            ),
             'lienPlateforme' => rtrim($this->config['url'], '/') . '/mon-compte',
         ]));
 
@@ -164,7 +166,9 @@ class NotificationService
             'nomModule' => $nomModule,
             'usage' => $usage,
             'limite' => $limite,
-            'dateReset' => Quota::dateProchainReset(),
+            'dateReset' => Quota::dateProchainResetUtilisateur(
+                (int) date('j', strtotime($user['created_at'] ?? 'now'))
+            ),
             'lienPlateforme' => rtrim($this->config['url'], '/') . '/mon-compte',
         ]));
 

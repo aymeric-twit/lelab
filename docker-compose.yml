@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: seo-platform-app
+    volumes:
+      - .:/var/www/html
+      - ./storage:/var/www/html/storage
+    depends_on:
+      - mysql
+    environment:
+      - APP_ENV=development
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=seo_platform
+      - DB_USER=seo_user
+      - DB_PASSWORD=seo_password
+    networks:
+      - seo-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: seo-platform-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - seo-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: seo-platform-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: seo_platform
+      MYSQL_USER: seo_user
+      MYSQL_PASSWORD: seo_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - seo-network
+
+volumes:
+  mysql-data:
+
+networks:
+  seo-network:
+    driver: bridge

@@ -31,6 +31,12 @@ use Platform\Controller\AdminMigrationController;
 use Platform\Controller\DesabonnementController;
 use Platform\Controller\LegalController;
 use Platform\Controller\WebhookGithubController;
+use Platform\Controller\HealthController;
+use Platform\Controller\Api\ApiUsersController;
+use Platform\Controller\Api\ApiModulesController;
+use Platform\Controller\Api\ApiStatsController;
+use Platform\Http\Middleware\RequireApiKey;
+use Platform\Http\Middleware\RateLimitApi;
 use Platform\Database\Connection;
 
 // Bootstrap
@@ -56,10 +62,17 @@ $adminAudit = new AdminAuditController();
 $adminEmail = new AdminEmailController();
 $adminGroup = new AdminGroupController();
 $compte = new \Platform\Controller\CompteController();
+$notifController = new \Platform\Controller\NotificationController();
+$onboarding = new \Platform\Controller\OnboardingController();
+$marketplace = new \Platform\Controller\MarketplaceController();
 
 // -----------------------------------------------
 // Public routes
 // -----------------------------------------------
+
+// Health check (public, sans auth)
+$health = new HealthController();
+$router->get('/api/health', [$health, 'index']);
 
 $router->get('/login', [$auth, 'formulaireLogin']);
 $router->post('/login', [$auth, 'login']);
@@ -103,9 +116,15 @@ $router->post('/desabonnement/tout', [$desabonnement, 'desabonnerTout']);
 
 $quotaApi = new \Platform\Controller\QuotaApiController();
 
-$router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $r) use ($auth, $dashboard, $module, $compte, $quotaApi) {
+$router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $r) use ($auth, $dashboard, $module, $compte, $quotaApi, $notifController, $onboarding) {
     $r->get('/logout', [$auth, 'logout']);
     $r->get('/', [$dashboard, 'index']);
+
+    // Onboarding
+    $r->get('/onboarding', [$onboarding, 'index']);
+
+    // Marketplace
+    $r->get('/marketplace', [$marketplace, 'index']);
 
     // API quota pour plugins JS
     $r->get('/api/quota/{slug}', [$quotaApi, 'afficher']);
@@ -113,13 +132,19 @@ $router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $
     // Mon compte (avec CSRF pour les POST)
     $r->get('/mon-compte', [$compte, 'afficher']);
     $r->get('/mon-compte/2fa/activer', [$compte, 'activer2fa']);
-    $r->group([new VerifyCsrf()], function (Router $r) use ($compte, $dashboard) {
+    // Notifications in-app (AJAX)
+    $r->get('/api/notifications', [$notifController, 'nonLues']);
+
+    $r->group([new VerifyCsrf()], function (Router $r) use ($compte, $dashboard, $notifController, $onboarding) {
         $r->post('/mon-compte', [$compte, 'mettreAJour']);
         $r->post('/mon-compte/mot-de-passe', [$compte, 'changerMotDePasse']);
         $r->post('/mon-compte/supprimer', [$compte, 'supprimerCompte']);
         $r->post('/mon-compte/2fa/confirmer', [$compte, 'confirmer2fa']);
         $r->post('/mon-compte/2fa/desactiver', [$compte, 'desactiver2fa']);
         $r->post('/api/notifications/toggle', [$dashboard, 'toggleNotifications']);
+        $r->post('/api/notifications/lire', [$notifController, 'marquerLue']);
+        $r->post('/api/notifications/lire-tout', [$notifController, 'marquerToutesLues']);
+        $r->post('/onboarding', [$onboarding, 'sauvegarder']);
     });
 
     // Demande d'accès module (CSRF, sans quota check)
@@ -185,6 +210,12 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->get('/admin/maintenance', [$adminMaintenance, 'index']);
     $r->post('/admin/maintenance/dependances', [$adminMaintenance, 'installerDependances']);
     $r->post('/admin/maintenance/purge-usage', [$adminMaintenance, 'purgerUsage']);
+    $r->post('/admin/maintenance/backup', [$adminMaintenance, 'creerBackup']);
+    $r->get('/admin/maintenance/backup/{fichier}', [$adminMaintenance, 'telechargerBackup']);
+    $r->post('/admin/maintenance/purge-logs', [$adminMaintenance, 'purgerLogs']);
+
+    // Export utilisateurs
+    $r->get('/admin/users/export-csv', [$adminUser, 'exporterCsv']);
 
     $r->get('/admin/audit', [$adminAudit, 'index']);
     $r->get('/admin/audit/export-csv', [$adminAudit, 'exporterCsv']);
@@ -207,6 +238,28 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $adminMigration = new AdminMigrationController();
     $r->get('/admin/migrations', [$adminMigration, 'index']);
     $r->post('/admin/migrations', [$adminMigration, 'index']);
+});
+
+// -----------------------------------------------
+// API v1 (auth par clé API, rate limited)
+// -----------------------------------------------
+
+$apiUsers = new ApiUsersController();
+$apiModules = new ApiModulesController();
+$apiStats = new ApiStatsController();
+
+$router->group([new RateLimitApi(60, 60), new RequireApiKey()], function (Router $r) use ($apiUsers, $apiModules, $apiStats) {
+    // Users (admin only)
+    $r->get('/api/v1/users', [$apiUsers, 'index']);
+    $r->get('/api/v1/users/{id}', [$apiUsers, 'show']);
+
+    // Modules
+    $r->get('/api/v1/modules', [$apiModules, 'index']);
+    $r->get('/api/v1/modules/{slug}', [$apiModules, 'show']);
+
+    // Stats
+    $r->get('/api/v1/stats/usage', [$apiStats, 'usage']);
+    $r->get('/api/v1/stats/quotas', [$apiStats, 'quotas']);
 });
 
 // -----------------------------------------------

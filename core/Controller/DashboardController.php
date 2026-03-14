@@ -40,6 +40,9 @@ class DashboardController
             // Table user_notification_preferences pas encore créée (migration 024)
         }
 
+        // Données d'usage pour les graphiques (6 derniers mois)
+        $usageParMois = $this->usageMensuel($user['id'], $estAdmin);
+
         Layout::render('layout', [
             'template'          => 'dashboard',
             'pageTitle'         => 'Dashboard',
@@ -52,6 +55,7 @@ class DashboardController
             'dateResetQuota'    => Quota::dateProchainResetUtilisateur($jourInscription),
             'alertesActives'    => $alertesActives,
             'unsubscribeToken'  => $user['unsubscribe_token'] ?? '',
+            'usageParMois'      => $usageParMois,
         ]);
     }
 
@@ -100,6 +104,76 @@ class DashboardController
         }
 
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Récupère l'usage mensuel agrégé (6 derniers mois) pour les graphiques.
+     *
+     * @return array{labels: string[], series: array<string, array{name: string, data: int[]}>}
+     */
+    private function usageMensuel(int $userId, bool $estAdmin): array
+    {
+        $db = Connection::get();
+        $moisCount = 6;
+
+        // Générer les labels des 6 derniers mois
+        $labels = [];
+        $moisFr = [1 => 'Jan', 2 => 'Fév', 3 => 'Mar', 4 => 'Avr', 5 => 'Mai', 6 => 'Juin',
+                    7 => 'Juil', 8 => 'Août', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Déc'];
+        $yearMonths = [];
+        for ($i = $moisCount - 1; $i >= 0; $i--) {
+            $date = new \DateTimeImmutable("-{$i} months");
+            $yearMonths[] = $date->format('Ym');
+            $labels[] = $moisFr[(int) $date->format('n')] . ' ' . $date->format('y');
+        }
+
+        $seuilYearMonth = $yearMonths[0];
+        $placeholders = implode(',', array_fill(0, count($yearMonths), '?'));
+
+        if ($estAdmin) {
+            // Admin : usage global par module
+            $stmt = $db->prepare(
+                "SELECT m.slug, m.name, mu.year_month, SUM(mu.usage_count) AS total
+                 FROM module_usage mu
+                 JOIN modules m ON m.id = mu.module_id
+                 WHERE mu.year_month IN ({$placeholders})
+                 GROUP BY m.slug, m.name, mu.year_month
+                 ORDER BY m.slug, mu.year_month"
+            );
+            $stmt->execute($yearMonths);
+        } else {
+            // User : usage personnel
+            $params = array_merge($yearMonths, [$userId]);
+            $stmt = $db->prepare(
+                "SELECT m.slug, m.name, mu.year_month, mu.usage_count AS total
+                 FROM module_usage mu
+                 JOIN modules m ON m.id = mu.module_id
+                 WHERE mu.year_month IN ({$placeholders}) AND mu.user_id = ?
+                 ORDER BY m.slug, mu.year_month"
+            );
+            $stmt->execute($params);
+        }
+
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Structurer par module
+        $series = [];
+        foreach ($rows as $row) {
+            $slug = $row['slug'];
+            if (!isset($series[$slug])) {
+                $series[$slug] = ['name' => $row['name'], 'data' => array_fill(0, $moisCount, 0)];
+            }
+            $idx = array_search($row['year_month'], $yearMonths, true);
+            if ($idx !== false) {
+                $series[$slug]['data'][$idx] += (int) $row['total'];
+            }
+        }
+
+        // Trier par total décroissant, garder les 5 premiers
+        uasort($series, fn($a, $b) => array_sum($b['data']) <=> array_sum($a['data']));
+        $series = array_slice($series, 0, 5, true);
+
+        return ['labels' => $labels, 'series' => $series];
     }
 
     public static function tempsRelatif(string $dateStr): string

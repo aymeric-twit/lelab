@@ -5,6 +5,7 @@ namespace Platform\Log;
 class Logger
 {
     private static ?string $logDir = null;
+    private static ?string $requestId = null;
 
     public static function init(string $logDir): void
     {
@@ -12,6 +13,16 @@ class Logger
         if (!is_dir($logDir)) {
             mkdir($logDir, 0755, true);
         }
+        // Générer un ID de requête unique pour la corrélation
+        self::$requestId = substr(bin2hex(random_bytes(8)), 0, 12);
+    }
+
+    /**
+     * Retourne l'ID de requête unique (pour les headers, logs, debugging).
+     */
+    public static function requestId(): ?string
+    {
+        return self::$requestId;
     }
 
     public static function error(string $message, array $contexte = []): void
@@ -29,6 +40,11 @@ class Logger
         self::ecrire('INFO', $message, $contexte);
     }
 
+    public static function debug(string $message, array $contexte = []): void
+    {
+        self::ecrire('DEBUG', $message, $contexte);
+    }
+
     private static function ecrire(string $niveau, string $message, array $contexte): void
     {
         if (self::$logDir === null) {
@@ -37,10 +53,43 @@ class Logger
 
         $fichier = self::$logDir . '/platform-' . date('Y-m-d') . '.log';
         $horodatage = date('Y-m-d H:i:s');
-        $contexteStr = $contexte !== [] ? ' ' . json_encode($contexte, JSON_UNESCAPED_UNICODE) : '';
 
-        $ligne = "[{$horodatage}] {$niveau}: {$message}{$contexteStr}" . PHP_EOL;
+        $entry = [
+            'timestamp'  => $horodatage,
+            'level'      => $niveau,
+            'request_id' => self::$requestId,
+            'message'    => $message,
+        ];
+
+        if ($contexte !== []) {
+            $entry['context'] = $contexte;
+        }
+
+        $ligne = json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 
         file_put_contents($fichier, $ligne, FILE_APPEND | LOCK_EX);
+    }
+
+    /**
+     * Rotation : supprime les fichiers de log plus anciens que N jours.
+     */
+    public static function rotation(int $joursAConserver = 30): int
+    {
+        if (self::$logDir === null) {
+            return 0;
+        }
+
+        $seuil = time() - ($joursAConserver * 86400);
+        $fichiers = glob(self::$logDir . '/platform-*.log');
+        $supprimes = 0;
+
+        foreach ($fichiers as $fichier) {
+            if (filemtime($fichier) < $seuil) {
+                unlink($fichier);
+                $supprimes++;
+            }
+        }
+
+        return $supprimes;
     }
 }

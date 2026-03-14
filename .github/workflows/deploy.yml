@@ -40,9 +40,14 @@ jobs:
               --exclude ^public/module-assets/ \
               --exclude ^storage/logs/ \
               --exclude ^storage/plugins/ \
+              --exclude ^storage/cache/ \
+              --exclude ^storage/backups/ \
               --exclude ^tests/ \
               --exclude ^phpstan\.neon$ \
               --exclude ^phpunit\.xml$ \
+              --exclude ^Dockerfile$ \
+              --exclude ^docker-compose\.yml$ \
+              --exclude ^docker/ \
               ./ /lamp0/web/vhosts/labs.yapasdequoi.com/htdocs/lelab/;
             bye
           "

@@ -16,6 +16,7 @@ use Platform\User\AccessControl;
 use Platform\User\UserRepository;
 use Platform\Validation\Validator;
 use Platform\Log\Logger;
+use Platform\Service\UserExportService;
 use Platform\View\Flash;
 use Platform\View\Layout;
 
@@ -38,11 +39,20 @@ class AdminUserController
         ];
         $pagination = $repo->findAllPagine($page, 20, $filtres);
 
-        $tousLesUtilisateurs = $repo->findAll();
-        $modulesActifs = $db->query('SELECT * FROM modules WHERE enabled = 1 ORDER BY sort_order')->fetchAll();
-        $matriceAcces = $ac->getAccessMatrix();
-        $matriceQuotas = Quota::getQuotaMatrix();
-        $matriceUsage = Quota::getUsageMatrix();
+        // Chargement paresseux : matrices accès/quotas seulement pour les onglets concernés
+        $tousLesUtilisateurs = [];
+        $modulesActifs = [];
+        $matriceAcces = [];
+        $matriceQuotas = [];
+        $matriceUsage = [];
+
+        if ($onglet !== 'utilisateurs') {
+            $tousLesUtilisateurs = $repo->findAll();
+            $modulesActifs = $db->query('SELECT * FROM modules WHERE enabled = 1 ORDER BY sort_order')->fetchAll();
+            $matriceAcces = $ac->getAccessMatrix();
+            $matriceQuotas = Quota::getQuotaMatrix();
+            $matriceUsage = Quota::getUsageMatrix();
+        }
 
         Layout::render('layout', [
             'template'              => 'admin/users',
@@ -372,6 +382,21 @@ class AdminUserController
             'modules'        => array_map(fn($m) => $m['name'], $modules),
             'quotas'         => $quotaSummary,
         ]);
+    }
+
+    /**
+     * GET /admin/users/export-csv — Export CSV des utilisateurs avec accès et quotas.
+     */
+    public function exporterCsv(Request $req): void
+    {
+        $filtres = [
+            'role'  => (string) $req->get('role', ''),
+            'actif' => (string) $req->get('actif', ''),
+        ];
+
+        $service = new UserExportService();
+        $service->exporterCsv($filtres);
+        exit;
     }
 
     private function sauvegarderAccesEtQuotas(Request $req, \PDO $db, int $userId): void

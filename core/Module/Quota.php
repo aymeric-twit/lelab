@@ -52,15 +52,6 @@ class Quota
     }
 
     /**
-     * Retourne la date du prochain reset des quotas (1er du mois suivant).
-     * @deprecated Utiliser dateProchainResetUtilisateur() à la place
-     */
-    public static function dateProchainReset(): string
-    {
-        return date('Y-m-d', strtotime('first day of next month'));
-    }
-
-    /**
      * Retourne la date du prochain reset basée sur le jour d'inscription de l'utilisateur.
      * Gère les mois courts (inscrit le 31 → reset le 28/29 en février).
      */

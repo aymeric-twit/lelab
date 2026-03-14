@@ -111,40 +111,6 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
             </div>
         </div>
 
-        <!-- Card Mes modules (liste cliquable) -->
-        <div class="card dashboard-card mb-3">
-            <div class="card-header">
-                <i class="bi bi-box-seam me-1"></i> Mes modules
-            </div>
-            <div class="card-body py-2">
-                <?php
-                $premiereCat = true;
-                foreach ($modulesParCategorie as $catId => $catData):
-                    if (empty($catData['modules'])) continue;
-                    $catNom = $catId === 0 ? 'Autres' : htmlspecialchars($catData['nom']);
-                    $catIcone = $catId === 0 ? 'bi-three-dots' : htmlspecialchars($catData['icone']);
-                ?>
-                    <div class="dashboard-quota-category<?= $premiereCat ? ' first' : '' ?>">
-                        <i class="bi <?= $catIcone ?> me-1"></i><?= $catNom ?>
-                    </div>
-                    <?php $premiereCat = false; ?>
-
-                    <?php foreach ($catData['modules'] as $mod): ?>
-                        <div class="mb-1">
-                            <a href="/m/<?= htmlspecialchars($mod['slug']) ?>" class="text-decoration-none d-flex align-items-center py-1" style="font-size: 0.82rem; color: var(--brand-dark);">
-                                <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-2" style="color: var(--brand-teal); font-size: 0.9rem;"></i>
-                                <span class="text-truncate"><?= htmlspecialchars($mod['name']) ?></span>
-                            </a>
-                        </div>
-                    <?php endforeach; ?>
-                <?php endforeach; ?>
-
-                <?php if (empty($accessibleModules)): ?>
-                    <p class="text-muted small mb-0">Aucun module accessible.</p>
-                <?php endif; ?>
-            </div>
-        </div>
-
     </div>
 
     <!-- Colonne droite : Outils + Activité récente -->
@@ -264,6 +230,23 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
         </div>
         <?php endforeach; ?>
 
+        <!-- Graphique d'usage mensuel -->
+        <?php
+        $usageData = $usageParMois ?? ['labels' => [], 'series' => []];
+        $aDesUsages = !empty($usageData['series']);
+        ?>
+        <?php if ($aDesUsages): ?>
+        <div class="card dashboard-card mb-4">
+            <div class="card-header">
+                <i class="bi bi-bar-chart-line me-1"></i>
+                <?= $estAdmin ? 'Usage global' : 'Mon usage' ?> — 6 derniers mois
+            </div>
+            <div class="card-body">
+                <canvas id="usageChart" height="220"></canvas>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Card Activité récente (3 visibles + collapse) -->
         <?php if (!empty($journal)): ?>
         <div class="card dashboard-card mb-4 mt-2">
@@ -322,8 +305,48 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+
+    // Graphique d'usage mensuel (Chart.js)
+    <?php if ($aDesUsages): ?>
+    (function() {
+        var ctx = document.getElementById('usageChart');
+        if (!ctx) return;
+
+        var labels = <?= json_encode($usageData['labels']) ?>;
+        var colors = ['#004c4c', '#66b2b2', '#fbb03b', '#198754', '#6f42c1'];
+        var datasets = [];
+        var i = 0;
+
+        <?php foreach ($usageData['series'] as $slug => $info): ?>
+        datasets.push({
+            label: <?= json_encode($info['name']) ?>,
+            data: <?= json_encode($info['data']) ?>,
+            backgroundColor: colors[i % colors.length],
+            borderRadius: 4,
+        });
+        i++;
+        <?php endforeach; ?>
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { family: 'Poppins', size: 11 } } }
+                },
+                scales: {
+                    x: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Poppins', size: 11 } } },
+                    y: { stacked: true, beginAtZero: true, ticks: { font: { family: 'Poppins', size: 11 }, precision: 0 } }
+                }
+            }
+        });
+    })();
+    <?php endif; ?>
     // Toggle activité récente
     var toggle = document.getElementById('journalToggle');
     var collapse = document.getElementById('journalCollapse');

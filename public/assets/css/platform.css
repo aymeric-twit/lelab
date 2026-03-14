@@ -458,6 +458,13 @@ a:hover { color: var(--brand-dark); }
     margin-right: -6px;
 }
 
+.sidebar-module-active {
+    background: var(--brand-teal-light);
+    border-radius: 4px;
+    padding-left: 0.35rem;
+    font-weight: 600 !important;
+}
+
 /* ------------------------------------------------
    Module cards (dashboard)
    ------------------------------------------------ */

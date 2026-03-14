@@ -218,6 +218,8 @@ class PluginInstaller
             $this->creerSymlinkAssets($donnees['slug'], $donnees['chemin_source']);
         }
 
+        ModuleRegistry::invaliderCache();
+
         return $moduleId;
     }
 
@@ -448,6 +450,8 @@ class PluginInstaller
             $this->db->prepare('DELETE FROM module_usage WHERE module_id = ?')->execute([$moduleId]);
             $this->db->prepare('DELETE FROM modules WHERE id = ?')->execute([$moduleId]);
         }
+
+        ModuleRegistry::invaliderCache();
 
         // Nettoyage fichiers dans les deux cas
         if ($cheminSource !== null) {

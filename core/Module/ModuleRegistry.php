@@ -10,12 +10,35 @@ class ModuleRegistry
     private static array $modules = [];
     private static bool $loaded = false;
 
+    /** Chemin du fichier de cache des modules embarqués */
+    private static function cheminCache(): string
+    {
+        return dirname(__DIR__, 2) . '/storage/cache/modules_registry.json';
+    }
+
     public static function discover(string $modulesPath): void
     {
         if (self::$loaded) {
             return;
         }
 
+        // Tenter de charger depuis le cache fichier
+        $cachePath = self::cheminCache();
+        if (file_exists($cachePath)) {
+            $cacheData = json_decode(file_get_contents($cachePath), true);
+            if (is_array($cacheData)) {
+                foreach ($cacheData as $entry) {
+                    if (isset($entry['slug'], $entry['path']) && is_dir($entry['path'])) {
+                        self::$modules[$entry['slug']] = new ModuleDescriptor($entry['path'], $entry['data']);
+                    }
+                }
+                self::$loaded = true;
+                return;
+            }
+        }
+
+        // Scan filesystem et construction du cache
+        $cacheEntries = [];
         $dirs = glob($modulesPath . '/*/module.json');
         foreach ($dirs as $jsonFile) {
             $basePath = dirname($jsonFile);
@@ -26,8 +49,16 @@ class ModuleRegistry
             $data = json_decode(file_get_contents($jsonFile), true);
             if ($data && isset($data['slug'])) {
                 self::$modules[$data['slug']] = new ModuleDescriptor($basePath, $data);
+                $cacheEntries[] = ['slug' => $data['slug'], 'path' => $basePath, 'data' => $data];
             }
         }
+
+        // Persister le cache
+        $cacheDir = dirname($cachePath);
+        if (!is_dir($cacheDir)) {
+            mkdir($cacheDir, 0755, true);
+        }
+        file_put_contents($cachePath, json_encode($cacheEntries, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
         self::$loaded = true;
     }
@@ -148,6 +179,20 @@ class ModuleRegistry
         return $db->query(
             'SELECT * FROM categories ORDER BY sort_order, nom'
         )->fetchAll();
+    }
+
+    /**
+     * Invalide le cache fichier des modules embarqués.
+     * À appeler après installation/désinstallation/mise à jour d'un plugin.
+     */
+    public static function invaliderCache(): void
+    {
+        $cachePath = self::cheminCache();
+        if (file_exists($cachePath)) {
+            unlink($cachePath);
+        }
+        self::$modules = [];
+        self::$loaded = false;
     }
 
     public static function get(string $slug): ?ModuleDescriptor

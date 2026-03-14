@@ -27,11 +27,6 @@ class Request
         return $_POST[$key] ?? $default;
     }
 
-    public function all(): array
-    {
-        return array_merge($_GET, $_POST);
-    }
-
     /**
      * Adresse IP du client, avec support des proxies de confiance.
      */

@@ -17,11 +17,18 @@ use Platform\Http\Response;
 use Platform\Service\AuditLogger;
 use Platform\User\UserRepository;
 use Platform\Validation\Validator;
+use Platform\Service\AuthService;
 use Platform\View\Flash;
 use Platform\View\Layout;
 
 class AuthController
 {
+    private AuthService $authService;
+
+    public function __construct(?AuthService $authService = null)
+    {
+        $this->authService = $authService ?? new AuthService();
+    }
     public function formulaireLogin(): void
     {
         if (Auth::check()) {
@@ -39,55 +46,38 @@ class AuthController
         $username = trim($req->post('username', ''));
         $password = $req->post('password', '');
         $sesouvenir = (bool) $req->post('se_souvenir', false);
-        $audit = AuditLogger::instance();
 
         if (Auth::isRateLimited($ipAnonyme)) {
             Flash::error('Trop de tentatives. Réessayez dans 15 minutes.');
             Response::redirect('/login');
         }
 
-        // Vérifier les identifiants sans créer de session complète si 2FA activée
-        $repo = new UserRepository();
-        $utilisateur = $repo->findByUsername($username);
+        $resultat = $this->authService->authentifier($username, $password, $ipAnonyme);
 
-        if ($utilisateur && $utilisateur['active'] && PasswordHasher::verify($password, $utilisateur['password_hash'])) {
-            // Vérifier si la 2FA est activée
-            if (!empty($utilisateur['totp_enabled'])) {
-                // Stocker l'ID en attente de vérification 2FA (sans Auth::login)
-                $_SESSION['_2fa_pending'] = (int) $utilisateur['id'];
-                $_SESSION['_2fa_se_souvenir'] = $sesouvenir;
-                Response::redirect('/2fa');
-            }
+        if ($resultat['succes'] && $resultat['necessite2fa']) {
+            $_SESSION['_2fa_pending'] = $resultat['userId'];
+            $_SESSION['_2fa_se_souvenir'] = $sesouvenir;
+            Response::redirect('/2fa');
+        }
 
-            // Pas de 2FA : connexion normale via Auth::attempt
-            Auth::attempt($username, $password);
-            $audit->log(AuditAction::LoginSuccess, $ipAnonyme, Auth::id(), 'user', null, ['username' => $username]);
-
-            // Historique de connexion
-            $db = Connection::get();
-            $stmt = $db->prepare('INSERT INTO login_history (user_id, ip_address, user_agent) VALUES (?, ?, ?)');
-            $stmt->execute([Auth::id(), $ipAnonyme, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
-
+        if ($resultat['succes']) {
             if ($sesouvenir) {
                 RememberMe::creerToken(Auth::id());
             }
-
             Response::redirect('/');
         }
 
-        // Vérifier si le compte existe mais est inactif (email non vérifié)
-        if ($utilisateur && !$utilisateur['active'] && PasswordHasher::verify($password, $utilisateur['password_hash'])) {
-            $audit->log(AuditAction::LoginFailed, $ipAnonyme, (int) $utilisateur['id'], 'user', null, ['username' => $username, 'raison' => 'compte_inactif']);
-            $inscriptionActive = Inscription::estActive();
+        if ($resultat['raison'] === 'inactif') {
+            $repo = new UserRepository();
+            $utilisateur = $repo->findById($resultat['userId']);
             Layout::renderStandalone('login', [
-                'inscriptionActive' => $inscriptionActive,
+                'inscriptionActive' => Inscription::estActive(),
                 'compteInactif' => true,
                 'emailInactif' => $utilisateur['email'] ?? '',
             ]);
             return;
         }
 
-        $audit->log(AuditAction::LoginFailed, $ipAnonyme, null, 'user', null, ['username' => $username]);
         Flash::error('Identifiants incorrects.');
         Response::redirect('/login');
     }
@@ -303,7 +293,6 @@ class AuthController
         $userId = (int) $_SESSION['_2fa_pending'];
         $code = trim($req->post('code', ''));
         $ipAnonyme = $req->ipAnonymisee();
-        $audit = AuditLogger::instance();
 
         $repo = new UserRepository();
         $utilisateur = $repo->findById($userId);
@@ -318,26 +307,11 @@ class AuthController
             $sesouvenir = $_SESSION['_2fa_se_souvenir'] ?? false;
             unset($_SESSION['_2fa_pending'], $_SESSION['_2fa_se_souvenir']);
 
-            // Connexion effective
-            Auth::loginParId($userId);
-            $audit->log(AuditAction::LoginSuccess, $ipAnonyme, $userId, 'user', null, [
-                'username' => $utilisateur['username'],
-                '2fa' => true,
-            ]);
-
-            // Historique de connexion
-            $db = Connection::get();
-            $stmt = $db->prepare('INSERT INTO login_history (user_id, ip_address, user_agent) VALUES (?, ?, ?)');
-            $stmt->execute([$userId, $ipAnonyme, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
-
-            if ($sesouvenir) {
-                RememberMe::creerToken($userId);
-            }
-
+            $this->authService->finaliserConnexion($utilisateur, $ipAnonyme, $sesouvenir, true);
             Response::redirect('/');
         }
 
-        $audit->log(AuditAction::LoginFailed, $ipAnonyme, $userId, 'user', null, [
+        AuditLogger::instance()->log(AuditAction::LoginFailed, $ipAnonyme, $userId, 'user', null, [
             'username' => $utilisateur['username'],
             'raison' => '2fa_invalide',
         ]);

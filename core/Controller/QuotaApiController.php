@@ -28,7 +28,7 @@ class QuotaApiController
             'limit'      => $limit,
             'restant'    => $restant,
             'illimite'   => $estAdmin || $limit === 0,
-            'reset_date' => Quota::dateProchainReset(),
+            'reset_date' => Quota::dateProchainResetUtilisateur(Quota::jourInscriptionUtilisateur()),
         ]);
     }
 }

@@ -9,6 +9,8 @@ use Platform\Http\Response;
 use Platform\Module\DependencyInstaller;
 use Platform\Module\ApiCreditsTracker;
 use Platform\Module\Quota;
+use Platform\Log\Logger;
+use Platform\Service\BackupService;
 use Platform\User\AccessControl;
 use Platform\View\Flash;
 use Platform\View\Layout;
@@ -45,6 +47,7 @@ class AdminMaintenanceController
         }
 
         $ac = new AccessControl();
+        $backupService = new BackupService();
 
         Layout::render('layout', [
             'template'          => 'admin/maintenance',
@@ -54,6 +57,7 @@ class AdminMaintenanceController
             'adminPage'         => 'maintenance',
             'etats'             => $etats,
             'outils'            => $depInstaller->verifierOutils(),
+            'backups'           => $backupService->listerBackups(),
         ]);
     }
 
@@ -115,6 +119,59 @@ class AdminMaintenanceController
             Flash::success("{$total} ligne(s) d'usage supprimée(s) ({$supprimees} quotas + {$supprimeesApi} crédits API).");
         } else {
             Flash::set('info', 'Aucune donnée à purger.');
+        }
+
+        Response::redirect('/admin/maintenance');
+    }
+
+    /**
+     * POST /admin/maintenance/backup — Créer un backup de la base de données.
+     */
+    public function creerBackup(Request $req): void
+    {
+        $service = new BackupService();
+        $resultat = $service->creerBackup();
+
+        if ($resultat['succes']) {
+            $taille = BackupService::formaterTaille($resultat['taille']);
+            Flash::success("Backup créé : {$resultat['fichier']} ({$taille}).");
+        } else {
+            Flash::error('Échec du backup : ' . ($resultat['erreur'] ?? 'erreur inconnue'));
+        }
+
+        Response::redirect('/admin/maintenance');
+    }
+
+    /**
+     * GET /admin/maintenance/backup/{fichier} — Télécharger un backup.
+     */
+    public function telechargerBackup(Request $req, array $params): void
+    {
+        $service = new BackupService();
+        $chemin = $service->cheminBackup($params['fichier']);
+
+        if ($chemin === null) {
+            Response::abort(404);
+        }
+
+        header('Content-Type: application/gzip');
+        header('Content-Disposition: attachment; filename="' . basename($chemin) . '"');
+        header('Content-Length: ' . filesize($chemin));
+        readfile($chemin);
+        exit;
+    }
+
+    /**
+     * POST /admin/maintenance/purge-logs — Purger les anciens logs.
+     */
+    public function purgerLogs(Request $req): void
+    {
+        $supprimes = Logger::rotation(30);
+
+        if ($supprimes > 0) {
+            Flash::success("{$supprimes} fichier(s) de log supprimé(s).");
+        } else {
+            Flash::set('info', 'Aucun fichier de log à purger.');
         }
 
         Response::redirect('/admin/maintenance');

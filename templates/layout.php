@@ -147,6 +147,31 @@
                 </li>
                 <?php endif; ?>
 
+                <!-- Cloche notifications -->
+                <li class="nav-item ms-lg-2">
+                    <div class="dropdown">
+                        <a class="nav-link position-relative p-1" href="#" role="button" data-bs-toggle="dropdown"
+                           aria-expanded="false" id="notifBell" title="Notifications">
+                            <i class="bi bi-bell" style="font-size: 1.1rem;"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                                  id="notifBadge" style="font-size: 0.6rem;">0</span>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end p-0" style="width: 320px; max-height: 400px; overflow-y: auto;">
+                            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                                <strong style="font-size: 0.85rem;">Notifications</strong>
+                                <a href="#" id="notifMarkAllRead" class="text-muted" style="font-size: 0.75rem; text-decoration: none;">
+                                    Tout marquer lu
+                                </a>
+                            </div>
+                            <div id="notifList">
+                                <div class="text-center text-muted py-3" style="font-size: 0.8rem;">
+                                    Aucune notification
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+
                 <li class="nav-item ms-lg-2">
                     <a href="/mon-compte" class="nav-user text-decoration-none">
                         <i class="bi bi-person-circle me-1"></i>
@@ -167,56 +192,67 @@
 
     <!-- Main content -->
     <?php
-    // Sidebar quota : affichée uniquement sur les pages plugin (pas dashboard, pas admin)
+    // Sidebar "Mes modules" : affichée sur toutes les pages si l'utilisateur a des modules
     $qs = $quotaSummary ?? [];
     $estAdmin = ($currentUser['role'] ?? '') === 'admin';
-    $aDesQuotasActifs = false;
-    foreach ($qs as $q) {
-        if (($q['quota_mode'] ?? null) !== \Platform\Enum\QuotaMode::None) {
-            $aDesQuotasActifs = true;
-            break;
-        }
-    }
-    $afficherSidebarQuota = !empty($activeModule) && $aDesQuotasActifs;
-    ?>
-    <div style="margin-top: var(--navbar-height);" <?= $afficherSidebarQuota ? 'class="d-flex"' : '' ?>>
+    $afficherSidebarModules = !empty($accessibleModules ?? []);
 
-        <?php if ($afficherSidebarQuota): ?>
+    // Grouper les modules par catégorie pour la sidebar
+    if ($afficherSidebarModules) {
+        $modulesParCategorie = [];
+        foreach ($accessibleModules as $mod) {
+            $catKey = $mod['categorie_id'] ?? 0;
+            if (!isset($modulesParCategorie[$catKey])) {
+                $modulesParCategorie[$catKey] = [
+                    'nom'        => $mod['categorie_nom'] ?? null,
+                    'icone'      => $mod['categorie_icone'] ?? 'bi-folder',
+                    'sort_order' => $mod['categorie_sort_order'] ?? 9999,
+                    'modules'    => [],
+                ];
+            }
+            $modulesParCategorie[$catKey]['modules'][] = $mod;
+        }
+        uksort($modulesParCategorie, function ($a, $b) use ($modulesParCategorie) {
+            if ($a === 0) return 1;
+            if ($b === 0) return -1;
+            return $modulesParCategorie[$a]['sort_order'] <=> $modulesParCategorie[$b]['sort_order'];
+        });
+    }
+    ?>
+    <div style="margin-top: var(--navbar-height);" <?= $afficherSidebarModules ? 'class="d-flex"' : '' ?>>
+
+        <?php if ($afficherSidebarModules): ?>
         <aside class="quota-sidebar d-none d-lg-block">
             <div class="quota-sidebar-inner">
                 <div class="card dashboard-card">
                     <div class="card-header">
-                        <i class="bi bi-speedometer2 me-1"></i> Mes cr&eacute;dits
+                        <i class="bi bi-box-seam me-1"></i> Mes modules
                     </div>
-                    <div class="card-body">
-                        <?php foreach ($qs as $slug => $q):
-                            if ($q['quota_mode'] === \Platform\Enum\QuotaMode::None) continue;
-                            $limit = (int) $q['limit'];
-                            $usage = (int) $q['usage'];
-                            $nomModule = $slug;
-                            foreach ($accessibleModules ?? [] as $m) {
-                                if ($m['slug'] === $slug) { $nomModule = $m['name']; break; }
-                            }
-                            $estActif = ($slug === ($activeModule ?? ''));
+                    <div class="card-body py-2">
+                        <?php
+                        $premiereCat = true;
+                        foreach ($modulesParCategorie as $catId => $catData):
+                            if (empty($catData['modules'])) continue;
+                            $catNom = $catId === 0 ? 'Autres' : htmlspecialchars($catData['nom']);
+                            $catIcone = $catId === 0 ? 'bi-three-dots' : htmlspecialchars($catData['icone']);
                         ?>
-                            <div class="dashboard-quota-item mb-2 <?= $estActif ? 'quota-item-active' : '' ?>">
-                                <div class="d-flex justify-content-between align-items-center" style="font-size: 0.78rem;">
-                                    <span class="text-truncate me-2"><?= htmlspecialchars($nomModule) ?></span>
-                                    <?php if ($estAdmin || $limit === 0): ?>
-                                        <span class="text-muted" style="font-size: 0.72rem; white-space: nowrap;">Illimit&eacute;</span>
-                                    <?php else: ?>
-                                        <span style="font-size: 0.72rem; white-space: nowrap;"><?= $usage ?> / <?= $limit ?></span>
-                                    <?php endif; ?>
-                                </div>
-                                <?php if (!$estAdmin && $limit > 0):
-                                    $pct = min(100, round(($usage / $limit) * 100));
-                                    $barClass = $pct >= 100 ? 'progress-bar-danger' : ($pct >= 80 ? 'progress-bar-warn' : 'progress-bar-teal');
-                                ?>
-                                <div class="progress mt-1" style="height: 3px;">
-                                    <div class="progress-bar <?= $barClass ?>" style="width: <?= $pct ?>%"></div>
-                                </div>
-                                <?php endif; ?>
+                            <div class="dashboard-quota-category<?= $premiereCat ? ' first' : '' ?>">
+                                <i class="bi <?= $catIcone ?> me-1"></i><?= $catNom ?>
                             </div>
+                            <?php $premiereCat = false; ?>
+
+                            <?php foreach ($catData['modules'] as $mod):
+                                $estActif = ($mod['slug'] === ($activeModule ?? ''));
+                            ?>
+                                <div class="mb-1">
+                                    <a href="/m/<?= htmlspecialchars($mod['slug']) ?>"
+                                       class="text-decoration-none d-flex align-items-center py-1 <?= $estActif ? 'sidebar-module-active' : '' ?>"
+                                       style="font-size: 0.82rem; color: var(--brand-dark);">
+                                        <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-2" style="color: var(--brand-teal); font-size: 0.9rem;"></i>
+                                        <span class="text-truncate"><?= htmlspecialchars($mod['name']) ?></span>
+                                    </a>
+                                </div>
+                            <?php endforeach; ?>
                         <?php endforeach; ?>
                     </div>
                 </div>
@@ -224,7 +260,7 @@
         </aside>
         <?php endif; ?>
 
-        <main class="<?= !empty($modeIframe) ? 'main-content-iframe' : 'main-content p-4' ?> <?= $afficherSidebarQuota ? 'flex-grow-1' : '' ?>">
+        <main class="<?= !empty($modeIframe) ? 'main-content-iframe' : 'main-content p-4' ?> <?= $afficherSidebarModules ? 'flex-grow-1' : '' ?>">
             <?php
             // Bandeau d'alerte quotas (> 80%)
             if (!$estAdmin):
@@ -309,6 +345,70 @@
         <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
     <?php endif; ?>
     <script src="/assets/js/platform.js"></script>
+    <script>
+    // Notifications in-app
+    (function() {
+        var badge = document.getElementById('notifBadge');
+        var list = document.getElementById('notifList');
+        var bell = document.getElementById('notifBell');
+        var markAll = document.getElementById('notifMarkAllRead');
+        if (!badge || !list) return;
+
+        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        function chargerNotifications() {
+            fetch('/api/notifications')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var count = data.non_lues || 0;
+                    badge.textContent = count;
+                    if (count > 0) {
+                        badge.classList.remove('d-none');
+                    } else {
+                        badge.classList.add('d-none');
+                    }
+
+                    if (data.donnees && data.donnees.length > 0) {
+                        var html = '';
+                        data.donnees.forEach(function(n) {
+                            html += '<a href="' + (n.lien || '#') + '" class="dropdown-item d-flex gap-2 py-2 px-3 border-bottom" data-notif-id="' + n.id + '">';
+                            html += '<i class="bi ' + (n.icone || 'bi-bell') + ' mt-1" style="color: var(--brand-teal);"></i>';
+                            html += '<div><div style="font-size: 0.82rem; font-weight: 600;">' + n.titre + '</div>';
+                            html += '<div style="font-size: 0.75rem; color: #666;">' + n.message + '</div></div></a>';
+                        });
+                        list.innerHTML = html;
+
+                        list.querySelectorAll('[data-notif-id]').forEach(function(el) {
+                            el.addEventListener('click', function() {
+                                fetch('/api/notifications/lire', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrfToken },
+                                    body: 'id=' + this.dataset.notifId + '&_csrf_token=' + encodeURIComponent(csrfToken)
+                                });
+                            });
+                        });
+                    } else {
+                        list.innerHTML = '<div class="text-center text-muted py-3" style="font-size: 0.8rem;">Aucune notification</div>';
+                    }
+                })
+                .catch(function() {});
+        }
+
+        if (markAll) {
+            markAll.addEventListener('click', function(e) {
+                e.preventDefault();
+                fetch('/api/notifications/lire-tout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': csrfToken },
+                    body: '_csrf_token=' + encodeURIComponent(csrfToken)
+                }).then(function() { chargerNotifications(); });
+            });
+        }
+
+        chargerNotifications();
+        setInterval(chargerNotifications, 60000);
+    })();
+    </script>
     <?= $footExtra ?? '' ?>
 </body>
 </html>

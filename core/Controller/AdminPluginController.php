@@ -17,6 +17,8 @@ use Platform\Service\AuditLogger;
 use Platform\User\AccessControl;
 use Platform\Repository\SettingsRepository;
 use Platform\Validation\Validator;
+use Platform\Service\PluginEnvService;
+use Platform\Service\PluginApiCreditsService;
 use Platform\View\Flash;
 use Platform\View\Layout;
 
@@ -138,8 +140,8 @@ class AdminPluginController
                     $periode = $creditsConfig[$cle]['periode'] ?? 'mensuel';
                     $periodeActive = Quota::currentPeriod($jourDebut);
                     $prochainReset = $periode === 'hebdomadaire'
-                        ? self::calculerProchainResetHebdo()
-                        : self::calculerProchainReset($jourDebut);
+                        ? PluginApiCreditsService::calculerProchainResetHebdo()
+                        : PluginApiCreditsService::calculerProchainReset($jourDebut);
 
                     $clesApiGroupees[$cle] = [
                         'cle'              => $cle,
@@ -970,68 +972,8 @@ class AdminPluginController
     public function apiCredits(Request $req): void
     {
         $cle = trim($req->post('cle', ''));
-
-        if ($cle === '') {
-            Response::json(['ok' => false, 'erreur' => 'Clé manquante.']);
-        }
-
-        // SEMrush : vérification live
-        if ($cle === 'SEMRUSH_API_KEY') {
-            $valeur = array_key_exists($cle, $_ENV) ? (string) $_ENV[$cle] : '';
-            if ($valeur === '') {
-                $envGetenv = getenv($cle);
-                $valeur = $envGetenv !== false ? $envGetenv : '';
-            }
-
-            if ($valeur !== '') {
-                try {
-                    $url = 'https://www.semrush.com/users/countapiunits.html?key=' . urlencode($valeur);
-                    $contexte = stream_context_create([
-                        'http' => ['timeout' => 10, 'method' => 'GET'],
-                    ]);
-                    $reponse = @file_get_contents($url, false, $contexte);
-
-                    if ($reponse !== false) {
-                        $credits = (int) trim($reponse);
-                        Response::json(['ok' => true, 'credits' => $credits, 'fournisseur' => 'SEMrush', 'source' => 'live']);
-                    }
-                } catch (\Throwable) {
-                    // Fallback vers le calcul local ci-dessous
-                }
-            }
-        }
-
-        // Calcul local : config manuelle - usage de la période
-        $db = Connection::get();
-        $settingsRepo = new SettingsRepository($db);
-        $configJson = $settingsRepo->obtenir('api_credits', $cle);
-
-        if ($configJson !== null) {
-            $config = json_decode($configJson, true);
-            $creditsMensuels = $config['credits_mensuels'] ?? null;
-
-            if ($creditsMensuels !== null) {
-                $dateDebut = $config['date_debut'] ?? null;
-                $jourDebut = $dateDebut !== null ? (int) date('j', strtotime($dateDebut)) : 1;
-                $periode = $config['periode'] ?? 'mensuel';
-                $usageMois = $this->calculerUsageParCle($db, $cle, $jourDebut, $periode);
-                $restants = max(0, (int) $creditsMensuels - $usageMois);
-                $prochainReset = $periode === 'hebdomadaire'
-                    ? self::calculerProchainResetHebdo()
-                    : self::calculerProchainReset($jourDebut);
-                Response::json([
-                    'ok'               => true,
-                    'credits'          => $restants,
-                    'credits_mensuels' => (int) $creditsMensuels,
-                    'usage_mois'       => $usageMois,
-                    'prochain_reset'   => $prochainReset,
-                    'periode'          => $periode,
-                    'source'           => 'config',
-                ]);
-            }
-        }
-
-        Response::json(['ok' => true, 'credits' => null]);
+        $service = new PluginApiCreditsService(Connection::get());
+        Response::json($service->verifierCredits($cle));
     }
 
     /**
@@ -1040,134 +982,21 @@ class AdminPluginController
     public function sauvegarderCreditsApi(Request $req): void
     {
         $cle = trim($req->post('cle', ''));
-        $creditsMensuels = $req->post('credits_mensuels', '');
-        $dateDebut = trim($req->post('date_debut', ''));
-        $periode = trim($req->post('periode', ''));
-        $commentaire = trim($req->post('commentaire', ''));
-
         if ($cle === '') {
             Response::json(['ok' => false, 'erreur' => 'Clé manquante.']);
         }
 
-        $db = Connection::get();
-        $settingsRepo = new SettingsRepository($db);
-
-        // Charger la config existante pour préserver les champs non modifiés
-        $configExistante = [];
-        $existant = $settingsRepo->obtenir('api_credits', $cle);
-        if ($existant !== null) {
-            $configExistante = json_decode($existant, true) ?: [];
-        }
-
-        if ($creditsMensuels !== '') {
-            $configExistante['credits_mensuels'] = (int) $creditsMensuels;
-        } elseif (array_key_exists('credits_mensuels', $configExistante)) {
-            unset($configExistante['credits_mensuels']);
-        }
-
-        if ($dateDebut !== '') {
-            $configExistante['date_debut'] = $dateDebut;
-        }
-
-        if (in_array($periode, ['mensuel', 'hebdomadaire'], true)) {
-            $configExistante['periode'] = $periode;
-        }
-
-        $configExistante['commentaire'] = $commentaire;
-
-        $settingsRepo->definir('api_credits', $cle, json_encode($configExistante, JSON_UNESCAPED_UNICODE));
+        $creditsMensuels = $req->post('credits_mensuels', '');
+        $service = new PluginApiCreditsService(Connection::get());
+        $service->sauvegarderConfig(
+            $cle,
+            $creditsMensuels !== '' ? (int) $creditsMensuels : null,
+            trim($req->post('date_debut', '')),
+            trim($req->post('periode', '')),
+            trim($req->post('commentaire', '')),
+        );
 
         Response::json(['ok' => true]);
-    }
-
-    /**
-     * Calcule la date du prochain reset pour un jour de début donné.
-     */
-    private static function calculerProchainReset(int $jourDebut): string
-    {
-        $jourActuel = (int) date('j');
-        if ($jourActuel < $jourDebut) {
-            // Le reset est ce mois-ci
-            $mois = (int) date('n');
-            $annee = (int) date('Y');
-        } else {
-            // Le reset est le mois prochain
-            $mois = (int) date('n') + 1;
-            $annee = (int) date('Y');
-            if ($mois > 12) {
-                $mois = 1;
-                $annee++;
-            }
-        }
-        // Gérer les mois courts (ex: jour 31 en février → dernier jour du mois)
-        $dernierJourMois = (int) date('t', mktime(0, 0, 0, $mois, 1, $annee));
-        $jour = min($jourDebut, $dernierJourMois);
-        return sprintf('%04d-%02d-%02d', $annee, $mois, $jour);
-    }
-
-    /**
-     * Prochain lundi (reset hebdomadaire, lundi–dimanche).
-     */
-    private static function calculerProchainResetHebdo(): string
-    {
-        return date('Y-m-d', strtotime('next monday'));
-    }
-
-    /**
-     * Calcule l'usage total de la période en cours pour tous les modules utilisant une clé API.
-     */
-    private function calculerUsageParCle(\PDO $db, string $cle, int $jourDebut = 1, string $periode = 'mensuel'): int
-    {
-        // Requêter la table api_credits_usage (nouveau tracking)
-        try {
-            $periodeId = $periode === 'hebdomadaire'
-                ? ApiCreditsTracker::currentWeekPeriod()
-                : Quota::currentPeriod($jourDebut);
-
-            $stmt = $db->prepare('SELECT usage_count FROM api_credits_usage WHERE cle_api = ? AND periode_id = ?');
-            $stmt->execute([$cle, $periodeId]);
-            $row = $stmt->fetch();
-
-            if ($row !== false) {
-                return (int) $row['usage_count'];
-            }
-        } catch (\PDOException) {
-            // Table pas encore créée
-        }
-
-        // Fallback : module_usage (transition)
-        return $this->calculerUsageDepuisModuleUsage($db, $cle, $jourDebut);
-    }
-
-    /**
-     * Fallback : calcul usage depuis module_usage (avant migration vers api_credits_usage).
-     */
-    private function calculerUsageDepuisModuleUsage(\PDO $db, string $cle, int $jourDebut): int
-    {
-        $modules = $db->query('SELECT id, cles_env FROM modules WHERE cles_env IS NOT NULL AND desinstalle_le IS NULL')->fetchAll();
-        $moduleIds = [];
-        foreach ($modules as $mod) {
-            $envKeys = json_decode($mod['cles_env'], true);
-            if (is_array($envKeys) && in_array($cle, $envKeys, true)) {
-                $moduleIds[] = (int) $mod['id'];
-            }
-        }
-
-        if ($moduleIds === []) {
-            return 0;
-        }
-
-        $placeholders = implode(',', array_fill(0, count($moduleIds), '?'));
-        $periodeActive = Quota::currentPeriod($jourDebut);
-        $params = array_merge($moduleIds, [$periodeActive]);
-
-        $stmt = $db->prepare(
-            "SELECT SUM(usage_count) AS total FROM module_usage WHERE module_id IN ({$placeholders}) AND year_month = ?"
-        );
-        $stmt->execute($params);
-        $row = $stmt->fetch();
-
-        return (int) ($row['total'] ?? 0);
     }
 
     /**
@@ -1178,57 +1007,11 @@ class AdminPluginController
         $cle = trim($req->post('cle', ''));
         $valeur = trim($req->post('valeur', ''));
 
-        // Valider que la clé est dans la liste des env_keys déclarées par les modules
-        $db = Connection::get();
-        $modules = $db->query('SELECT cles_env FROM modules WHERE enabled = 1 AND cles_env IS NOT NULL')->fetchAll();
-
-        $clesAutorisees = [];
-        foreach ($modules as $mod) {
-            $envKeys = json_decode($mod['cles_env'], true);
-            if (is_array($envKeys)) {
-                $clesAutorisees = array_merge($clesAutorisees, $envKeys);
-            }
-        }
-        $clesAutorisees = array_unique($clesAutorisees);
-
-        if (!in_array($cle, $clesAutorisees, true)) {
+        $service = new PluginEnvService(Connection::get());
+        if (!$service->mettreAJourCle($cle, $valeur)) {
             Response::json(['ok' => false, 'erreur' => 'Clé non autorisée.']);
         }
 
-        // Réécrire le .env
-        $envPath = dirname(__DIR__, 2) . '/.env';
-        $this->ecrireDansEnv($envPath, $cle, $valeur);
-
-        // Recharger pour la session courante
-        $_ENV[$cle] = $valeur;
-        putenv("{$cle}={$valeur}");
-
         Response::json(['ok' => true]);
-    }
-
-    /**
-     * Écrit ou met à jour une clé dans le fichier .env.
-     */
-    private function ecrireDansEnv(string $cheminEnv, string $cle, string $valeur): void
-    {
-        $contenu = file_exists($cheminEnv) ? file_get_contents($cheminEnv) : '';
-        $lignes = explode("\n", $contenu);
-        $trouve = false;
-        $valeurEchappee = '"' . str_replace(['\\', '"', "\n", "\r", "\0"], ['\\\\', '\\"', '\\n', '\\r', ''], $valeur) . '"';
-
-        foreach ($lignes as &$ligne) {
-            if (preg_match('/^' . preg_quote($cle, '/') . '\s*=/', $ligne)) {
-                $ligne = "{$cle}={$valeurEchappee}";
-                $trouve = true;
-                break;
-            }
-        }
-        unset($ligne);
-
-        if (!$trouve) {
-            $lignes[] = "{$cle}={$valeurEchappee}";
-        }
-
-        file_put_contents($cheminEnv, implode("\n", $lignes));
     }
 }

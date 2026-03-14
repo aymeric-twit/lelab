@@ -118,6 +118,11 @@
                             </a>
                         </li>
                         <li>
+                            <a class="dropdown-item <?= ($adminPage ?? '') === 'configuration' ? 'active' : '' ?>" href="/admin/configuration">
+                                <i class="bi bi-sliders me-2"></i> Configuration
+                            </a>
+                        </li>
+                        <li>
                             <a class="dropdown-item <?= ($adminPage ?? '') === 'maintenance' ? 'active' : '' ?>" href="/admin/maintenance">
                                 <i class="bi bi-tools me-2"></i> Maintenance
                             </a>

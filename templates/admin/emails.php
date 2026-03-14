@@ -23,16 +23,6 @@ $filtreQueryString = $filtreParams ? '&' . http_build_query($filtreParams) : '';
 <!-- Onglets -->
 <ul class="nav nav-tabs mb-4" role="tablist">
     <li class="nav-item">
-        <a class="nav-link <?= $onglet === 'smtp' ? 'active' : '' ?>" href="/admin/emails?onglet=smtp">
-            <i class="bi bi-gear me-1"></i> Configuration SMTP
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link <?= $onglet === 'notifications' ? 'active' : '' ?>" href="/admin/emails?onglet=notifications">
-            <i class="bi bi-bell me-1"></i> Notifications
-        </a>
-    </li>
-    <li class="nav-item">
         <a class="nav-link <?= $onglet === 'templates' ? 'active' : '' ?>" href="/admin/emails?onglet=templates">
             <i class="bi bi-file-earmark-code me-1"></i> Aperçu templates
         </a>
@@ -40,6 +30,11 @@ $filtreQueryString = $filtreParams ? '&' . http_build_query($filtreParams) : '';
     <li class="nav-item">
         <a class="nav-link <?= $onglet === 'historique' ? 'active' : '' ?>" href="/admin/emails?onglet=historique">
             <i class="bi bi-clock-history me-1"></i> Historique
+        </a>
+    </li>
+    <li class="nav-item ms-auto">
+        <a class="nav-link text-muted" href="/admin/configuration?onglet=smtp">
+            <i class="bi bi-sliders me-1"></i> SMTP &amp; Notifications &rarr;
         </a>
     </li>
 </ul>

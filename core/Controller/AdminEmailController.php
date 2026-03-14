@@ -25,7 +25,15 @@ class AdminEmailController
         $user = Auth::user();
         $ac = new AccessControl();
         $modules = $ac->getAccessibleModules($user['id']);
-        $onglet = $req->get('onglet', 'smtp');
+        $onglet = $req->get('onglet', 'templates');
+
+        // Rediriger les anciens onglets vers la page Configuration
+        if ($onglet === 'smtp') {
+            Response::redirect('/admin/configuration?onglet=smtp');
+        }
+        if ($onglet === 'notifications') {
+            Response::redirect('/admin/configuration?onglet=notifications');
+        }
 
         $settings = new SettingsRepository();
         $config = require __DIR__ . '/../../config/app.php';

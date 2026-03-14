@@ -163,7 +163,9 @@ $router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $
 // Admin routes
 // -----------------------------------------------
 
-$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin, $adminMaintenance, $adminAudit, $adminEmail, $adminGroup) {
+$adminConfig = new \Platform\Controller\AdminConfigController();
+
+$router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use ($adminUser, $adminAccess, $adminQuota, $adminCategorie, $adminPlugin, $adminMaintenance, $adminAudit, $adminEmail, $adminGroup, $adminConfig) {
     $r->get('/admin/users', [$adminUser, 'index']);
     $r->get('/admin/users/create', [$adminUser, 'formulaireCreation']);
     $r->post('/admin/users/create', [$adminUser, 'creer']);
@@ -206,6 +208,21 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->post('/admin/plugins/cles-env', [$adminPlugin, 'mettreAJourCleEnv']);
     $r->post('/admin/plugins/api-credits', [$adminPlugin, 'apiCredits']);
     $r->post('/admin/plugins/api-credits-config', [$adminPlugin, 'sauvegarderCreditsApi']);
+
+    // Configuration centralisée
+    $r->get('/admin/configuration', [$adminConfig, 'index']);
+    $r->post('/admin/configuration/smtp', [$adminConfig, 'sauvegarderSmtp']);
+    $r->post('/admin/configuration/smtp/test', [$adminConfig, 'envoyerTestSmtp']);
+    $r->post('/admin/configuration/google', [$adminConfig, 'sauvegarderGoogle']);
+    $r->post('/admin/configuration/notifications', [$adminConfig, 'sauvegarderNotifications']);
+    $r->post('/admin/configuration/securite', [$adminConfig, 'sauvegarderSecurite']);
+    $r->post('/admin/configuration/general', [$adminConfig, 'sauvegarderGeneral']);
+    $r->post('/admin/configuration/webhooks', [$adminConfig, 'creerWebhook']);
+    $r->post('/admin/configuration/webhooks/{id}/editer', [$adminConfig, 'editerWebhook']);
+    $r->post('/admin/configuration/webhooks/{id}/supprimer', [$adminConfig, 'supprimerWebhook']);
+    $r->post('/admin/configuration/webhooks/{id}/tester', [$adminConfig, 'testerWebhook']);
+    $r->post('/admin/configuration/api-keys', [$adminConfig, 'creerApiKey']);
+    $r->post('/admin/configuration/api-keys/{id}/revoquer', [$adminConfig, 'revoquerApiKey']);
 
     $r->get('/admin/maintenance', [$adminMaintenance, 'index']);
     $r->post('/admin/maintenance/dependances', [$adminMaintenance, 'installerDependances']);

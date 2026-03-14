@@ -1,4 +1,20 @@
 <h2 class="mb-1">Quotas mensuels</h2>
+
+<?php
+$creditsActifs = false;
+try { new \Platform\Service\CreditService(); $creditsActifs = true; } catch (\PDOException) {}
+?>
+<?php if ($creditsActifs): ?>
+<div class="alert alert-info d-flex align-items-center gap-2 mb-4" style="font-size: 0.85rem;">
+    <i class="bi bi-lightning-charge-fill"></i>
+    <div>
+        <strong>Syst&egrave;me de cr&eacute;dits universels actif.</strong>
+        Les quotas par module ci-dessous ne sont plus utilis&eacute;s pour le contr&ocirc;le d'acc&egrave;s.
+        G&eacute;rez les cr&eacute;dits dans <a href="/admin/configuration?onglet=plans">Configuration &rarr; Plans &amp; Cr&eacute;dits</a>.
+    </div>
+</div>
+<?php endif; ?>
+
 <p class="text-muted mb-4" style="font-size:0.9rem;">Définissez les limites d'utilisation par utilisateur et par module. Laissez vide pour utiliser la valeur par défaut du module. <code style="background:var(--brand-teal-light);color:var(--brand-dark);padding:0.15em 0.35em;border-radius:0.25rem;">0</code> = illimité.</p>
 
 <form method="POST" action="/admin/quotas">

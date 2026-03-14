@@ -7,6 +7,7 @@ use Platform\Database\Connection;
 use Platform\Enum\AuditAction;
 use Platform\Enum\QuotaMode;
 use Platform\Service\AuditLogger;
+use Platform\Service\CreditService;
 use Platform\Service\NotificationService;
 use PDO;
 
@@ -161,13 +162,24 @@ class Quota
         }
 
         $yearMonth = self::currentPeriod($jourInscription);
-        $stmt = $db->prepare('
-            INSERT INTO module_usage (user_id, module_id, `year_month`, usage_count, last_tracked_at)
-            VALUES (?, ?, ?, ?, NOW())
-            ON DUPLICATE KEY UPDATE
-                usage_count = usage_count + VALUES(usage_count),
-                last_tracked_at = NOW()
-        ');
+        $driver = $db->getAttribute(\PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'sqlite') {
+            $stmt = $db->prepare('
+                INSERT INTO module_usage (user_id, module_id, year_month, usage_count, last_tracked_at)
+                VALUES (?, ?, ?, ?, datetime("now"))
+                ON CONFLICT(user_id, module_id, year_month)
+                DO UPDATE SET usage_count = usage_count + excluded.usage_count, last_tracked_at = datetime("now")
+            ');
+        } else {
+            $stmt = $db->prepare('
+                INSERT INTO module_usage (user_id, module_id, `year_month`, usage_count, last_tracked_at)
+                VALUES (?, ?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE
+                    usage_count = usage_count + VALUES(usage_count),
+                    last_tracked_at = NOW()
+            ');
+        }
         $stmt->execute([$userId, $moduleId, $yearMonth, $amount]);
 
         self::verifierSeuilQuota($userId, $slug, $jourInscription);
@@ -179,6 +191,15 @@ class Quota
      */
     private static function verifierSeuilQuota(int $userId, string $slug, int $jourInscription = 1): void
     {
+        // Si le système de crédits universels est actif, les alertes de seuil
+        // sont gérées par le CreditService, pas par les quotas par module.
+        try {
+            new CreditService();
+            return; // Table existe → crédits actifs → pas d'alerte par module
+        } catch (\PDOException) {
+            // Crédits pas activés → continuer avec l'ancien système
+        }
+
         $limite = self::getLimit($userId, $slug);
         if ($limite === 0) {
             return;
@@ -227,24 +248,29 @@ class Quota
     }
 
     /**
-     * Static convenience method for modules in api_call mode.
-     * Uses the currently authenticated user.
+     * Façade unique pour tracker l'usage d'un module.
+     * Déduit les crédits universels + incrémente module_usage (suivi).
+     * Utilisé par les plugins en mode api_call.
      */
     public static function track(string $slug, int $amount = 1): void
     {
         $userId = Auth::id();
-        if ($userId) {
-            $jourInscription = self::jourInscriptionUtilisateur();
-            self::increment($userId, $slug, $amount, $jourInscription);
+        if (!$userId) {
+            return;
         }
+
+        // Déduire les crédits universels (silencieux, pas de blocage)
+        self::consommerCredits($userId, $slug, $amount);
+
+        // Incrémenter module_usage pour le suivi/graphiques
+        $jourInscription = self::jourInscriptionUtilisateur();
+        self::increment($userId, $slug, $amount, $jourInscription);
     }
 
     /**
-     * Vérifie le quota restant, incrémente si disponible, retourne le succès.
-     * Retourne false si aucun utilisateur connecté ou quota dépassé.
-     * Retourne true (et incrémente) si le quota est suffisant ou illimité.
-     *
-     * Atomique : pas de race condition entre la vérification et l'incrément.
+     * Vérifie les crédits, les déduit si disponibles, incrémente module_usage.
+     * Retourne false si aucun utilisateur connecté ou crédits insuffisants.
+     * Point d'entrée unique pour les plugins qui doivent vérifier AVANT un traitement coûteux.
      */
     public static function trackerSiDisponible(string $slug, int $amount = 1): bool
     {
@@ -253,62 +279,68 @@ class Quota
             return false;
         }
 
-        $jourInscription = self::jourInscriptionUtilisateur();
-        $limit = self::getLimit($userId, $slug);
-
-        // Quota illimité
-        if ($limit === 0) {
-            self::increment($userId, $slug, $amount, $jourInscription);
-            return true;
-        }
-
-        $db = self::getDb();
-        $moduleId = self::getModuleId($slug);
-        if (!$moduleId) {
+        // Vérifier + déduire les crédits universels
+        if (!self::consommerCredits($userId, $slug, $amount)) {
             return false;
         }
 
-        $yearMonth = self::currentPeriod($jourInscription);
-        $driver = $db->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        // Incrémenter module_usage pour le suivi/graphiques
+        $jourInscription = self::jourInscriptionUtilisateur();
+        self::increment($userId, $slug, $amount, $jourInscription);
+        return true;
+    }
 
-        if ($driver === 'mysql') {
-            $stmt = $db->prepare('
-                INSERT INTO module_usage (user_id, module_id, `year_month`, usage_count, last_tracked_at)
-                SELECT ?, ?, ?, ?, NOW()
-                FROM DUAL
-                WHERE ? <= ?
-                ON DUPLICATE KEY UPDATE
-                    usage_count = IF(usage_count + ? <= ?, usage_count + ?, usage_count),
-                    last_tracked_at = IF(usage_count + ? <= ?, NOW(), last_tracked_at)
-            ');
-            $stmt->execute([
-                $userId, $moduleId, $yearMonth, $amount,
-                $amount, $limit,
-                $amount, $limit, $amount,
-                $amount, $limit,
-            ]);
-
-            if ($stmt->rowCount() === 0) {
-                return false;
-            }
-        } else {
-            // Fallback SQLite : approche transactionnelle
-            $usage = self::getUsage($userId, $slug, $jourInscription);
-            if ($usage + $amount > $limit) {
-                return false;
-            }
-
-            $stmt = $db->prepare('
-                INSERT INTO module_usage (user_id, module_id, year_month, usage_count, last_tracked_at)
-                VALUES (?, ?, ?, ?, datetime("now"))
-                ON CONFLICT(user_id, module_id, year_month)
-                DO UPDATE SET usage_count = usage_count + excluded.usage_count, last_tracked_at = datetime("now")
-            ');
-            $stmt->execute([$userId, $moduleId, $yearMonth, $amount]);
+    /**
+     * Vérifie et déduit les crédits universels pour un utilisateur.
+     * Fallback sur l'ancien système de quotas par module si la table user_credits n'existe pas.
+     *
+     * @return bool true si les crédits ont été déduits (ou si admin/module gratuit)
+     */
+    private static function consommerCredits(int $userId, string $slug, int $amount): bool
+    {
+        // Admin → toujours OK
+        if (Auth::isAdmin()) {
+            return true;
         }
 
-        self::logUsageAudit($userId, $moduleId, $slug);
-        return true;
+        try {
+            $creditService = new CreditService();
+            $poids = $creditService->poidsModule($slug);
+
+            // Module gratuit (poids 0) → toujours OK
+            if ($poids === 0) {
+                return true;
+            }
+
+            return $creditService->consommer($userId, $slug, $poids * $amount);
+        } catch (\PDOException) {
+            // Table user_credits pas encore créée → fallback ancien système
+            $jourInscription = self::jourInscriptionUtilisateur();
+            $limit = self::getLimit($userId, $slug);
+            if ($limit === 0) {
+                return true;
+            }
+            $usage = self::getUsage($userId, $slug, $jourInscription);
+            return ($usage + $amount) <= $limit;
+        }
+    }
+
+    /**
+     * Vérifie si les crédits sont disponibles SANS consommer (pour le middleware api_call).
+     */
+    public static function creditsDisponibles(string $slug): bool
+    {
+        $userId = Auth::id();
+        if (!$userId || Auth::isAdmin()) {
+            return true;
+        }
+
+        try {
+            $creditService = new CreditService();
+            return $creditService->peutConsommer($userId, $slug);
+        } catch (\PDOException) {
+            return !self::isOverQuota($userId, $slug, self::jourInscriptionUtilisateur());
+        }
     }
 
     /**

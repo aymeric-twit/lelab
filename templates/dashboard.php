@@ -243,7 +243,7 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
         <div class="card dashboard-card mb-4">
             <div class="card-header">
                 <i class="bi bi-bar-chart-line me-1"></i>
-                <?= $estAdmin ? 'Usage global' : 'Mon usage' ?> — 6 derniers mois
+                <?= $estAdmin ? 'Analyses globales' : 'Mes analyses' ?> — 6 derniers mois
             </div>
             <div class="card-body">
                 <canvas id="usageChart" height="220"></canvas>
@@ -339,11 +339,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom', labels: { font: { family: 'Poppins', size: 11 } } }
+                    legend: { position: 'bottom', labels: { font: { family: 'Poppins', size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.label + ' : ' + ctx.parsed.y + ' analyses';
+                            }
+                        }
+                    }
                 },
                 scales: {
                     x: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Poppins', size: 11 } } },
-                    y: { stacked: true, beginAtZero: true, ticks: { font: { family: 'Poppins', size: 11 }, precision: 0 } }
+                    y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Analyses', font: { family: 'Poppins', size: 12 } }, ticks: { font: { family: 'Poppins', size: 11 }, precision: 0 } }
                 }
             }
         });

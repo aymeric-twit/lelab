@@ -37,6 +37,13 @@ $ongletActif = $onglet ?? 'plugins';
             <i class="bi bi-github me-1"></i> MAJ Github
         </a>
     </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link <?= $ongletActif === 'quotas' ? 'active' : '' ?>"
+           id="tab-quotas-btn" data-bs-toggle="tab" href="#tab-quotas"
+           role="tab" aria-selected="<?= $ongletActif === 'quotas' ? 'true' : 'false' ?>">
+            <i class="bi bi-lightning-charge me-1"></i> Quotas &amp; Cr&eacute;dits
+        </a>
+    </li>
 </ul>
 
 <div class="tab-content">
@@ -590,6 +597,113 @@ $ongletActif = $onglet ?? 'plugins';
                 </div>
             </div>
         <?php endif; ?>
+    </div>
+
+    <!-- Onglet Quotas & Crédits -->
+    <div class="tab-pane fade <?= $ongletActif === 'quotas' ? 'show active' : '' ?>"
+         id="tab-quotas" role="tabpanel">
+
+        <?php
+        $plansCredits = $plansCredits ?? [];
+        $modeLabels = [
+            'none'        => ['badge' => 'bg-secondary', 'label' => 'Aucun',         'qui' => '—',                          'quand' => 'Jamais'],
+            'request'     => ['badge' => 'bg-primary',   'label' => 'Par requ&ecirc;te',  'qui' => 'Middleware (auto)',           'quand' => 'Chaque page'],
+            'form_submit' => ['badge' => 'bg-info',      'label' => 'Par soumission', 'qui' => 'Middleware (auto sur POST)',  'quand' => 'Soumission formulaire'],
+            'api_call'    => ['badge' => 'bg-warning text-dark', 'label' => 'Par appel API',  'qui' => 'Plugin (Quota::track)',      'quand' => 'Le plugin d&eacute;cide'],
+            'url'         => ['badge' => 'bg-success',   'label' => 'Par URL',        'qui' => 'Middleware (auto)',           'quand' => 'Chaque page'],
+        ];
+        ?>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <p class="text-muted mb-0" style="font-size: 0.9rem;">
+                R&eacute;capitulatif des modes de quota et poids en cr&eacute;dits pour chaque module.
+            </p>
+            <a href="/admin/configuration?onglet=plans" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-pencil me-1"></i>&Eacute;diter les poids
+            </a>
+        </div>
+
+        <!-- Légende des modes -->
+        <div class="mb-3 d-flex gap-2 flex-wrap" style="font-size: 0.8rem;">
+            <?php foreach ($modeLabels as $mode => $info): ?>
+                <?php if ($mode !== 'none'): ?>
+                <span class="badge <?= $info['badge'] ?>"><?= $info['label'] ?></span>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Module</th>
+                                <th>Mode quota</th>
+                                <th>Qui consomme</th>
+                                <th>Quand</th>
+                                <th class="text-center">Cr&eacute;dits/analyse</th>
+                                <?php foreach ($plansCredits as $plan): ?>
+                                <th class="text-center" style="font-size: 0.75rem;">
+                                    <?= htmlspecialchars($plan['nom']) ?><br>
+                                    <span class="text-muted">(<?= (int) $plan['credits_mensuels'] ?> cr.)</span>
+                                </th>
+                                <?php endforeach; ?>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($modules as $mod):
+                                $qm = $mod['quota_mode'] ?? 'none';
+                                $info = $modeLabels[$qm] ?? $modeLabels['none'];
+                                $poids = (int) ($mod['credits_par_analyse'] ?? 1);
+                            ?>
+                            <tr>
+                                <td>
+                                    <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
+                                    <strong><?= htmlspecialchars($mod['name']) ?></strong>
+                                </td>
+                                <td>
+                                    <span class="badge <?= $info['badge'] ?>" style="font-size: 0.7rem;"><?= $info['label'] ?></span>
+                                </td>
+                                <td style="font-size: 0.82rem;"><?= $info['qui'] ?></td>
+                                <td style="font-size: 0.82rem;"><?= $info['quand'] ?></td>
+                                <td class="text-center">
+                                    <?php if ($poids === 0): ?>
+                                        <span class="text-success fw-bold">Gratuit</span>
+                                    <?php else: ?>
+                                        <span class="fw-bold" style="color: var(--brand-dark); font-size: 1.1rem;"><?= $poids ?></span>
+                                    <?php endif; ?>
+                                </td>
+                                <?php foreach ($plansCredits as $plan):
+                                    $creditsPlan = (int) $plan['credits_mensuels'];
+                                    if ($poids === 0) {
+                                        $equiv = '&infin;';
+                                        $style = 'color: var(--bs-success);';
+                                    } elseif ($creditsPlan === 0) {
+                                        $equiv = '&infin;';
+                                        $style = 'color: var(--bs-success);';
+                                    } else {
+                                        $equiv = (string) floor($creditsPlan / $poids);
+                                        $style = '';
+                                    }
+                                ?>
+                                <td class="text-center" style="font-size: 0.85rem; <?= $style ?>">
+                                    <?= $equiv ?>
+                                </td>
+                                <?php endforeach; ?>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3 text-muted" style="font-size: 0.75rem;">
+            <i class="bi bi-info-circle me-1"></i>
+            Les nombres indiquent le max d'analyses si l'utilisateur n'utilise <strong>que</strong> ce module.
+            En pratique, les cr&eacute;dits sont partag&eacute;s entre tous les modules.
+        </div>
     </div>
 </div>
 

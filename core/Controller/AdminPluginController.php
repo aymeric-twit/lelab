@@ -288,6 +288,7 @@ class AdminPluginController
             'modulesSansGit'      => $modulesSansGit,
             'modulesParCategorie'    => $modulesParCategorie,
             'modulesGitParCategorie' => $modulesGitParCategorie,
+            'plansCredits'           => $this->chargerPlansCredits($db),
         ]);
     }
 
@@ -1013,5 +1014,19 @@ class AdminPluginController
         }
 
         Response::json(['ok' => true]);
+    }
+
+    /**
+     * Charge les plans actifs pour l'onglet Quotas & Crédits.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function chargerPlansCredits(\PDO $db): array
+    {
+        try {
+            return $db->query('SELECT slug, nom, credits_mensuels FROM plans WHERE actif = 1 ORDER BY sort_order')->fetchAll();
+        } catch (\PDOException) {
+            return [];
+        }
     }
 }

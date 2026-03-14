@@ -116,7 +116,7 @@ $router->post('/desabonnement/tout', [$desabonnement, 'desabonnerTout']);
 
 $quotaApi = new \Platform\Controller\QuotaApiController();
 
-$router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $r) use ($auth, $dashboard, $module, $compte, $quotaApi, $notifController, $onboarding) {
+$router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $r) use ($auth, $dashboard, $module, $compte, $quotaApi, $notifController, $onboarding, $marketplace) {
     $r->get('/logout', [$auth, 'logout']);
     $r->get('/', [$dashboard, 'index']);
 

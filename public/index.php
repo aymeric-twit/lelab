@@ -223,6 +223,10 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->post('/admin/configuration/webhooks/{id}/tester', [$adminConfig, 'testerWebhook']);
     $r->post('/admin/configuration/api-keys', [$adminConfig, 'creerApiKey']);
     $r->post('/admin/configuration/api-keys/{id}/revoquer', [$adminConfig, 'revoquerApiKey']);
+    $r->post('/admin/configuration/plans/module-credits', [$adminConfig, 'sauvegarderCreditsModules']);
+    $r->post('/admin/configuration/plans/creer', [$adminConfig, 'creerPlan']);
+    $r->post('/admin/configuration/plans/{id}/editer', [$adminConfig, 'editerPlan']);
+    $r->post('/admin/configuration/plans/assigner', [$adminConfig, 'assignerPlan']);
 
     $r->get('/admin/maintenance', [$adminMaintenance, 'index']);
     $r->post('/admin/maintenance/dependances', [$adminMaintenance, 'installerDependances']);

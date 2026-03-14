@@ -15,6 +15,8 @@ use Platform\Repository\SettingsRepository;
 use Platform\Service\AuditLogger;
 use Platform\Service\EmailTemplate;
 use Platform\Service\Mailer;
+use Platform\Service\CreditService;
+use Platform\Service\PlanService;
 use Platform\Service\PluginApiCreditsService;
 use Platform\Service\PluginEnvService;
 use Platform\Service\WebhookDispatcher;
@@ -71,6 +73,8 @@ class AdminConfigController
             $donnees['evenementsDisponibles'] = WebhookDispatcher::EVENEMENTS;
         } elseif ($onglet === 'api') {
             $donnees = array_merge($donnees, $this->chargerDonneesApiKeys($db));
+        } elseif ($onglet === 'plans') {
+            $donnees = array_merge($donnees, $this->chargerDonneesPlans($db));
         }
 
         Layout::render('layout', $donnees);
@@ -776,5 +780,182 @@ class AdminConfigController
         }
 
         file_put_contents($cheminEnv, implode("\n", $lignes));
+    }
+
+    // -----------------------------------------------
+    // Plans & Credits
+    // -----------------------------------------------
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function chargerDonneesPlans(\PDO $db): array
+    {
+        $plans = [];
+        try {
+            $planService = new PlanService($db);
+            $plans = $db->query('SELECT * FROM plans ORDER BY sort_order')->fetchAll();
+        } catch (\PDOException) {
+        }
+
+        $modules = [];
+        try {
+            $modules = $db->query(
+                'SELECT id, slug, name, icon, credits_par_analyse, quota_mode, default_quota
+                 FROM modules WHERE enabled = 1 AND desinstalle_le IS NULL ORDER BY sort_order'
+            )->fetchAll();
+        } catch (\PDOException) {
+        }
+
+        $utilisateurs = [];
+        try {
+            $utilisateurs = $db->query(
+                'SELECT u.id, u.username, u.email, u.plan_id, p.nom AS plan_nom,
+                        uc.credits_utilises, uc.credits_limite, uc.periode_fin
+                 FROM users u
+                 LEFT JOIN plans p ON p.id = u.plan_id
+                 LEFT JOIN user_credits uc ON uc.user_id = u.id
+                 WHERE u.deleted_at IS NULL AND u.active = 1
+                 ORDER BY u.username'
+            )->fetchAll();
+        } catch (\PDOException) {
+            try {
+                $utilisateurs = $db->query(
+                    'SELECT id, username, email, plan_id FROM users WHERE deleted_at IS NULL AND active = 1 ORDER BY username'
+                )->fetchAll();
+            } catch (\PDOException) {
+            }
+        }
+
+        return [
+            'plans'               => $plans,
+            'modulesCredits'      => $modules,
+            'utilisateursPlans'   => $utilisateurs,
+        ];
+    }
+
+    /**
+     * POST /admin/configuration/plans/module-credits — Sauvegarder les poids en crédits.
+     */
+    public function sauvegarderCreditsModules(Request $req): void
+    {
+        Csrf::validateOrAbort();
+        $db = Connection::get();
+
+        $credits = $req->post('credits') ?? [];
+        if (!is_array($credits)) {
+            Flash::error('Données invalides.');
+            Response::redirect('/admin/configuration?onglet=plans');
+        }
+
+        $stmt = $db->prepare('UPDATE modules SET credits_par_analyse = ? WHERE id = ?');
+        foreach ($credits as $moduleId => $poids) {
+            $stmt->execute([max(0, (int) $poids), (int) $moduleId]);
+        }
+
+        // Invalider le cache des modules
+        \Platform\Module\ModuleRegistry::invaliderCache();
+
+        AuditLogger::instance()->log(AuditAction::PluginUpdate, $req->ipAnonymisee(), Auth::id(), 'settings', null, ['action' => 'credits_modules']);
+
+        Flash::success('Poids en crédits mis à jour.');
+        Response::redirect('/admin/configuration?onglet=plans');
+    }
+
+    /**
+     * POST /admin/configuration/plans/creer — Créer un nouveau plan.
+     */
+    public function creerPlan(Request $req): void
+    {
+        Csrf::validateOrAbort();
+
+        $planService = new PlanService();
+        $slug = trim($req->post('slug', ''));
+        $nom = trim($req->post('nom', ''));
+        $creditsMensuels = (int) $req->post('credits_mensuels', 50);
+
+        if ($slug === '' || $nom === '') {
+            Flash::error('Le slug et le nom sont requis.');
+            Response::redirect('/admin/configuration?onglet=plans');
+        }
+
+        try {
+            $planService->creer([
+                'slug'             => $slug,
+                'nom'              => $nom,
+                'description'      => trim($req->post('description', '')),
+                'prix_mensuel'     => $req->post('prix_mensuel', '') !== '' ? (float) $req->post('prix_mensuel') : null,
+                'credits_mensuels' => $creditsMensuels,
+                'modules_inclus'   => $creditsMensuels > 0 ? ['*'] : [],
+                'sort_order'       => (int) $req->post('sort_order', 0),
+            ]);
+            Flash::success("Plan « {$nom} » créé.");
+        } catch (\Throwable $e) {
+            Flash::error('Erreur : ' . $e->getMessage());
+        }
+
+        Response::redirect('/admin/configuration?onglet=plans');
+    }
+
+    /**
+     * POST /admin/configuration/plans/{id}/editer — Modifier un plan.
+     */
+    public function editerPlan(Request $req, array $params): void
+    {
+        Csrf::validateOrAbort();
+        $id = (int) $params['id'];
+
+        $planService = new PlanService();
+        $creditsMensuels = (int) $req->post('credits_mensuels', 50);
+
+        $planService->mettreAJour($id, [
+            'nom'              => trim($req->post('nom', '')),
+            'description'      => trim($req->post('description', '')),
+            'prix_mensuel'     => $req->post('prix_mensuel', '') !== '' ? (float) $req->post('prix_mensuel') : null,
+            'sort_order'       => (int) $req->post('sort_order', 0),
+            'actif'            => $req->post('actif') ? 1 : 0,
+        ]);
+
+        // credits_mensuels est sur la table plans directement
+        $db = Connection::get();
+        $db->prepare('UPDATE plans SET credits_mensuels = ? WHERE id = ?')
+            ->execute([$creditsMensuels, $id]);
+
+        Flash::success('Plan mis à jour.');
+        Response::redirect('/admin/configuration?onglet=plans');
+    }
+
+    /**
+     * POST /admin/configuration/plans/assigner — Assigner un plan à un utilisateur.
+     */
+    public function assignerPlan(Request $req): void
+    {
+        Csrf::validateOrAbort();
+
+        $userId = (int) $req->post('user_id', 0);
+        $planId = $req->post('plan_id', '');
+
+        if ($userId <= 0) {
+            Flash::error('Utilisateur invalide.');
+            Response::redirect('/admin/configuration?onglet=plans');
+        }
+
+        $db = Connection::get();
+        $planIdVal = $planId !== '' ? (int) $planId : null;
+        $db->prepare('UPDATE users SET plan_id = ? WHERE id = ?')
+            ->execute([$planIdVal, $userId]);
+
+        // Réinitialiser les crédits de l'utilisateur avec le nouveau plan
+        try {
+            $creditService = new CreditService($db);
+            $creditService->reinitialiser($userId);
+        } catch (\PDOException) {
+        }
+
+        AuditLogger::instance()->log(AuditAction::UserUpdate, $req->ipAnonymisee(), Auth::id(), 'user', $userId, ['plan_id' => $planIdVal]);
+
+        $planNom = $planIdVal ? ($db->prepare('SELECT nom FROM plans WHERE id = ?') && $db->prepare('SELECT nom FROM plans WHERE id = ?')->execute([$planIdVal]) ? 'le plan' : '') : 'aucun plan';
+        Flash::success('Plan assigné.');
+        Response::redirect('/admin/configuration?onglet=plans');
     }
 }

@@ -20,6 +20,9 @@ $webhooks = $webhooks ?? [];
 $evenementsDisponibles = $evenementsDisponibles ?? WebhookDispatcher::EVENEMENTS;
 $apiKeys = $apiKeys ?? [];
 $utilisateurs = $utilisateurs ?? [];
+$plans = $plans ?? [];
+$modulesCredits = $modulesCredits ?? [];
+$utilisateursPlans = $utilisateursPlans ?? [];
 ?>
 
 <h2 class="mb-4"><i class="bi bi-gear me-2"></i>Configuration</h2>
@@ -64,6 +67,11 @@ $utilisateurs = $utilisateurs ?? [];
     <li class="nav-item">
         <a class="nav-link <?= $onglet === 'api' ? 'active' : '' ?>" href="/admin/configuration?onglet=api">
             <i class="bi bi-braces me-1"></i> API
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $onglet === 'plans' ? 'active' : '' ?>" href="/admin/configuration?onglet=plans">
+            <i class="bi bi-lightning-charge me-1"></i> Plans &amp; Cr&eacute;dits
         </a>
     </li>
 </ul>
@@ -1429,6 +1437,258 @@ document.querySelectorAll('.btn-editer-webhook').forEach(btn => {
                     </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<?php elseif ($onglet === 'plans'): ?>
+<!-- ═══════════════════════════════════════════ -->
+<!-- ONGLET PLANS & CREDITS                     -->
+<!-- ═══════════════════════════════════════════ -->
+
+<div class="row g-4">
+    <!-- Colonne gauche : Poids des modules -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-speedometer2 me-1"></i> Poids en cr&eacute;dits par module
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Chaque analyse consomme un nombre de cr&eacute;dits selon le co&ucirc;t r&eacute;el du module.
+                    <strong>0 = gratuit</strong> (pas de cr&eacute;dits d&eacute;duits).
+                </p>
+                <form method="POST" action="/admin/configuration/plans/module-credits">
+                    <?= \Platform\Http\Csrf::field() ?>
+                    <table class="table table-sm align-middle mb-3">
+                        <thead>
+                            <tr>
+                                <th>Module</th>
+                                <th style="width: 80px;">Mode</th>
+                                <th style="width: 120px;">Cr&eacute;dits/analyse</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($modulesCredits as $mod): ?>
+                            <tr>
+                                <td>
+                                    <i class="bi <?= htmlspecialchars($mod['icon'] ?? 'bi-tools') ?> me-1" style="color: var(--brand-teal);"></i>
+                                    <?= htmlspecialchars($mod['name']) ?>
+                                    <span class="text-muted" style="font-size: 0.7rem;">(<?= htmlspecialchars($mod['slug']) ?>)</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark" style="font-size: 0.7rem;"><?= htmlspecialchars($mod['quota_mode']) ?></span>
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm text-center" name="credits[<?= (int) $mod['id'] ?>]"
+                                           value="<?= (int) $mod['credits_par_analyse'] ?>" min="0" max="50" style="width: 70px;">
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php if (empty($modulesCredits)): ?>
+                            <tr><td colspan="3" class="text-center text-muted py-3">Aucun module install&eacute;.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Enregistrer les poids
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Info : comment ça marche -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title"><i class="bi bi-info-circle me-1"></i> Comment fonctionnent les cr&eacute;dits ?</h6>
+                <ul class="small text-muted mb-0">
+                    <li>Chaque plan donne un pool de <strong>cr&eacute;dits mensuels</strong></li>
+                    <li>Chaque analyse d&eacute;duit N cr&eacute;dits selon le poids du module</li>
+                    <li>Un module &agrave; <strong>0 cr&eacute;dit</strong> est toujours gratuit</li>
+                    <li>Un plan &agrave; <strong>0 cr&eacute;dit</strong> = illimit&eacute;</li>
+                    <li>Les cr&eacute;dits se r&eacute;initialisent chaque mois (date d'inscription de l'utilisateur)</li>
+                    <li>Les admins sont toujours exempt&eacute;s</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Colonne droite : Plans + Utilisateurs -->
+    <div class="col-lg-6">
+        <!-- Plans existants -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-bookmark-star me-1"></i> Plans d'abonnement</span>
+                <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#formNouveauPlan">
+                    <i class="bi bi-plus-lg me-1"></i>Nouveau plan
+                </button>
+            </div>
+
+            <!-- Formulaire nouveau plan (collapse) -->
+            <div class="collapse" id="formNouveauPlan">
+                <div class="card-body border-bottom" style="background: var(--brand-teal-light);">
+                    <form method="POST" action="/admin/configuration/plans/creer">
+                        <?= \Platform\Http\Csrf::field() ?>
+                        <div class="row g-2 mb-2">
+                            <div class="col-4">
+                                <input type="text" class="form-control form-control-sm" name="slug" placeholder="slug (ex: starter)" required>
+                            </div>
+                            <div class="col-4">
+                                <input type="text" class="form-control form-control-sm" name="nom" placeholder="Nom du plan" required>
+                            </div>
+                            <div class="col-4">
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control" name="credits_mensuels" placeholder="Cr&eacute;dits" value="100" min="0">
+                                    <span class="input-group-text">cr./mois</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-4">
+                                <div class="input-group input-group-sm">
+                                    <input type="number" step="0.01" class="form-control" name="prix_mensuel" placeholder="Prix">
+                                    <span class="input-group-text">&euro;/mois</span>
+                                </div>
+                            </div>
+                            <div class="col-5">
+                                <input type="text" class="form-control form-control-sm" name="description" placeholder="Description">
+                            </div>
+                            <div class="col-3">
+                                <button type="submit" class="btn btn-primary btn-sm w-100">Cr&eacute;er</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Plan</th>
+                            <th>Cr&eacute;dits/mois</th>
+                            <th>Prix</th>
+                            <th>Actif</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($plans as $plan): ?>
+                        <tr>
+                            <form method="POST" action="/admin/configuration/plans/<?= (int) $plan['id'] ?>/editer">
+                                <?= \Platform\Http\Csrf::field() ?>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" name="nom" value="<?= htmlspecialchars($plan['nom']) ?>" style="width: 120px;">
+                                    <span class="text-muted" style="font-size: 0.65rem;"><?= htmlspecialchars($plan['slug']) ?></span>
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm text-center" name="credits_mensuels"
+                                           value="<?= (int) ($plan['credits_mensuels'] ?? 0) ?>" min="0" style="width: 80px;">
+                                    <span class="text-muted" style="font-size: 0.65rem;">0 = illimit&eacute;</span>
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm" style="width: 100px;">
+                                        <input type="number" step="0.01" class="form-control" name="prix_mensuel"
+                                               value="<?= htmlspecialchars($plan['prix_mensuel'] ?? '') ?>">
+                                        <span class="input-group-text">&euro;</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                                        <input class="form-check-input" type="checkbox" name="actif" value="1"
+                                               <?= ($plan['actif'] ?? 1) ? 'checked' : '' ?>>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button type="submit" class="btn btn-outline-primary btn-sm" title="Sauvegarder">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </td>
+                            </form>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php if (empty($plans)): ?>
+                        <tr><td colspan="5" class="text-center text-muted py-3">Aucun plan. Jouez la migration 037.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Assigner un plan à un utilisateur -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-person-check me-1"></i> Utilisateurs &amp; Plans
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Utilisateur</th>
+                            <th>Plan actuel</th>
+                            <th>Cr&eacute;dits</th>
+                            <th>Changer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($utilisateursPlans as $u):
+                            $uCreditsUtilises = (int) ($u['credits_utilises'] ?? 0);
+                            $uCreditsLimite = (int) ($u['credits_limite'] ?? 0);
+                            $uIllimite = $uCreditsLimite === 0;
+                            $uPct = $uIllimite ? 0 : ($uCreditsLimite > 0 ? min(100, round(($uCreditsUtilises / $uCreditsLimite) * 100)) : 0);
+                            $uBarClass = $uPct >= 100 ? 'bg-danger' : ($uPct >= 80 ? 'bg-warning' : '');
+                        ?>
+                        <tr>
+                            <td>
+                                <strong style="font-size: 0.85rem;"><?= htmlspecialchars($u['username']) ?></strong>
+                                <?php if (!empty($u['email'])): ?>
+                                <br><span class="text-muted" style="font-size: 0.7rem;"><?= htmlspecialchars($u['email']) ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (!empty($u['plan_nom'])): ?>
+                                    <span class="badge" style="background: var(--brand-teal); color: #fff;"><?= htmlspecialchars($u['plan_nom']) ?></span>
+                                <?php else: ?>
+                                    <span class="text-muted" style="font-size: 0.8rem;">Aucun</span>
+                                <?php endif; ?>
+                            </td>
+                            <td style="min-width: 120px;">
+                                <?php if ($uIllimite): ?>
+                                    <span class="text-success" style="font-size: 0.8rem;"><i class="bi bi-infinity"></i> Illimit&eacute;</span>
+                                <?php elseif ($uCreditsLimite > 0): ?>
+                                    <div style="font-size: 0.75rem;"><?= $uCreditsUtilises ?>/<?= $uCreditsLimite ?></div>
+                                    <div class="progress" style="height: 4px;">
+                                        <div class="progress-bar <?= $uBarClass ?>" style="width: <?= $uPct ?>%; <?= $uBarClass === '' ? 'background: var(--brand-teal);' : '' ?>"></div>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="text-muted" style="font-size: 0.75rem;">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <form method="POST" action="/admin/configuration/plans/assigner" class="d-flex gap-1">
+                                    <?= \Platform\Http\Csrf::field() ?>
+                                    <input type="hidden" name="user_id" value="<?= (int) $u['id'] ?>">
+                                    <select name="plan_id" class="form-select form-select-sm" style="width: 110px; font-size: 0.75rem;">
+                                        <option value="">Aucun</option>
+                                        <?php foreach ($plans as $p): ?>
+                                        <option value="<?= (int) $p['id'] ?>" <?= ((int) ($u['plan_id'] ?? 0)) === (int) $p['id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($p['nom']) ?> (<?= (int) ($p['credits_mensuels'] ?? 0) ?>cr.)
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <button type="submit" class="btn btn-outline-primary btn-sm" title="Assigner">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php if (empty($utilisateursPlans)): ?>
+                        <tr><td colspan="4" class="text-center text-muted py-3">Aucun utilisateur actif.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

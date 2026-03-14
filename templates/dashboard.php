@@ -74,6 +74,8 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
                         <dt>Email</dt>
                         <dd><?= htmlspecialchars($currentUser['email']) ?></dd>
                         <?php endif; ?>
+                        <dt>Membre depuis</dt>
+                        <dd><?= htmlspecialchars(DashboardController::dateFrancaise($currentUser['created_at'] ?? 'now')) ?></dd>
                     </dl>
                 </div>
                 <div class="col-md-3">
@@ -86,8 +88,6 @@ $resetRelatif = DashboardController::tempsRelatifFutur($dateResetQuota ?? date('
                                 <span class="text-muted">&mdash;</span>
                             <?php endif; ?>
                         </dd>
-                        <dt>Membre depuis</dt>
-                        <dd><?= htmlspecialchars(DashboardController::dateFrancaise($currentUser['created_at'] ?? 'now')) ?></dd>
                     </dl>
                 </div>
                 <div class="col-md-3">

@@ -355,6 +355,7 @@ class AdminUserController
 
     /**
      * A5 : Détails d'un utilisateur en JSON (pour la modale).
+     * Inclut les informations de crédits et l'historique récent.
      */
     public function details(Request $req, array $params): void
     {
@@ -370,6 +371,38 @@ class AdminUserController
         $modules = $ac->getAccessibleModules($id);
         $quotaSummary = Quota::getUserQuotaSummary($id);
 
+        // Données de crédits
+        $creditsInfo = [];
+        try {
+            $creditService = new \Platform\Service\CreditService();
+            $resume = $creditService->resumePourDashboard($id);
+            $usageModules = $creditService->usageParModule($id);
+            $historiqueCredits = $creditService->historiqueCredits($id, 10);
+
+            // Nom du plan
+            $planNom = null;
+            try {
+                $planService = new \Platform\Service\PlanService();
+                $plan = $planService->planUtilisateur($id);
+                $planNom = $plan ? $plan['nom'] : null;
+            } catch (\PDOException) {
+            }
+
+            $creditsInfo = [
+                'solde'             => $creditService->solde($id),
+                'utilises'          => $resume['utilises'],
+                'limite'            => $resume['limite'],
+                'pourcentage'       => $resume['pourcentage'],
+                'illimite'          => $resume['illimite'],
+                'periode_fin'       => $resume['periode_fin'],
+                'plan_nom'          => $planNom,
+                'usage_par_module'  => $usageModules,
+                'historique'        => $historiqueCredits,
+            ];
+        } catch (\PDOException) {
+            // Tables de crédits pas encore créées
+        }
+
         Response::json([
             'id'             => (int) $u['id'],
             'username'       => $u['username'],
@@ -381,6 +414,7 @@ class AdminUserController
             'createdAt'      => $u['created_at'] ?? null,
             'modules'        => array_map(fn($m) => $m['name'], $modules),
             'quotas'         => $quotaSummary,
+            'credits'        => $creditsInfo,
         ]);
     }
 

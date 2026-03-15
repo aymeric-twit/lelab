@@ -23,6 +23,7 @@ class WebhookDispatcher
         'quota.exceeded',
         'quota.warning',
         'backup.created',
+        'test.ping',
     ];
 
     public function __construct(?PDO $db = null)

@@ -40,6 +40,7 @@ class CreditService
         if ((int) $record['credits_limite'] === 0) {
             // Incrémenter quand même pour le suivi
             $this->incrementer($userId, $montant);
+            $this->loggerConsommation($userId, $moduleSlug, $montant);
             return true;
         }
 
@@ -50,6 +51,9 @@ class CreditService
         }
 
         $this->incrementer($userId, $montant);
+        $this->loggerConsommation($userId, $moduleSlug, $montant);
+        $this->verifierSeuilCredits($userId);
+
         return true;
     }
 
@@ -188,6 +192,54 @@ class CreditService
     }
 
     /**
+     * Retourne l'historique des consommations de crédits.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function historiqueCredits(int $userId, int $limite = 50): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT * FROM credits_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'
+            );
+            $stmt->bindValue(1, $userId, PDO::PARAM_INT);
+            $stmt->bindValue(2, $limite, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll();
+        } catch (\PDOException) {
+            // Table pas encore créée
+            return [];
+        }
+    }
+
+    /**
+     * Purge les crédits des utilisateurs dont la période est expirée.
+     * Réinitialise les crédits pour chaque utilisateur concerné.
+     *
+     * @return int Nombre d'utilisateurs réinitialisés
+     */
+    public function purgerCreditsExpires(): int
+    {
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT user_id FROM user_credits WHERE periode_fin < CURDATE()'
+            );
+            $stmt->execute();
+            $utilisateurs = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            $count = 0;
+            foreach ($utilisateurs as $userId) {
+                $this->reinitialiser((int) $userId);
+                $count++;
+            }
+
+            return $count;
+        } catch (\PDOException) {
+            return 0;
+        }
+    }
+
+    /**
      * Obtient ou crée le record de crédits pour un utilisateur.
      * Gère aussi le reset automatique si la période est expirée.
      */
@@ -218,6 +270,78 @@ class CreditService
         $this->db->prepare(
             'UPDATE user_credits SET credits_utilises = credits_utilises + ? WHERE user_id = ?'
         )->execute([$montant, $userId]);
+    }
+
+    /**
+     * Enregistre une consommation dans credits_log.
+     */
+    private function loggerConsommation(int $userId, string $moduleSlug, int $creditsDeduits): void
+    {
+        try {
+            // Récupérer le nom du module
+            $module = ModuleRegistry::get($moduleSlug);
+            $moduleNom = $module ? $module->name : $moduleSlug;
+
+            // Récupérer le solde restant après déduction
+            $stmt = $this->db->prepare('SELECT credits_limite - credits_utilises AS restant FROM user_credits WHERE user_id = ?');
+            $stmt->execute([$userId]);
+            $row = $stmt->fetch();
+            $creditsRestants = $row ? max(0, (int) $row['restant']) : 0;
+
+            $this->db->prepare(
+                'INSERT INTO credits_log (user_id, module_slug, module_name, credits_deduits, credits_restants) VALUES (?, ?, ?, ?, ?)'
+            )->execute([$userId, $moduleSlug, $moduleNom, $creditsDeduits, $creditsRestants]);
+        } catch (\PDOException) {
+            // Table pas encore créée — on ignore silencieusement
+        }
+    }
+
+    /**
+     * Vérifie les seuils de crédits (80% et 100%) et envoie des notifications in-app.
+     * Évite les doublons en vérifiant si une notification du même type existe déjà cette période.
+     */
+    private function verifierSeuilCredits(int $userId): void
+    {
+        try {
+            $resume = $this->resumePourDashboard($userId);
+
+            if ($resume['illimite'] || $resume['limite'] === 0) {
+                return;
+            }
+
+            $pourcentage = $resume['pourcentage'];
+            $utilises = $resume['utilises'];
+            $limite = $resume['limite'];
+
+            if ($pourcentage >= 100) {
+                $type = 'credits_exceeded';
+                $titre = 'Crédits épuisés';
+                $message = "Vous avez utilisé 100% de vos crédits ({$utilises}/{$limite}). Vos analyses sont bloquées jusqu'au renouvellement.";
+            } elseif ($pourcentage >= 80) {
+                $type = 'credits_warning';
+                $titre = 'Crédits bientôt épuisés';
+                $message = "Vous avez utilisé {$pourcentage}% de vos crédits ({$utilises}/{$limite}).";
+            } else {
+                return;
+            }
+
+            // Vérifier si une notification du même type a déjà été envoyée cette période
+            $stmt = $this->db->prepare(
+                'SELECT COUNT(*) FROM notifications WHERE user_id = ? AND type = ? AND created_at >= (SELECT periode_debut FROM user_credits WHERE user_id = ?)'
+            );
+            $stmt->execute([$userId, $type, $userId]);
+            $dejaEnvoyee = (int) $stmt->fetchColumn() > 0;
+
+            if ($dejaEnvoyee) {
+                return;
+            }
+
+            $notificationService = new NotificationInAppService($this->db);
+            $icone = $pourcentage >= 100 ? 'bi-exclamation-octagon' : 'bi-exclamation-triangle';
+            $notificationService->notifier($userId, $type, $titre, $message, '/mon-compte', $icone);
+        } catch (\PDOException) {
+            // Table notifications pas encore créée — on ignore
+        }
     }
 
     /**

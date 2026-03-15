@@ -99,6 +99,10 @@ $router->get('/confirmer-email', [$compte, 'confirmerEmail']);
 $router->get('/2fa', [$auth, 'formulaire2fa']);
 $router->post('/2fa', [$auth, 'verifier2fa']);
 
+// Page tarifs (publique)
+$tarifs = new \Platform\Controller\TarifsController();
+$router->get('/tarifs', [$tarifs, 'index']);
+
 // Pages légales (publiques)
 $legal = new LegalController();
 $router->get('/politique-de-confidentialite', [$legal, 'politiqueConfidentialite']);
@@ -116,9 +120,15 @@ $router->post('/desabonnement/tout', [$desabonnement, 'desabonnerTout']);
 
 $quotaApi = new \Platform\Controller\QuotaApiController();
 
-$router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $r) use ($auth, $dashboard, $module, $compte, $quotaApi, $notifController, $onboarding, $marketplace) {
+$stripeAuth = new \Platform\Controller\StripeController();
+
+$router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $r) use ($auth, $dashboard, $module, $compte, $quotaApi, $notifController, $onboarding, $marketplace, $stripeAuth) {
     $r->get('/logout', [$auth, 'logout']);
     $r->get('/', [$dashboard, 'index']);
+
+    // Paiement Stripe
+    $r->get('/paiement/succes', [$stripeAuth, 'succes']);
+    $r->get('/paiement/annulation', [$stripeAuth, 'annulation']);
 
     // Onboarding
     $r->get('/onboarding', [$onboarding, 'index']);
@@ -135,7 +145,7 @@ $router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $
     // Notifications in-app (AJAX)
     $r->get('/api/notifications', [$notifController, 'nonLues']);
 
-    $r->group([new VerifyCsrf()], function (Router $r) use ($compte, $dashboard, $notifController, $onboarding) {
+    $r->group([new VerifyCsrf()], function (Router $r) use ($compte, $dashboard, $notifController, $onboarding, $stripeAuth) {
         $r->post('/mon-compte', [$compte, 'mettreAJour']);
         $r->post('/mon-compte/mot-de-passe', [$compte, 'changerMotDePasse']);
         $r->post('/mon-compte/supprimer', [$compte, 'supprimerCompte']);
@@ -145,6 +155,7 @@ $router->group([new RequireAuth(), new CheckPasswordReset()], function (Router $
         $r->post('/api/notifications/lire', [$notifController, 'marquerLue']);
         $r->post('/api/notifications/lire-tout', [$notifController, 'marquerToutesLues']);
         $r->post('/onboarding', [$onboarding, 'sauvegarder']);
+        $r->post('/paiement/checkout', [$stripeAuth, 'checkout']);
     });
 
     // Demande d'accès module (CSRF, sans quota check)
@@ -234,6 +245,7 @@ $router->group([new RequireAdmin(), new VerifyCsrf()], function (Router $r) use 
     $r->post('/admin/maintenance/backup', [$adminMaintenance, 'creerBackup']);
     $r->get('/admin/maintenance/backup/{fichier}', [$adminMaintenance, 'telechargerBackup']);
     $r->post('/admin/maintenance/purge-logs', [$adminMaintenance, 'purgerLogs']);
+    $r->post('/admin/maintenance/purge-credits', [$adminMaintenance, 'purgerCredits']);
 
     // Export utilisateurs
     $r->get('/admin/users/export-csv', [$adminUser, 'exporterCsv']);
@@ -289,6 +301,10 @@ $router->group([new RateLimitApi(60, 60), new RequireApiKey()], function (Router
 
 $webhook = new WebhookGithubController();
 $router->post('/webhook/github', [$webhook, 'handle']);
+
+// Webhook Stripe (public, sans CSRF ni auth — protégé par signature Stripe)
+$stripeController = new \Platform\Controller\StripeController();
+$router->post('/webhook/stripe', [$stripeController, 'webhook']);
 
 // -----------------------------------------------
 // Dispatch

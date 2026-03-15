@@ -113,12 +113,46 @@ class AdminMaintenanceController
     {
         $supprimees = Quota::purgerAncienUsage(12);
         $supprimeesApi = ApiCreditsTracker::purger(6);
-        $total = $supprimees + $supprimeesApi;
+
+        // Purger aussi les crédits expirés
+        $creditsExpires = 0;
+        try {
+            $creditService = new \Platform\Service\CreditService();
+            $creditsExpires = $creditService->purgerCreditsExpires();
+        } catch (\Throwable) {
+        }
+
+        $total = $supprimees + $supprimeesApi + $creditsExpires;
 
         if ($total > 0) {
-            Flash::success("{$total} ligne(s) d'usage supprimée(s) ({$supprimees} quotas + {$supprimeesApi} crédits API).");
+            $details = "{$supprimees} quotas + {$supprimeesApi} crédits API";
+            if ($creditsExpires > 0) {
+                $details .= " + {$creditsExpires} utilisateur(s) réinitialisé(s)";
+            }
+            Flash::success("{$total} ligne(s) d'usage supprimée(s) ({$details}).");
         } else {
             Flash::set('info', 'Aucune donnée à purger.');
+        }
+
+        Response::redirect('/admin/maintenance');
+    }
+
+    /**
+     * POST /admin/maintenance/purge-credits — Purge manuelle des crédits expirés.
+     */
+    public function purgerCredits(Request $req): void
+    {
+        try {
+            $creditService = new \Platform\Service\CreditService();
+            $reinitialises = $creditService->purgerCreditsExpires();
+
+            if ($reinitialises > 0) {
+                Flash::success("{$reinitialises} utilisateur(s) réinitialisé(s) (crédits expirés).");
+            } else {
+                Flash::set('info', 'Aucun crédit expiré à purger.');
+            }
+        } catch (\Throwable $e) {
+            Flash::error('Erreur lors de la purge des crédits : ' . $e->getMessage());
         }
 
         Response::redirect('/admin/maintenance');
